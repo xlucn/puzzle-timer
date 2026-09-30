@@ -265,6 +265,9 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
+- **Next milestone: M2** — record solves → `Gtk.ColumnView` → atomic JSON in
+  the XDG data dir, restart-safe, undo/delete. (M0 and M1 are landed — see the
+  dated blocks in §6.)
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read
