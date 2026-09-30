@@ -41,6 +41,19 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
   Attribute csTimer and `cstimer_module` in the About dialog.
+- **node-gtk signal handlers**: the emitter is *not* passed as the first
+  argument — a handler takes exactly the signal's own parameters — and what it
+  returns becomes the signal's return value (that is how a `boolean`-returning
+  signal such as `key-pressed` reports "handled"; return `false` to let the
+  event keep propagating). Verified against `node-gtk/src/closure.cc`; the
+  typed signatures are in `node_modules/.node-gtk-types/*.d.ts` — look up the
+  `.on(...)` overload rather than guessing.
+- The `gi:*` shims export only a value namespace, so `Gtk.Widget` is **not**
+  usable as a type annotation. Let TypeScript infer widget types (see
+  `createTimerView()` in `src/ui/`).
+- **Never judge a repaint from a raw screenshot**: `XGetImage` on XWayland
+  often returns a stale frame and a frozen-looking window proves nothing.
+  See `tools/README.md`; trust the app's own state/logs for timing.
 
 ## Commands (available after the M0 scaffold)
 
@@ -48,6 +61,36 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — run Vitest on `src/core/`
+
+### Manual UI verification (not part of `npm test`)
+
+- `python3 tools/timer_walk.py` — walks the timer through all five states and
+  screenshots each; the app must be running on X11
+  (`GDK_BACKEND=x11 npm start`).
+- `python3 tools/xtest.py --help` — scripted key injection + capture.
+- `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
+  key events, for key-plumbing bugs.
+- Details and traps: `tools/README.md`.
+
+### Fresh install
+
+`package.json` carries an `allowScripts` allowlist for `node-gtk` and
+`esbuild`. Without it npm blocks their install scripts: `npm install` dies in
+`postinstall` with `MODULE_NOT_FOUND .../node-gtk/lib/native.js` and the app
+cannot start. The entries are version-pinned, so after bumping either
+dependency re-approve them:
+
+```sh
+npm install-scripts approve node-gtk
+npm install-scripts approve esbuild
+```
+
+If the install is already broken and you only want the native binding back:
+
+```sh
+(cd node_modules/node-gtk && npx node-pre-gyp install --fallback-to-build)
+npm run generate-types
+```
 
 ## Out of scope (agreed, do not add unprompted)
 

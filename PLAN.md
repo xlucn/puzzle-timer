@@ -213,7 +213,9 @@ Verified by driving the real app with synthetic X11 keys (python ctypes + XTest)
 all five states painted correctly (red "Keep holding…", green "Release to start",
 dark counting value, frozen result, dim idle), and the 16 ms tick beat steadily
 from 17 ms to 1481 ms with the stopped result matching the last beat.
-Two M0 bugs were found and fixed this way — see the risk table in §5.
+Two M0 bugs were found and fixed this way — see the risk table in §5. The
+harness that did it now lives in [`tools/`](./tools/README.md), so later
+milestones can re-verify the same way.
 
 ---
 
@@ -224,3 +226,7 @@ Two M0 bugs were found and fixed this way — see the risk table in §5.
   land so a cold session can pick up correctly.
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
+- Before trusting a screenshot of the running app, read
+  [`tools/README.md`](./tools/README.md): X captures on XWayland are often
+  stale, and the duplicate-instance rule means a second `npm start` silently
+  attaches to the first.
