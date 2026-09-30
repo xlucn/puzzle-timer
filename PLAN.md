@@ -54,9 +54,13 @@ src/
 │   ├── time.ts           formatting, penalty math, DNF-as-∞
 │   ├── stats.ts          ao5/ao12/mo3/aoX trimming, best single/avg, PB target
 │   ├── session.ts        Solve & Session models, CRUD, undo, penalties, comments
+│   ├── scrambleTypes.ts  206-type catalogue + 44-group menu (data-driven)
+│   ├── scrambleFeed.ts   prefetch state machine: type switch / advance / ready
 │   └── eventbus.ts       minimal pub/sub the UI subscribes to
 ├── scramble/
 │   ├── worker.ts         worker_threads host for cstimer_module
+│   ├── protocol.ts       typed request/response messages worker ↔ main
+│   ├── cstimerLang.ts    type-id → cstimer_module language-table mapping
 │   └── service.ts        prefetch queue — next scramble is always warm
 ├── platform/
 │   ├── store.ts          atomic JSON persistence in XDG data dir (Node fs)
@@ -65,6 +69,7 @@ src/
 ├── ui/                   GTK widgets only; subscribes to core via event bus
 │   ├── window.ts         Adw.ApplicationWindow + OverlaySplitView
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white states
+│   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors (category → type)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture (image in M5)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsPanel.ts     statistics (Adw.Dialog)
@@ -101,8 +106,8 @@ src/
      auto-collapsing on narrow windows.
    - Center column: scramble text (monospace, selectable) → big timer →
      ao5/ao12 label strip.
-   - Header bar: session `Adw.DropDown`, scramble-type dropdown, stats button,
-     menu.
+   - Header bar: session `Adw.DropDown`, scramble category + type dropdowns,
+     stats button, menu.
    - Statistics in an `Adw.Dialog`; settings in `Adw.PreferencesDialog`.
    - `Adw.ToastOverlay` for undo ("Solve deleted [Undo]"), `Adw.StatusPage`
      for the empty state.
@@ -124,6 +129,19 @@ src/
 9. **Wayland** — no global key grabs. Hold-space works only while the window
    is focused (same as csTimer in a browser tab). GlobalShortcuts portal is a
    possible later addition, not in MVP.
+
+10. **Scramble-type selector — two dropdowns, not one searchable list.** Mirrors
+    csTimer's own two-level menu: 44 categories → plain type names (names are
+    unique *within* a group, verified — 0 intra-group duplicates, so no
+    `group · name` prefixes needed). GTK search gotcha: `Gtk.DropDown`'s search
+    is a no-op unless an `expression` is set — `newFromStrings()` passes NULL
+    and `set_enable_search(true)` alone silently does nothing. Setting the
+    `expression` *property* from node-gtk aborts the process
+    (`Unhandled GValue type: GtkExpression`), so build it in the constructor:
+    `Gtk.DropDown.new(model, Gtk.PropertyExpression.new(GObject.typeFromName('GtkStringObject'), null, 'string'))`,
+    plus `setSearchMatchMode(SUBSTRING)` (the default PREFIX misses "roux" in
+    "3x3x3 Roux"). Swapping a level-2 model from JS resets `selected` → 0 and
+    emits `notify::selected`; guard the callback while swapping.
 
 ---
 
@@ -216,6 +234,29 @@ from 17 ms to 1481 ms with the stopped result matching the last beat.
 Two M0 bugs were found and fixed this way — see the risk table in §5. The
 harness that did it now lives in [`tools/`](./tools/README.md), so later
 milestones can re-verify the same way.
+
+### M1 — landed 2026-10-01
+
+Scramble worker (`src/scramble/worker.ts`, `worker_threads` + `cstimer_module`
+v0.1.5) behind a typed protocol, `service.ts` request queue, and a pure
+`src/core/scrambleFeed.ts` state machine that keeps the next scramble warm and
+hands it over the instant a solve finishes (also regenerates on type switch and
+on refresh). UI: `src/ui/scramblePanel.ts` (scramble text, "Generating…"
+spinner) and the two-dropdown selector `src/ui/scrambleTypeSelect.ts` —
+category → type, both searchable (see decision 10 in §4 for the GTK
+`expression` pitfall that made search silently do nothing).
+
+Evidence:
+
+- `node --import tsx tools/scramble_probe.ts --quiet` → **206/206 types
+  generate** (slowest `444bld` 1.79 s — runs in the worker, not the UI thread).
+- **40 Vitest tests green** (timer 22 + scrambleFeed + two-level scrambleTypes).
+- **Zero freezes, measured:** synthetic keys ran hold-space 0.35 s → release →
+  stop at 0.40 s and the timer displayed exactly **0.40** — the main thread
+  never stalled; the scramble advanced after the solve.
+- Manually verified: type switch (4x4x4) generates without blocking, refresh,
+  long relay scramble doesn't resize the window, category/type dropdowns both
+  search (`roux`, `pyra`).
 
 ---
 

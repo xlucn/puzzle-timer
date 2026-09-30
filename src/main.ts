@@ -11,9 +11,12 @@
  * tear everything down from the window's close handler / quit action.
  * See: https://github.com/romgrk/node-gtk/blob/master/doc/importing.md
  *
- * M0 scope: hold-space timing with microsecond precision. Scrambles (M1),
- * solve recording (M2), sessions (M3) and statistics (M4) come next — see
- * PLAN.md. All timing rules live in src/core/, which knows nothing about GTK.
+ * M1 scope: scrambles. The text above the timer comes from cstimer_module,
+ * which runs in a worker thread (src/scramble/) so a 1.2 s 4x4 scramble never
+ * blocks the UI, while src/core/scrambleFeed.ts decides what to show and when
+ * to pre-generate the next one. Solve recording (M2), sessions (M3) and
+ * statistics (M4) come next — see PLAN.md. All timing and scramble policy
+ * live in src/core/, which knows nothing about GTK.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -23,7 +26,12 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import { ScrambleFeed } from './core/scrambleFeed.js'
+import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
 import { Timer, type TimerState } from './core/timer.js'
+import { createScrambleService } from './scramble/service.js'
+import { createScramblePanel } from './ui/scramblePanel.js'
+import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createTimerView } from './ui/timerLabel.js'
 
 const APP_ID = 'com.oliver.cstimergtk'
@@ -97,12 +105,43 @@ app.on('activate', () => {
     }),
   )
 
-  // ---- content: header + centered timer ---------------------------------
+  // ---- timer + scramble: worker-backed generation, prefetched by the feed -
   const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
   const timerView = createTimerView()
 
+  // The type dropdown and the refresh button live in the header; the text
+  // itself sits above the timer (see createScramblePanel).
+  const scrambleService = createScrambleService()
+  const feed = new ScrambleFeed({
+    type: SCRAMBLE_DEFAULT_TYPE,
+    generate: (type) => scrambleService.scramble(type, scrambleLength(type)),
+  })
+
+  const scramblePanel = createScramblePanel()
+  feed.subscribe(() => scramblePanel.render(feed.state))
+
+  const typeSelect = createScrambleTypeSelect({
+    initialType: SCRAMBLE_DEFAULT_TYPE,
+    onChange: (type) => feed.setType(type),
+  })
+  header.packStart(typeSelect.widget)
+
+  const refreshScramble = new Gtk.Button({
+    iconName: 'view-refresh-symbolic',
+    tooltipText: 'New scramble',
+    cssClasses: ['flat'],
+  })
+  refreshScramble.on('clicked', () => feed.refresh())
+  header.packStart(refreshScramble)
+
+  // A finished solve promotes the pre-generated scramble and warms the one
+  // after it, so the next solve never waits on the scrambler.
+  timer.onSolved(() => feed.advance())
+
+  // ---- content: header, scramble, centered timer -------------------------
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   content.append(header)
+  content.append(scramblePanel.widget)
   content.append(timerView.widget)
   window.setContent(content)
 
@@ -181,18 +220,24 @@ app.on('activate', () => {
   aboutAction.on('activate', () => showAbout())
   app.addAction(aboutAction)
 
-  const quitAction = Gio.SimpleAction.new('quit', null)
-  quitAction.on('activate', () => {
+  // The scramble worker is a thread of this process: drop it before the loop
+  // goes, otherwise it outlives the window it was serving.
+  const shutdown = () => {
+    scrambleService.dispose()
     loop.quit()
     app.quit()
-  })
+  }
+
+  const quitAction = Gio.SimpleAction.new('quit', null)
+  quitAction.on('activate', () => shutdown())
   app.addAction(quitAction)
   app.setAccelsForAction('app.quit', ['<Control>q'])
 
-  window.on('close-request', () => (loop.quit(), app.quit(), false))
+  window.on('close-request', () => (shutdown(), false))
 
   styles.install() // flush queued styles and start the dev hot-reload watcher
   render() // paint the initial state before anything happens
+  feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   window.present()
 
   // The loop integration is already running; under ESM this returns immediately.

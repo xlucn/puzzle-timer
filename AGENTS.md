@@ -61,6 +61,9 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — run Vitest on `src/core/`
+- `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
+  scramble types through the real worker (headless, no display needed); expect
+  `206/206 types generated`
 
 ### Manual UI verification (not part of `npm test`)
 

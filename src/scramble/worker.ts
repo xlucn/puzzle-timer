@@ -1,0 +1,58 @@
+/*
+ * worker.ts — the thread that runs cstimer_module.
+ *
+ * Why it exists (AGENTS.md rule 4): a 4x4 WCA scramble takes ~1.2 s (measured
+ * in PLAN.md §5) and ~1.2 s for a few other types too. Running that here
+ * keeps the main thread free, so the timer keeps ticking and keys keep
+ * landing while a scramble is being built.
+ *
+ * The protocol is deliberately tiny (see protocol.ts): every request gets
+ * exactly one reply, and a scrambler that throws is reported as a failed
+ * reply instead of killing the thread — some of the 206 types do throw.
+ *
+ * Run with `node --import tsx`, which resolves this file's imports the same
+ * way it does for the main thread (see src/scramble/service.ts).
+ */
+import { parentPort } from 'node:worker_threads'
+
+import cstimer from 'cstimer_module'
+
+import { applyCsTimerLangStrings } from './cstimerLang.js'
+import type { ScrambleRequest, ScrambleResponse } from './protocol.js'
+
+applyCsTimerLangStrings()
+
+const port = parentPort
+if (port === null) {
+  throw new Error('src/scramble/worker.ts must be started as a worker thread')
+}
+
+function handle(request: ScrambleRequest): ScrambleResponse {
+  try {
+    switch (request.cmd) {
+      case 'scramble':
+        return {
+          id: request.id,
+          ok: true,
+          value: cstimer.getScramble(request.type, request.length),
+        }
+      case 'seed':
+        cstimer.setSeed(request.seed)
+        return { id: request.id, ok: true, value: null }
+      default:
+        return { id: (request as ScrambleRequest).id, ok: false, error: 'unknown command' }
+    }
+  } catch (error) {
+    return {
+      id: (request as ScrambleRequest).id,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+// The worker only ever answers; cstimer_module's own onmessage (a browser
+// worker shim it installs on `self`) is never dispatched here.
+port.on('message', (request: ScrambleRequest) => {
+  port.postMessage(handle(request))
+})

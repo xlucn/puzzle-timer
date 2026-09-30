@@ -16,6 +16,7 @@
     "postinstall": "npm run generate-types"
   },
   "dependencies": {
+    "cstimer_module": "^0.1.5",
     "node-gtk": "^4.1.1"
   },
   "devDependencies": {

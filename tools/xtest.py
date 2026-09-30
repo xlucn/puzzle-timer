@@ -66,8 +66,19 @@ OPS_HELP = """command list, executed in order:
   release KEY           let a key back up
   hold KEY SECS         press and keep holding for SECS
   tap KEY [SECS]        press, wait (default 0.05 s), release
+  type TEXT             type lowercase letters/digits (for search entries)
+  click X Y [BUTTON]    click at window-relative pixels (default button 1)
   sleep SECS            wait
   shot PATH             screenshot (forces a repaint first unless --no-repaint)
+  rootshot PATH [window | X Y W H]
+                        grab the X root window with maim: bare = whole screen,
+                        `window` = the app's rectangle, or X Y W H in root
+                        pixels. Unlike `shot` this sees popups/menus, which are
+                        separate top-level windows
+  wins                  print the root window tree (find popup window ids)
+  popup PATH            screenshot the currently open popup (its own X window;
+                        must run in the same invocation as the click that
+                        opened it -- GTK unmaps it when focus goes)
 
 Key names are X keysym names: space, Return, Escape, a, z, F5, ...
 """
@@ -91,6 +102,13 @@ def _declare(x11, xtst):
         ctypes.POINTER(ctypes.c_ulong),
         ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong)),
         ctypes.POINTER(ctypes.c_uint),
+    ]
+    x11.XTranslateCoordinates.restype = ctypes.c_int
+    x11.XTranslateCoordinates.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong,
+        ctypes.c_int, ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_ulong),
     ]
     x11.XFetchName.restype = ctypes.c_int
     x11.XFetchName.argtypes = [
@@ -124,6 +142,18 @@ def _declare(x11, xtst):
     xtst.XTestFakeKeyEvent.restype = ctypes.c_int
     xtst.XTestFakeKeyEvent.argtypes = [
         ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong
+    ]
+    xtst.XTestFakeButtonEvent.restype = ctypes.c_int
+    xtst.XTestFakeButtonEvent.argtypes = [
+        ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong
+    ]
+    x11.XWarpPointer.restype = ctypes.c_int
+    x11.XWarpPointer.argtypes = [
+        ctypes.c_void_p,  # Display *
+        ctypes.c_ulong,   # src window
+        ctypes.c_ulong,   # dest window
+        ctypes.c_int, ctypes.c_int, ctypes.c_uint, ctypes.c_uint,
+        ctypes.c_int, ctypes.c_int,
     ]
 
 
@@ -216,6 +246,97 @@ class App:
             )
         print("focus: ok")
 
+    # -- root capture ------------------------------------------------------
+    def root_shot(self, path: str, geom: tuple[int, int, int, int] | None = None):
+        """Grab the X root window with maim.
+
+        Unlike capture(), this sees popups and menus: GTK renders those in
+        their own top-level X windows, which never show up when we import
+        just the app window.
+        """
+        cmd = ["maim"]
+        if geom:
+            w, h, x, y = geom
+            cmd += ["-g", f"{w}x{h}+{x}+{y}"]
+        cmd.append(path)
+        subprocess.run(cmd, check=True)
+        print(f"  root-grabbed {path}")
+        return path
+
+    def wins(self) -> str:
+        """Print the root window tree (window ids, titles, geometry)."""
+        out = subprocess.run(
+            ["xwininfo", "-root", "-tree"], check=True, capture_output=True, text=True
+        ).stdout
+        print(out)
+        return out
+
+    def shot_child(self, path: str) -> str:
+        """Screenshot an open popup.
+
+        GTK popups are their own top-level X window (root children, not
+        children of the app window), and they unmap the moment focus goes --
+        so this has to run in the same invocation as the click that opened
+        them. We take the largest root window that overlaps the app's
+        rectangle but is not the app itself: popups anchor over their parent,
+        while unrelated windows sit elsewhere on the screen.
+        """
+        ax, ay = self.origin()
+        aw, ah = self.size()
+        found = []
+        for wid in self.root_children():
+            if wid == self.win:
+                continue
+            wx, wy = self._abs_pos(wid)
+            w, h = self._geom(wid)
+            ox = max(0, min(ax + aw, wx + w) - max(ax, wx))
+            oy = max(0, min(ay + ah, wy + h) - max(ay, wy))
+            if ox * oy > 10_000:
+                found.append((w * h, wid))
+        if not found:
+            sys.exit("no popup window to shoot (is it still open?)")
+        # GTK creates more than one window per popup: an invisible grab overlay
+        # plus the visible list. Shoot each; the caller picks the real list.
+        for area, wid in sorted(found):
+            out = path if len(found) == 1 else path.replace(".png", f"-{wid:x}.png")
+            # maim -i, not `import -window`: ImageMagick refuses to read these
+            # override-redirect GTK popups ("missing an image filename").
+            subprocess.run(["maim", "-i", f"0x{wid:x}", out], check=True)
+            print(f"  captured popup 0x{wid:x} ({area}px) -> {out}")
+        return path
+
+    def _abs_pos(self, wid: int):
+        """Window position in root coordinates (XGetGeometry reports parent-relative)."""
+        x, y = ctypes.c_int(), ctypes.c_int()
+        self.x11.XTranslateCoordinates(
+            self.d, wid, self.root, 0, 0,
+            ctypes.byref(x), ctypes.byref(y), ctypes.byref(ctypes.c_ulong()),
+        )
+        return x.value, y.value
+
+    def root_children(self) -> list[int]:
+        """Window ids of the root window's children."""
+        root, parent = ctypes.c_ulong(), ctypes.c_ulong()
+        kids = ctypes.POINTER(ctypes.c_ulong)()
+        n = ctypes.c_uint()
+        self.x11.XQueryTree(
+            self.d, self.root, ctypes.byref(root), ctypes.byref(parent),
+            ctypes.byref(kids), ctypes.byref(n),
+        )
+        out = [kids[i] for i in range(n.value)]
+        if kids:
+            self.x11.XFree(kids)
+        return out
+
+    def _geom(self, wid: int):
+        scr, x, y = ctypes.c_ulong(), ctypes.c_int(), ctypes.c_int()
+        w, h, border, depth = (ctypes.c_uint(), ctypes.c_uint(), ctypes.c_uint(), ctypes.c_uint())
+        self.x11.XGetGeometry(
+            self.d, wid, ctypes.byref(scr), ctypes.byref(x), ctypes.byref(y),
+            ctypes.byref(w), ctypes.byref(h), ctypes.byref(border), ctypes.byref(depth),
+        )
+        return w.value, h.value
+
     # -- keys --------------------------------------------------------------
     def keycode(self, key: str) -> int:
         keysym = self.x11.XStringToKeysym(key.encode())
@@ -248,6 +369,42 @@ class App:
         self.release(key)
         time.sleep(0.1)
 
+    def type_text(self, text: str):
+        """Type into whatever has focus (search entries, text fields).
+
+        Handles what the tests need: letters (upper- or lowercase), digits,
+        space, and _ +. Anything else stops with an error rather than
+        silently typing the wrong thing.
+        """
+        special = {" ": "space", "_": "underscore", "+": "plus", "-": "minus"}
+        for ch in text:
+            name = special.get(ch, ch)
+            keysym = self.x11.XStringToKeysym(name.encode())
+            if keysym == 0:
+                sys.exit(f"cannot type {ch!r} with the type op")
+            code = self.x11.XKeysymToKeycode(self.d, keysym)
+            if code == 0:
+                sys.exit(f"no keycode for {ch!r} in the current layout")
+            shift = ch.isupper() or ch in "_+"
+            if shift:
+                self.press("Shift_L")
+            self.xtst.XTestFakeKeyEvent(self.d, code, 1, 0)
+            self.xtst.XTestFakeKeyEvent(self.d, code, 0, 0)
+            if shift:
+                self.release("Shift_L")
+        self.x11.XFlush(self.d)
+        time.sleep(0.1)
+
+    def click(self, x: int, y: int, button: int = 1):
+        """Click at window-relative pixels (0,0 is the top-left corner)."""
+        self.x11.XWarpPointer(self.d, 0, self.win, 0, 0, 0, 0, x, y)
+        self.x11.XFlush(self.d)
+        time.sleep(0.05)
+        self.xtst.XTestFakeButtonEvent(self.d, button, 1, 0)
+        self.xtst.XTestFakeButtonEvent(self.d, button, 0, 0)
+        self.x11.XFlush(self.d)
+        time.sleep(0.2)
+
     # -- capture -----------------------------------------------------------
     def size(self):
         scr, x, y = ctypes.c_ulong(), ctypes.c_int(), ctypes.c_int()
@@ -257,6 +414,21 @@ class App:
             ctypes.byref(w), ctypes.byref(h), ctypes.byref(border), ctypes.byref(depth),
         )
         return w.value, h.value
+
+    def origin(self):
+        """Window position in root coordinates (XGetGeometry's x/y are parent-relative)."""
+        dest = ctypes.c_int(), ctypes.c_int()
+        self.x11.XTranslateCoordinates(
+            self.d, self.win, self.root, 0, 0,
+            ctypes.byref(dest[0]), ctypes.byref(dest[1]), ctypes.byref(ctypes.c_ulong()),
+        )
+        return dest[0].value, dest[1].value
+
+    def root_shot_window(self, path: str):
+        """Root-grab exactly the app window's rectangle (sees popups over it)."""
+        x, y = self.origin()
+        w, h = self.size()
+        return self.root_shot(path, geom=(w, h, x, y))
 
     def force_repaint(self, settle: float = REPAINT_SETTLE):
         """Nudge GTK into redrawing the whole surface; returns the original size."""
@@ -296,6 +468,14 @@ def _is_float(token: str) -> bool:
     return True
 
 
+def _is_int(token: str) -> bool:
+    try:
+        int(token)
+    except ValueError:
+        return False
+    return True
+
+
 def _run(app: App, ops: list[str], force_repaint: bool):
     i = 0
     while i < len(ops):
@@ -322,8 +502,36 @@ def _run(app: App, ops: list[str], force_repaint: bool):
         elif op == "sleep":
             time.sleep(float(ops[i]))
             i += 1
+        elif op == "type":
+            app.type_text(ops[i])
+            i += 1
+        elif op == "click":
+            x, y = int(ops[i]), int(ops[i + 1])
+            i += 2
+            button = 1
+            if i < len(ops) and ops[i] in ("1", "2", "3"):
+                button = int(ops[i])
+                i += 1
+            app.click(x, y, button)
         elif op == "shot":
             app.capture(ops[i], force_repaint=force_repaint)
+            i += 1
+        elif op == "rootshot":
+            path = ops[i]
+            i += 1
+            if i < len(ops) and ops[i] == "window":
+                i += 1
+                app.root_shot_window(path)
+            elif i + 3 < len(ops) and all(_is_int(ops[i + k]) for k in range(4)):
+                w, h, x, y = (int(ops[i + k]) for k in range(4))
+                i += 4
+                app.root_shot(path, geom=(w, h, x, y))
+            else:
+                app.root_shot(path)
+        elif op == "wins":
+            app.wins()
+        elif op == "popup":
+            app.shot_child(ops[i])
             i += 1
         else:
             sys.exit(f"unknown op {op!r}\n\n{OPS_HELP}")

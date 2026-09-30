@@ -10,6 +10,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, screenshot it |
 | `timer_walk.py` | Walks the timer through all five states and captures each one |
 | `keyprobe.mjs` | Minimal node-gtk app that logs raw key events (for plumbing bugs) |
+| `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 
 ## Requirements
 
