@@ -1,0 +1,28 @@
+{
+  "name": "cstimer-gtk",
+  "version": "0.1.0",
+  "description": "An Adwaita application built with node-gtk.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev:css-reload",
+    "dev:css-reload": "cross-env NODE_ENV=development node --import tsx --import node-gtk/register src/main.ts",
+    "dev:app-reload": "cross-env NODE_ENV=development node --import tsx --import node-gtk/register --watch src/main.ts",
+    "start": "node --import tsx --import node-gtk/register src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "generate-types": "node-gtk generate-types Gtk-4.0 Adw-1",
+    "postinstall": "npm run generate-types"
+  },
+  "dependencies": {
+    "node-gtk": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^5.0.3"
+  }
+}

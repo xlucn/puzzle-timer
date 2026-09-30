@@ -180,6 +180,9 @@ desktop); node-gtk wins on capability for this app's dependencies. The pure
 | GStreamer unref issue | Audio isolated in `platform/audio.ts`; `pw-play` subprocess fallback |
 | Memory consumption report | Check RSS around M3 (thousands of records) |
 | Single maintainer / per-Node ABI prebuilds | Pure `core/` keeps a runtime swap cheap |
+| Key events eaten by the focused widget (found in M0: the header `MenuButton` swallowed Space, so the timer never saw it) | `EventControllerKey` in **CAPTURE** phase on the window |
+| `@dim_label_color` silently renders white in GTK4/libadwaita (found in M0: dim text was invisible) | Dim text with `alpha(@window_fg_color, 0.55)`; stick to `@window_fg_color`, `@success_color`, `@error_color`, `@warning_color` |
+| X11 window screenshots go stale under XWayland (found in M0: `XGetImage` kept returning an old frame while the app painted fine) | For visual checks, force a repaint (resize the window) before capturing, and trust tick logs over screenshots for timing |
 
 ---
 
@@ -197,6 +200,20 @@ Each milestone ends with a runnable app.
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
 
 **Post-MVP backlog:** stackmat, charts (see §1), then packaging if ever needed.
+
+### M0 — landed 2026-09-30
+
+Scaffold at the repo root (`npx node-gtk create .`, app id `com.oliver.cstimergtk`),
+plus `src/core/timer.ts` (5-state machine — idle → holding → ready → running →
+stopped — with auto-repeat dedup living in core so it is testable),
+`src/core/time.ts`, `src/ui/timerLabel.ts` and the wiring in `src/main.ts`.
+`src/welcome.ts` from the scaffold was removed. **22 Vitest tests green.**
+
+Verified by driving the real app with synthetic X11 keys (python ctypes + XTest):
+all five states painted correctly (red "Keep holding…", green "Release to start",
+dark counting value, frozen result, dim idle), and the 16 ms tick beat steadily
+from 17 ms to 1481 ms with the stopped result matching the last beat.
+Two M0 bugs were found and fixed this way — see the risk table in §5.
 
 ---
 
