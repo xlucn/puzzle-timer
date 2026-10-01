@@ -2,10 +2,11 @@
  * shortcuts.ts — the keyboard reference (M3, layout F).
  *
  * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer,
- * Delete on the solve list, the session accelerators (Ctrl+S / Ctrl+N / F2 /
- * Ctrl+Delete) and Ctrl+Q. It opens from the sidebar's app menu ("Keyboard
- * Shortcuts") — no accelerator of its own, the window *is* the accelerator
- * documentation.
+ * Delete and the penalty/comment keys on the solve list (Ctrl+1/2/3, Ctrl+E),
+ * the session accelerators (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics
+ * and inspection (Ctrl+T / Ctrl+I), and Ctrl+Q. It opens from the sidebar's
+ * app menu ("Keyboard Shortcuts") — no accelerator of its own, the window
+ * *is* the accelerator documentation.
  *
  * Gtk.ShortcutsWindow is deprecated as of GTK 4.18 but still the only stock
  * widget for this (libadwaita ships no replacement); it renders fine on GTK
@@ -59,6 +60,10 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
   ])
   group('Solve list', [
     ['Delete the selected solves', 'Delete'],
+    ['Clear the penalty of the newest solve', '<Ctrl>1'],
+    ['Give the newest solve +2', '<Ctrl>2'],
+    ['Mark the newest solve DNF', '<Ctrl>3'],
+    ['Edit the selected (or newest) solve — penalty, comment', '<Ctrl>E'],
   ])
   group('Sessions', [
     ['Open the session menu', '<Ctrl>S'],

@@ -46,6 +46,7 @@ import { ScrambleFeed } from './core/scrambleFeed.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
 import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core/session.js'
 import { SessionLibrary } from './core/sessionLibrary.js'
+import type { Penalty } from './core/time.js'
 import { Timer, type TimerState } from './core/timer.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
@@ -291,6 +292,7 @@ app.on('activate', () => {
     appName: APP_NAME,
     appMenu: appMenuButton,
     sessionControl: sessionMenu.widget,
+    window,
   })
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
@@ -495,6 +497,43 @@ app.on('activate', () => {
   })
   app.addAction(inspectionAction)
   app.setAccelsForAction('app.inspection', ['<Control>i'])
+
+  // ---- editing a solve (M4 stage 4) --------------------------------------
+  // Ctrl+1/2/3 = OK / +2 / DNF on the *newest* solve of the active session
+  // (PLAN's "no Ctrl+Z"): repeating a penalty clears it, so Ctrl+2 twice is
+  // its own undo. They are quick grades, deliberately separate from the
+  // edit dialog. Ctrl+E opens the one edit dialog — penalty (OK/+2/DNF) and
+  // comment together — on the selection when exactly one row is on it, else
+  // the newest solve; the footer's Edit button and a double-click on a row
+  // reach the same dialog (src/ui/timesList.ts).
+  const applyLatest = (penalty: Penalty | undefined): void => {
+    const session = activeSession()
+    const solves = session.solves
+    if (solves.length === 0) return
+    const latest = solves[solves.length - 1]
+    const next = penalty !== undefined && latest.penalty !== penalty ? penalty : undefined
+    session.setPenalty(latest.id, next)
+  }
+
+  const solveOk = Gio.SimpleAction.new('solve-ok', null)
+  solveOk.on('activate', () => applyLatest(undefined))
+  app.addAction(solveOk)
+  app.setAccelsForAction('app.solve-ok', ['<Control>1'])
+
+  const solvePlus2 = Gio.SimpleAction.new('solve-plus2', null)
+  solvePlus2.on('activate', () => applyLatest('plus2'))
+  app.addAction(solvePlus2)
+  app.setAccelsForAction('app.solve-plus2', ['<Control>2'])
+
+  const solveDnf = Gio.SimpleAction.new('solve-dnf', null)
+  solveDnf.on('activate', () => applyLatest('dnf'))
+  app.addAction(solveDnf)
+  app.setAccelsForAction('app.solve-dnf', ['<Control>3'])
+
+  const editAction = Gio.SimpleAction.new('solve-edit', null)
+  editAction.on('activate', () => timesList.editSelected())
+  app.addAction(editAction)
+  app.setAccelsForAction('app.solve-edit', ['<Control>e'])
 
   // The scramble worker is a thread of this process: drop it before the loop
   // goes, otherwise it outlives the window it was serving. The pending

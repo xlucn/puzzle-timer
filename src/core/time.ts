@@ -134,6 +134,24 @@ export function formatTimestamp(epochMs: number, now: number = Date.now()): stri
 
 const pad2 = (value: number): string => String(value).padStart(2, '0')
 
+/**
+ * The complete wall-clock stamp for the edit dialog: year to second, always
+ * spelled out —
+ *
+ *   formatFullTimestamp(...) → "2026-10-01 22:49:58"
+ *
+ * Local time, no "today" elision: this is the record's exact moment, read
+ * as data (formatTimestamp's day-only form serves the narrow list column,
+ * not a dialog whose whole point is the details — user call, 2026-10-01).
+ */
+export function formatFullTimestamp(epochMs: number): string {
+  if (!Number.isFinite(epochMs)) return ''
+  const then = new Date(epochMs)
+  const date = `${then.getFullYear()}-${pad2(then.getMonth() + 1)}-${pad2(then.getDate())}`
+  const clock = `${pad2(then.getHours())}:${pad2(then.getMinutes())}:${pad2(then.getSeconds())}`
+  return `${date} ${clock}`
+}
+
 export function formatTime(ms: number, options: FormatOptions = {}): string {
   const useMs = options.useMs ?? false
 

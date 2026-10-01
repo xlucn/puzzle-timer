@@ -4,6 +4,7 @@ import { Timer } from './timer.js'
 import {
   effectiveMs,
   formatAverage,
+  formatFullTimestamp,
   formatSolve,
   formatTime,
   formatTimestamp,
@@ -113,6 +114,21 @@ describe('formatTimestamp', () => {
   it('clamps nonsense input to an empty stamp', () => {
     expect(formatTimestamp(Number.NaN)).toBe('')
     expect(formatTimestamp(Number.POSITIVE_INFINITY)).toBe('')
+  })
+})
+
+describe('formatFullTimestamp', () => {
+  const local = (y: number, m: number, d: number, h = 0, min = 0, sec = 0) =>
+    new Date(y, m - 1, d, h, min, sec).getTime()
+
+  it('spells out year to second on one line', () => {
+    expect(formatFullTimestamp(local(2026, 10, 1, 22, 49, 58))).toBe('2026-10-01 22:49:58')
+    expect(formatFullTimestamp(local(2026, 1, 2, 3, 4, 5))).toBe('2026-01-02 03:04:05')
+  })
+
+  it('clamps nonsense input to an empty stamp', () => {
+    expect(formatFullTimestamp(Number.NaN)).toBe('')
+    expect(formatFullTimestamp(Number.POSITIVE_INFINITY)).toBe('')
   })
 })
 

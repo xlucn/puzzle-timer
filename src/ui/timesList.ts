@@ -32,19 +32,27 @@
  * selection, as GTK does for any multi-selection list), and a toolbar under
  * the list — a stock Gtk.ActionBar, the bottom bar Warehouse and other
  * libadwaita apps hang under a list — slides in to show the selection and
- * the buttons that act on it (Delete today; the edit / penalty buttons land
- * with M4 and go in the same row). The Delete key travels the same
- * `deleteSelected()` path as the button, so the two can never drift apart,
- * and deleting several rows at once is one undo toast for the lot.
+ * the buttons that act on it (M4: Edit, Delete). The Delete key travels the
+ * same `deleteSelected()` path as the button, so the two can never drift
+ * apart, and deleting several rows at once is one undo toast for the lot.
+ *
+ * M4 grades a solve through *one* edit dialog — penalty (OK / +2 / DNF) and
+ * comment together, never as separate buttons (user call, 2026-10-01) —
+ * opened three ways: the footer's Edit button (exactly one row selected), a
+ * double-click on a row, or Ctrl+E (the selection when exactly one row is
+ * on it, else the newest solve). The keybinding is the test path — see the
+ * no-mouse-clicks rule in AGENTS.md.
  */
 import Adw from 'gi:Adw-1'
+import Gdk from 'gi:Gdk-4.0'
 import Gtk from 'gi:Gtk-4.0'
+import Pango from 'gi:Pango-1.0'
 
 import { styles } from 'node-gtk/styles'
 
-import type { Session, Solve } from '../core/session.js'
+import { MAX_COMMENT_LENGTH, type Session, type Solve } from '../core/session.js'
 import type { SessionLibrary } from '../core/sessionLibrary.js'
-import { formatTime, formatTimestamp } from '../core/time.js'
+import { type Penalty, formatFullTimestamp, formatSolve, formatTimestamp } from '../core/time.js'
 
 // Dimming goes through alpha(@window_fg_color): GTK3's @dim_label_color does
 // not exist in GTK4 and silently renders white (see the risk table in PLAN.md).
@@ -70,6 +78,12 @@ styles.add(`
  */
 type Widget = InstanceType<typeof Gtk.Widget>
 
+/*
+ * `Adw.ApplicationWindow` as a type (the shims export values only) — the
+ * toplevel the comment dialog is presented on.
+ */
+type Window = InstanceType<typeof Adw.ApplicationWindow>
+
 export interface TimesListOptions {
   /** Whose session is on show: the sidebar always follows the active one. */
   library: SessionLibrary
@@ -90,6 +104,8 @@ export interface TimesListOptions {
   appMenu: Widget
   /** The session switch button; a row between the header and the list. */
   sessionControl: Widget
+  /** Toplevel the comment dialog is presented on. */
+  window: Window
 }
 
 /**
@@ -159,7 +175,10 @@ export function createTimesList(options: TimesListOptions) {
   }
 
   const indexColumn = makeColumn('#', ['solve-index'], (solve) => String(current.indexOf(solve.id) + 1))
-  const timeColumn = makeColumn('Time', ['solve-time'], (solve) => formatTime(solve.timeMs))
+  // formatSolve, not formatTime: the raw centiseconds with the penalty
+  // suffix ("14.34+") or a bare "DNF" — csTimer's `pretty()` parity, so the
+  // list shows what the solve actually scored.
+  const timeColumn = makeColumn('Time', ['solve-time'], (solve) => formatSolve(solve.timeMs, solve.penalty))
   const solvedColumn = makeColumn('Solved', ['solve-clock'], (solve) => formatTimestamp(solve.createdAtMs))
   // Time and Solved expand: GTK splits the *extra* width equally between
   // them, so the columns span the whole sidebar instead of clumping left.
@@ -216,21 +235,39 @@ export function createTimesList(options: TimesListOptions) {
   // whole bar to nothing, so the toolbar costs list height only while a row
   // is actually selected. With nothing selected there is no record to act on;
   // an always-present row of insensitive buttons would just be dead weight.
+  //
+  // Two buttons, not a battery (user call, 2026-10-01): grading (+2, DNF,
+  // comment) lives in the one edit dialog behind Edit; Delete is the only
+  // other thing a row can ask for. Edit needs exactly one row — one record,
+  // one dialog — and says so by going insensitive over a multi-selection
+  // rather than by hiding (the row must not shift under the pointer).
   const footerInfo = new Gtk.Label({
     xalign: 0,
     hexpand: true,
     cssClasses: ['dim-label'],
+    // The label is context, not data: shrink it (with an ellipsis) rather
+    // than squeeze the buttons when the sidebar is narrow.
+    ellipsize: Pango.EllipsizeMode.END,
+  })
+
+  const editButton = new Gtk.Button({
+    tooltipText: 'Edit the selected solve — penalty and comment (Ctrl+E)',
+  })
+  editButton.setChild(
+    new Adw.ButtonContent({ iconName: 'document-edit-symbolic', label: 'Edit' }),
+  )
+  editButton.on('clicked', () => {
+    const solve = singleSelected()
+    if (solve !== null) openEdit(solve)
   })
 
   const deleteButton = new Gtk.Button({
-    tooltipText: 'Delete the selected solve (Delete)',
+    // Icon-only: the trash is unambiguous, and the label's ~45px is what
+    // lets the info label show "#12 · 3.35+" in full instead of "#12 …".
+    iconName: 'user-trash-symbolic',
+    tooltipText: 'Delete the selected solve(s) (Delete)',
   })
-  deleteButton.setChild(
-    new Adw.ButtonContent({ iconName: 'user-trash-symbolic', label: 'Delete' }),
-  )
   deleteButton.on('clicked', () => deleteSelected())
-
-  // M4: the edit / +2 / DNF buttons pack into this same row.
 
   const footerRow = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
@@ -238,6 +275,7 @@ export function createTimesList(options: TimesListOptions) {
     hexpand: true,
   })
   footerRow.append(footerInfo)
+  footerRow.append(editButton)
   footerRow.append(deleteButton)
 
   const footer = new Gtk.ActionBar({ revealed: false })
@@ -278,7 +316,183 @@ export function createTimesList(options: TimesListOptions) {
     return true
   }
 
-  deleteButton.on('clicked', () => deleteSelected())
+  /** The one selected solve — null unless exactly one row is on it. */
+  const singleSelected = (): Solve | null => {
+    const solves = selectedSolves()
+    return solves.length === 1 ? solves[0] : null
+  }
+
+  /**
+   * The edit dialog: penalty (OK / +2 / DNF) and comment in one form — the
+   * only way to grade a solve (user call, 2026-10-01), opened from the
+   * footer's Edit button, a double-click on the row, or Ctrl+E. The header
+   * spells the record out completely — number, scored time, and the moment
+   * year to second on one line. The comment is a real multi-line box
+   * (TextView, ~5 lines tall) capped at MAX_COMMENT_LENGTH: the cap lands
+   * on the save path as a slice, since a TextView has no maxLength property
+   * the way an Entry does; saving an empty comment clears it — that is what
+   * "no comment" should cost. The session is captured at open: switching
+   * sessions while the dialog sits there must not retarget the write onto a
+   * different session's solve.
+   */
+  const openEdit = (solve: Solve): void => {
+    const session = current
+    const identity = `#${session.indexOf(solve.id) + 1}  ·  ${formatSolve(solve.timeMs, solve.penalty)}  ·  ${formatFullTimestamp(solve.createdAtMs)}`
+
+    // A radio group, not a dropdown (user call, 2026-10-01): OK / +2 / DNF
+    // are all three visible at a glance and one click away. GTK4 has no
+    // GtkRadioButton — grouped GtkCheckButtons *are* the radio group
+    // (Gtk.CheckButton.set_group); they render as radio circles. The labels
+    // carry mnemonics (Alt+O / Alt+2 / Alt+D) so the penalty can also be
+    // switched by key — the test path (AGENTS.md: never aim a mouse at it).
+    const penaltyGroup = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 18 })
+    const okRadio = new Gtk.CheckButton({ label: '_OK', useUnderline: true })
+    const plus2Radio = new Gtk.CheckButton({ label: '+_2', useUnderline: true })
+    const dnfRadio = new Gtk.CheckButton({ label: '_DNF', useUnderline: true })
+    plus2Radio.setGroup(okRadio)
+    dnfRadio.setGroup(okRadio)
+    // Group first, then activate: checking one of a group unchecks the rest.
+    okRadio.active = solve.penalty === undefined
+    plus2Radio.active = solve.penalty === 'plus2'
+    dnfRadio.active = solve.penalty === 'dnf'
+    penaltyGroup.append(okRadio)
+    penaltyGroup.append(plus2Radio)
+    penaltyGroup.append(dnfRadio)
+
+    // A real text box, not a one-line entry (user call, 2026-10-01): wrap
+    // words, five-ish lines, scroll beyond that (the save path slices the
+    // text at MAX_COMMENT_LENGTH, so the box itself needs no length
+    // machinery — only room). The Frame draws the box; GTK4's TextView has
+    // no entry-style chrome of its own.
+    const commentView = new Gtk.TextView({
+      wrapMode: Gtk.WrapMode.WORD_CHAR,
+      topMargin: 6,
+      bottomMargin: 6,
+      leftMargin: 8,
+      rightMargin: 8,
+      heightRequest: 96,
+    })
+    commentView.getBuffer().setText(solve.comment ?? '', -1)
+    const commentScroll = new Gtk.ScrolledWindow({
+      child: commentView,
+      hscrollbarPolicy: Gtk.PolicyType.NEVER,
+      vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
+      hexpand: true,
+    })
+    const commentBox = new Gtk.Frame({ child: commentScroll })
+
+    // Label-then-control rows; widthChars keeps the two labels equal so the
+    // controls line up under each other.
+    const row = (labelText: string, control: any): InstanceType<typeof Gtk.Box> => {
+      const line = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 12 })
+      const label = new Gtk.Label({ label: labelText, xalign: 0, widthChars: 8 })
+      line.append(label)
+      line.append(control)
+      return line
+    }
+    // The scramble the solve was done on (Solve.scramble since M2) — shown,
+    // not editable: it is history, and knowing which scramble a bad time was
+    // on is half of what a comment is for (user call, 2026-10-01). Wrapped
+    // and capped at 40 chars so a full 5x5 scramble cannot stretch the
+    // dialog across the screen; omitted entirely when a solve has none.
+    const scrambleRow =
+      solve.scramble.length > 0
+        ? row(
+            'Scramble',
+            new Gtk.Label({
+              label: solve.scramble,
+              xalign: 0,
+              wrap: true,
+              maxWidthChars: 40,
+            }),
+          )
+        : null
+
+    const form = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 })
+    form.append(row('Penalty', penaltyGroup))
+    form.append(row('Comment', commentBox))
+    if (scrambleRow !== null) form.append(scrambleRow)
+
+    const dialog = new Adw.AlertDialog({
+      heading: 'Edit solve',
+      body: identity,
+      extraChild: form,
+      // Pin the initial focus in the constructor: libadwaita otherwise
+      // focuses the default response button when the dialog maps.
+      focusWidget: commentView,
+    })
+    dialog.addResponse('cancel', 'Cancel')
+    dialog.addResponse('save', 'Save')
+    dialog.setResponseAppearance('save', Adw.ResponseAppearance.SUGGESTED)
+    dialog.setDefaultResponse('save')
+    dialog.setCloseResponse('cancel')
+    dialog.on('response', (response) => {
+      if (response !== 'save') return
+      const penalty: Penalty | undefined = dnfRadio.active
+        ? 'dnf'
+        : plus2Radio.active
+          ? 'plus2'
+          : undefined
+      session.setPenalty(solve.id, penalty)
+      const bounds = commentView.getBuffer().getBounds()
+      const text = commentView.getBuffer().getText(bounds[0], bounds[1], false).trim().slice(0, MAX_COMMENT_LENGTH)
+      session.setComment(solve.id, text.length > 0 ? text : undefined)
+    })
+    // Enter submits the form — the old Entry had that for free via
+    // activatesDefault, but a TextView consumes Enter as a newline. Bind it
+    // back with the usual form convention: plain Enter saves, Shift+Enter
+    // breaks a line. CAPTURE phase, so the TextView never sees the plain
+    // Enter; emitting 'response' runs the handler above and libadwaita's own
+    // handler closes the dialog (AlertDialog has no public response() call —
+    // the signal is the only way in).
+    const enterKeys = new Gtk.EventControllerKey({ propagationPhase: Gtk.PropagationPhase.CAPTURE })
+    enterKeys.on('key-pressed', (keyval, _keycode, state) => {
+      const isEnter = keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter
+      if (!isEnter || (state & Gdk.ModifierType.SHIFT_MASK) !== 0) return false
+      // emit runs the handler above (the write) but not libadwaita's own
+      // close — AlertDialog's response() is private — so close explicitly.
+      dialog.emit('response', 'save')
+      dialog.close()
+      return true
+    })
+    commentView.addController(enterKeys)
+    dialog.present(options.window)
+    // Belt and braces for the same race: libadwaita focuses the default
+    // response button at map time and has been observed to win (focus sat on
+    // Save, so the next Enter saved mid-edit — 2026-10-02). Claim on map,
+    // again once the dialog has settled, and once from a direct timeout
+    // (same dance, same reason as the rename dialog in sessionMenu.ts).
+    const claim = () => commentView.grabFocus()
+    dialog.on('map', () => {
+      setTimeout(claim, 0)
+      setTimeout(claim, 120)
+    })
+    setTimeout(claim, 0)
+  }
+
+  /**
+   * The dialog's keyboard path (Ctrl+E, wired by main.ts): the selection
+   * when exactly one row is on it, else the newest solve. False when the
+   * session is empty.
+   */
+  const editSelected = (): boolean => {
+    const single = singleSelected()
+    const solves = current.solves
+    const solve = single ?? (solves.length > 0 ? solves[solves.length - 1] : null)
+    if (solve === null) return false
+    openEdit(solve)
+    return true
+  }
+
+  // The third way in (user call, 2026-10-01): double-click a row to edit
+  // it. This is GtkColumnView's own activation — rows activate on double
+  // click while single-click-activate is off (the default) — so the first
+  // click's selection, the footer, and the dialog all agree on the record.
+  view.on('activate', (position) => {
+    if (position >= model.nItems) return // GTK_INVALID_LIST_POSITION
+    const solve = current.find(Number(model.getString(position)))
+    if (solve !== undefined) openEdit(solve)
+  })
 
   /** Reflect the current selection in the footer toolbar. */
   const syncFooter = () => {
@@ -288,10 +502,14 @@ export function createTimesList(options: TimesListOptions) {
     // Belt and braces (Warehouse binds the same way): while the bar is
     // collapsed its button must not be able to take keyboard focus.
     footerRow.setSensitive(hasSelection)
+    // The row's own flag narrows the whole bar further: one edit dialog,
+    // one record (set after the row's flag — a child's own sensitivity only
+    // ever restricts, never lifts, what its parents allow).
+    editButton.setSensitive(solves.length === 1)
     if (!hasSelection) return
     footerInfo.setLabel(
       solves.length === 1
-        ? `#${current.indexOf(solves[0].id) + 1}  ·  ${formatTime(solves[0].timeMs)}`
+        ? `#${current.indexOf(solves[0].id) + 1}  ·  ${formatSolve(solves[0].timeMs, solves[0].penalty)}`
         : `${solves.length} selected`,
     )
   }
@@ -339,5 +557,7 @@ export function createTimesList(options: TimesListOptions) {
     widget,
     /** Delete the selected row; false when nothing is selected. */
     deleteSelected,
+    /** Open the edit dialog on the selected (or newest) solve. */
+    editSelected,
   }
 }
