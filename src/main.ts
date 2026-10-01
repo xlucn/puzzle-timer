@@ -18,9 +18,14 @@
  * survives a restart. Select rows (click, Shift/Ctrl-click) and the sidebar's
  * toolbar — or the Delete key — remove them together, one undo toast for the
  * whole batch. Scrambles still come from cstimer_module in
- * a worker (M1, see src/scramble/); sessions (M3) and statistics (M4) come
- * next — see PLAN.md. All timing, scramble and solve policy live in
- * src/core/, which knows nothing about GTK.
+ * a worker (M1, see src/scramble/); statistics (M4) come next — see PLAN.md.
+ *
+ * M3 scope: sessions. A session list on disk (index + one solve file per
+ * session, src/platform/store.ts) around a core SessionLibrary
+ * (src/core/sessionLibrary.ts) that can create, rename, switch and delete;
+ * the header's session menu (src/ui/sessionMenu.ts) drives it, and the
+ * sidebar follows whichever session is active. All timing, scramble, session
+ * and solve policy live in src/core/, which knows nothing about GTK.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -32,12 +37,14 @@ import { styles } from 'node-gtk/styles'
 
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
-import { Session, type RemovedSolve, type Solve } from './core/session.js'
+import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core/session.js'
+import { SessionLibrary } from './core/sessionLibrary.js'
 import { Timer, type TimerState } from './core/timer.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
+import { createSessionMenu } from './ui/sessionMenu.js'
 import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
@@ -95,8 +102,14 @@ app.on('activate', () => {
 
   const window = new Adw.ApplicationWindow({ application: app })
   window.setTitle(APP_NAME)
-  // Wide enough that the solve sidebar (≈280 px) fits beside a readable timer.
-  window.setDefaultSize(900, 540)
+  // Wide enough for the whole header to render uncut (measured, M3): at 900
+  // the content header is 660 logical against a natural demand of ~686 —
+  // over by ~40, so GTK shrank the session label and the window title. The
+  // sidebar takes clamp(0.25W, 240, 320), so the header is 0.75W here: 1080
+  // → sidebar 270, header 810 ≥ ~760 needed (start 442 + title 90 + end 154,
+  // with a full-length session name). M6 is what makes this *stay* right when
+  // the window is dragged smaller; for now, start wide (user call, 2026-10-01).
+  window.setDefaultSize(1080, 540)
 
   // ---- header bar with a primary menu ----------------------------------
   const header = new Adw.HeaderBar()
@@ -126,51 +139,117 @@ app.on('activate', () => {
   })
   header.packStart(sidebarToggle)
 
-  // ---- solves: what is already on disk, and where a new one lands --------
-  // A session file that could not be parsed has been moved aside by the
-  // store; say so rather than quietly starting a fresh list.
-  const loaded = store.loadSession()
-  if (loaded.notice !== null) {
-    console.error(`[store] ${loaded.notice}`)
-  }
-  const session = new Session(loaded.solves)
+  // ---- sessions: which list a solve lands in ----------------------------
+  // The index on disk says which sessions exist and which is active;
+  // src/core/sessionLibrary.ts owns the rules (unique names, never empty)
+  // and announces every change. Notices are printed now and toasted after
+  // the window is up — a session file that could not be parsed has been
+  // moved aside by the store, and that must be said, not quietly restarted.
+  const index = store.loadIndex()
+  if (index.notice !== null) console.error(`[store] ${index.notice}`)
+  const library = new SessionLibrary(index.sessions, index.activeId)
 
   const toastOverlay = new Adw.ToastOverlay()
+
+  /**
+   * One Session instance per id for the whole run, each with its own
+   * persistence subscription — so a change to a session that is *not* active
+   * still reaches disk (an undo toast can outlive the switch that followed
+   * it). Caching also keeps a switch from re-reading a file whose write is
+   * still sitting in the store's debounce window.
+   */
+  const loadedSessions = new Map<string, { session: Session; unsubscribe: Unsubscribe }>()
+  const sessionFor = (id: string): Session => {
+    const cached = loadedSessions.get(id)
+    if (cached !== undefined) return cached.session
+
+    const fromDisk = store.loadSession(id)
+    if (fromDisk.notice !== null) {
+      // stderr has the detail; the user gets the headline — whenever the file
+      // is first touched, which for a background session is the switch that
+      // opens it. Toasting here rather than at startup means an empty list is
+      // never silent about why it is empty.
+      console.error(`[store] ${fromDisk.notice}`)
+      toastOverlay.addToast(new Adw.Toast({ title: 'Session file could not be read', timeout: 10 }))
+    }
+    const session = new Session(fromDisk.solves)
+    const unsubscribe = session.subscribe(() => store.scheduleSave(id, session.solves))
+    loadedSessions.set(id, { session, unsubscribe })
+    return session
+  }
+  const activeSession = (): Session => sessionFor(library.activeId)
+
+  // Every list change is written immediately: the index is a few dozen bytes
+  // and only changes on create / rename / delete / switch, so there is
+  // nothing to debounce — and an atomic write means a crash right after a
+  // delete cannot leave a ghost entry pointing at a file that is gone.
+  library.subscribe((change) => {
+    store.saveIndex(library.entries, library.activeId)
+    if (change.kind !== 'deleted') return
+
+    // Forget the session *before* its file goes. An undo toast left over
+    // from that session must not resurrect a file the index no longer lists
+    // (its Session stops being subscribed here, so nothing would save it).
+    const cached = loadedSessions.get(change.entry.id)
+    if (cached !== undefined) {
+      cached.unsubscribe()
+      loadedSessions.delete(change.entry.id)
+    }
+    store.deleteSessionFile(change.entry.id)
+  })
+
+  // The index doubles as the M2 migration: with no index on disk the store
+  // rebuilds one from the session files it finds (M2 left `default.json`), so
+  // write the list back once here — first run, migration or recovery alike.
+  store.saveIndex(library.entries, library.activeId)
 
   /**
    * Deletion is always undoable, however it was triggered — and a whole
    * selection goes back with one click: the removals are restored in
    * reverse order, each at the index recorded when *it* happened, which
-   * lands every solve exactly where it was.
+   * lands every solve exactly where it was. The toast restores into the
+   * session it deleted from, even if another one is active by the time the
+   * user clicks Undo.
    */
-  const offerUndo = (removed: readonly RemovedSolve[]) => {
+  const offerUndo = (target: Session, removed: readonly RemovedSolve[]) => {
     const toast = new Adw.Toast({
       title: removed.length === 1 ? 'Solve deleted' : `${removed.length} solves deleted`,
       buttonLabel: 'Undo',
     })
     toast.on('button-clicked', () => {
-      for (const entry of [...removed].reverse()) session.restore(entry)
+      for (const entry of [...removed].reverse()) target.restore(entry)
     })
     toastOverlay.addToast(toast)
   }
 
   const removeSolves = (solves: readonly Solve[]) => {
+    // The session the rows came from: `activeSession()` is where the list is
+    // reading, and the two cannot have drifted (the call is synchronous).
+    const target = activeSession()
     const removed: RemovedSolve[] = []
     for (const solve of solves) {
-      const entry = session.remove(solve.id)
+      const entry = target.remove(solve.id)
       if (entry !== null) removed.push(entry)
     }
-    if (removed.length > 0) offerUndo(removed)
+    if (removed.length > 0) offerUndo(target, removed)
   }
 
   const timesList = createTimesList({
-    session,
+    library,
+    getSession: activeSession,
     onDelete: removeSolves,
   })
 
-  // Every mutation is persisted: the store serialises now and writes a
-  // moment later, atomically (see src/platform/store.ts).
-  session.subscribe(() => store.scheduleSave(session.solves))
+  // The header control: current session as the label, every session plus
+  // New / Rename / Delete underneath it — packed after the sidebar toggle,
+  // which opens the list this session owns.
+  const sessionMenu = createSessionMenu({
+    library,
+    app,
+    window,
+    getSolveCount: (id) => sessionFor(id).size,
+  })
+  header.packStart(sessionMenu.widget)
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
   const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
@@ -208,7 +287,7 @@ app.on('activate', () => {
   // very first one is still generating; record the solve anyway.
   timer.onSolved((elapsedMs) => {
     const { scramble, type } = feed.state
-    session.add({
+    activeSession().add({
       timeMs: elapsedMs,
       scramble: scramble ?? '',
       scrambleType: type,
@@ -279,6 +358,13 @@ app.on('activate', () => {
   keyController.on('key-pressed', (keyval, _keycode, state) => {
     if (state & COMMAND_MASK) return false // leave accelerators alone
 
+    // A focused text entry owns every key. Without this the timer would
+    // swallow the Space in "Meet weekly" (the start key is consumed on
+    // purpose) and Delete would remove selected solves instead of the
+    // character under the caret — the name dialog is in this same window.
+    const focus = window.getFocus() as { getText?: () => string } | null
+    if (focus !== null && typeof focus.getText === 'function') return false
+
     const key = keyId(keyval)
     if (key === null) return false
 
@@ -347,9 +433,9 @@ app.on('activate', () => {
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   window.present()
 
-  // Surface the load notice from the store (details already went to stderr).
-  if (loaded.notice !== null) {
-    toastOverlay.addToast(new Adw.Toast({ title: 'Session file could not be read', timeout: 10 }))
+  // Surface the index's load notice (details already went to stderr).
+  if (index.notice !== null) {
+    toastOverlay.addToast(new Adw.Toast({ title: 'Session list could not be read', timeout: 10 }))
   }
 
   // The loop integration is already running; under ESM this returns immediately.

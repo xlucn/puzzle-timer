@@ -16,6 +16,11 @@
  * which is nothing next to the widget work, and it keeps a single code path
  * for add / delete / restore.
  *
+ * M3: the list follows the *active* session (src/core/sessionLibrary.ts).
+ * Rows still key on ids, but ids are only unique within one session — so a
+ * switch re-points `current` and rebuilds wholesale rather than trying to
+ * diff two sessions' rows together.
+ *
  * Interaction: clicking a row selects it (Shift/Ctrl-click builds a
  * selection, as GTK does for any multi-selection list), and a toolbar under
  * the list — a stock Gtk.ActionBar, the bottom bar Warehouse and other
@@ -31,6 +36,7 @@ import Gtk from 'gi:Gtk-4.0'
 import { styles } from 'node-gtk/styles'
 
 import type { Session, Solve } from '../core/session.js'
+import type { SessionLibrary } from '../core/sessionLibrary.js'
 import { formatTime, formatTimestamp } from '../core/time.js'
 
 // Dimming goes through alpha(@window_fg_color): GTK3's @dim_label_color does
@@ -51,8 +57,13 @@ styles.add(`
 `)
 
 export interface TimesListOptions {
-  /** The solves to show; the list re-renders itself on every change. */
-  session: Session
+  /** Whose session is on show: the sidebar always follows the active one. */
+  library: SessionLibrary
+  /**
+   * The session to read. Called live — not captured once — because a switch
+   * hands the list a different Session with different solves.
+   */
+  getSession: () => Session
   /**
    * Called with every selected solve when the user asks to delete them —
    * one call for the whole selection, so the caller can offer one undo for
@@ -66,7 +77,8 @@ export interface TimesListOptions {
  * expose GTK as a value namespace, so widget types come from inference.
  */
 export function createTimesList(options: TimesListOptions) {
-  const { session } = options
+  /** The session every row reads from; re-pointed by the library listener. */
+  let current = options.getSession()
 
   // ---- model + view ------------------------------------------------------
   const model = Gtk.StringList.new([])
@@ -100,7 +112,7 @@ export function createTimesList(options: TimesListOptions) {
 
       const position = cell.getPosition()
       if (position >= model.nItems) return // GTK_INVALID_LIST_POSITION
-      const solve = session.find(Number(model.getString(position)))
+      const solve = current.find(Number(model.getString(position)))
       if (solve === undefined) return
 
       label.setLabel(text(solve))
@@ -126,7 +138,7 @@ export function createTimesList(options: TimesListOptions) {
     return column
   }
 
-  const indexColumn = makeColumn('#', ['solve-index'], (solve) => String(session.indexOf(solve.id) + 1))
+  const indexColumn = makeColumn('#', ['solve-index'], (solve) => String(current.indexOf(solve.id) + 1))
   const timeColumn = makeColumn('Time', ['solve-time'], (solve) => formatTime(solve.timeMs))
   const solvedColumn = makeColumn('Solved', ['solve-clock'], (solve) => formatTimestamp(solve.createdAtMs))
   // Time and Solved expand: GTK splits the *extra* width equally between
@@ -212,7 +224,7 @@ export function createTimesList(options: TimesListOptions) {
     const solves: Solve[] = []
     for (let position = 0; position < model.nItems; position += 1) {
       if (!selection.isSelected(position)) continue
-      const solve = session.find(Number(model.getString(position)))
+      const solve = current.find(Number(model.getString(position)))
       if (solve !== undefined) solves.push(solve)
     }
     return solves
@@ -239,7 +251,7 @@ export function createTimesList(options: TimesListOptions) {
     if (!hasSelection) return
     footerInfo.setLabel(
       solves.length === 1
-        ? `#${session.indexOf(solves[0].id) + 1}  ·  ${formatTime(solves[0].timeMs)}`
+        ? `#${current.indexOf(solves[0].id) + 1}  ·  ${formatTime(solves[0].timeMs)}`
         : `${solves.length} selected`,
     )
   }
@@ -252,18 +264,39 @@ export function createTimesList(options: TimesListOptions) {
 
   // ---- rendering ---------------------------------------------------------
   const rebuild = () => {
-    const solves = session.solves
+    const solves = current.solves
     const ids: string[] = []
     for (let i = solves.length - 1; i >= 0; i -= 1) ids.push(String(solves[i].id))
     model.splice(0, model.nItems, ids)
 
+    // The active session's name is this sidebar's title: the header button
+    // says which session is live, and the list under it says the same thing.
+    // The count is that session's alone — stats never mix sessions (M4).
+    title.title = options.library.active.name
     title.subtitle = solves.length === 0 ? '' : `${solves.length} solve${solves.length === 1 ? '' : 's'}`
     scroller.setVisible(solves.length > 0)
     empty.setVisible(solves.length === 0)
     syncFooter()
   }
 
-  session.subscribe(rebuild)
+  let unsubscribe = current.subscribe(rebuild)
+
+  // One listener covers every way the list can change direction. A switch
+  // hands it a different Session to read — re-point the subscription first,
+  // so the old session's changes stop arriving and the new session's start;
+  // a rename changes only the title. Either way a single rebuild settles it,
+  // and rebuild is idempotent, so a create (which emits created *and*
+  // switched) costs two cheap passes rather than two code paths.
+  options.library.subscribe(() => {
+    const next = options.getSession()
+    if (next !== current) {
+      unsubscribe()
+      current = next
+      unsubscribe = current.subscribe(rebuild)
+    }
+    rebuild()
+  })
+
   rebuild()
 
   return {
