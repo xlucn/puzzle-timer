@@ -5,12 +5,14 @@
  * exports a factory, so `styles.add()` hot-reloads the CSS under `npm run dev`.
  *
  * Three things can be true at once, and this is the display rule:
- *   scramble  → show it (wrapped, selectable so it can be copied);
- *   generating → spinner + status line;
- *   error     → the reason, in @error_color.
- * A failure of the *warm* scramble is reported under the scramble currently
- * on screen — the solve in front of you is still usable, you just know the
- * next one is not ready.
+ *   scramble   → show it (wrapped, selectable so it can be copied);
+ *   generating → spinner + status line, overlaid on the scramble's own
+ *                slot so it adds no height — the timer must not move;
+ *   error      → the reason, in @error_color; with no scramble on screen
+ *                it takes the slot the same way. A failure of the *warm*
+ *                scramble is reported under the scramble currently on
+ *                screen — the solve in front of you is still usable, you
+ *                just know the next one is not ready.
  */
 import Gtk from 'gi:Gtk-4.0'
 
@@ -75,10 +77,20 @@ export function createScramblePanel() {
     orientation: Gtk.Orientation.HORIZONTAL,
     spacing: 8,
     halign: Gtk.Align.CENTER,
+    valign: Gtk.Align.CENTER, // centred in the slot, not stretched by it
     visible: false,
   })
   statusRow.append(spinner)
   statusRow.append(status)
+
+  // The one status that shares the panel with visible text (a warm failure)
+  // stays stacked, reported under the scramble as documented above.
+  const warmError = new Gtk.Label({
+    cssClasses: ['scramble-status', 'error'],
+    wrap: true,
+    maxWidthChars: 60,
+    visible: false,
+  })
 
   const widget = new Gtk.Box({
     orientation: Gtk.Orientation.VERTICAL,
@@ -90,8 +102,18 @@ export function createScramblePanel() {
     marginStart: 18,
     marginEnd: 18,
   })
-  widget.append(scroll)
-  widget.append(statusRow)
+  // The status row rides *in* the text's slot (an overlay), never under it.
+  // Stacked, the panel asked for the empty slot plus spacing plus the row —
+  // measured, 86 against a one-line scramble's 64 — so the timer jumped
+  // ~22 px down every time the gear spun. GTK4 does not count overlay
+  // children in the size request, so the panel keeps the text slot's height
+  // alone; the row fits comfortably inside the empty scrolled window's own
+  // reservation (46 px for an 18 px row).
+  const overlay = new Gtk.Overlay({ child: scroll })
+  overlay.addOverlay(statusRow)
+
+  widget.append(overlay)
+  widget.append(warmError)
 
   let spinning = false
   const setSpinning = (on: boolean) => {
@@ -112,13 +134,19 @@ export function createScramblePanel() {
       text.setVisible(hasScramble)
       if (hasScramble) text.setLabel(state.scramble ?? '')
 
-      const showStatus = generating || state.error !== null
-      statusRow.setVisible(showStatus)
+      // No scramble on screen (generating or failed): the row *is* the
+      // slot's content, overlaid — it can never add height to the panel.
+      statusRow.setVisible(!hasScramble)
       setSpinning(generating)
-      if (showStatus) {
+      if (!hasScramble) {
         status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
         status.setCssClasses(generating ? ['scramble-status'] : ['scramble-status', 'error'])
       }
+
+      // A warm failure reports under the scramble still on screen.
+      const warmFailure = hasScramble ? state.error : null
+      warmError.setVisible(warmFailure !== null)
+      if (warmFailure !== null) warmError.setLabel(FAILED(warmFailure))
     },
   }
 }
