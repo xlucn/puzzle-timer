@@ -221,7 +221,13 @@ export function loadIndex(): IndexResult {
       continue
     }
     seen.add(entry.id)
-    sessions.push({ id: entry.id, name: entry.name.trim() })
+    const stored: SessionEntry = { id: entry.id, name: entry.name.trim() }
+    // Optional, and shape-checked at load: the index is hand-editable, and
+    // a non-string here must not reach the dropdowns.
+    if (typeof entry.scrambleType === 'string' && entry.scrambleType.length > 0) {
+      stored.scrambleType = entry.scrambleType
+    }
+    sessions.push(stored)
   }
 
   if (sessions.length === 0) {

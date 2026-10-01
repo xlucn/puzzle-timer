@@ -99,6 +99,8 @@ export function createScrambleTypeSelect(options: ScrambleTypeSelectOptions) {
   let currentId = initialGroupChoices[typeIndex]?.id ?? options.initialType
   /** True while level 2's model is being swapped — see showTypeGroup(). */
   let swapping = false
+  /** True while the dropdowns are moved by code (selectType), not by hand. */
+  let programmatic = false
   category.selected = groupIndex
   type.selected = typeIndex
 
@@ -125,7 +127,10 @@ export function createScrambleTypeSelect(options: ScrambleTypeSelectOptions) {
 
   category.on('notify::selected', () => {
     groupIndex = category.selected
-    showTypeGroup(groupIndex, true)
+    // A session switch moves the category by hand-following, not by the
+    // user — see selectType(); announcing that would feed the new type
+    // straight back into the session it came from.
+    showTypeGroup(groupIndex, !programmatic)
   })
 
   // Connected after the initial selection so construction never reports a
@@ -143,5 +148,29 @@ export function createScrambleTypeSelect(options: ScrambleTypeSelectOptions) {
   box.append(category)
   box.append(type)
 
-  return { widget: box }
+  /**
+   * Point both dropdowns at `id` programmatically — used when a session
+   * switch (or startup) restores the session's own type. Returns false when
+   * `id` is not a known type (a hand-edited index), in which case nothing
+   * moves and the caller should leave the feed alone too. Never announces
+   * onChange: the caller already has the type, re-reporting it would write
+   * the session's value back onto itself.
+   */
+  const selectType = (id: string): boolean => {
+    if (id === currentId) return true
+    const index = groups.findIndex((group) => group.choices.some((choice) => choice.id === id))
+    if (index < 0) return false
+
+    currentId = id
+    programmatic = true
+    if (category.selected !== index) {
+      category.selected = index // notify → showTypeGroup(..., announce=false)
+    } else {
+      showTypeGroup(index, false) // same category: only level 2 needs moving
+    }
+    programmatic = false
+    return true
+  }
+
+  return { widget: box, selectType }
 }

@@ -29,6 +29,43 @@ describe('SessionLibrary — construction', () => {
   })
 })
 
+describe('SessionLibrary — per-session scramble type', () => {
+  it('stores a type on a session, announcing the change exactly once', () => {
+    const library = one()
+    const listener = vi.fn()
+    library.subscribe(listener)
+
+    expect(library.setScrambleType('default', '444wca')).toBe(true)
+    expect(library.find('default')?.scrambleType).toBe('444wca')
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener.mock.calls[0][0]).toEqual({
+      kind: 'retyped',
+      entry: { id: 'default', name: 'Default', scrambleType: '444wca' },
+    })
+
+    // No event when nothing changed, and nothing for unknown ids.
+    expect(library.setScrambleType('default', '444wca')).toBe(false)
+    expect(library.setScrambleType('gone', '333')).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a session without a type undefined — the default applies', () => {
+    const library = one()
+    expect(library.find('default')?.scrambleType).toBeUndefined()
+    expect(library.entries).toEqual([entry('default', 'Default')])
+  })
+
+  it('a new session inherits the type you are solving', () => {
+    const library = one()
+    library.setScrambleType('default', '444wca')
+    expect(library.create('4x4 practice')?.scrambleType).toBe('444wca')
+
+    // A session created from a typeless one stays typeless.
+    const fresh = new SessionLibrary([{ id: 'a', name: 'A' }], 'a')
+    expect(fresh.create('B')?.scrambleType).toBeUndefined()
+  })
+})
+
 describe('SessionLibrary — create', () => {
   it('adds a session, makes it active and announces both steps', () => {
     const library = one()

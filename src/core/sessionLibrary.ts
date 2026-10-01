@@ -2,9 +2,10 @@
  * sessionLibrary.ts — the list of sessions *around* the solve lists.
  *
  * Architecture rule (see AGENTS.md): pure TypeScript — no `gi:*`, no Node
- * APIs. The library owns only metadata (`id` + `name`) and which entry is
- * active; the solves themselves stay in Session (src/core/session.ts) and on
- * disk (src/platform/store.ts), so everything below is unit-testable.
+ * APIs. The library owns only metadata (`id` + `name` + the session's
+ * scramble type) and which entry is active; the solves themselves stay in
+ * Session (src/core/session.ts) and on disk (src/platform/store.ts), so
+ * everything below is unit-testable.
  *
  * Identity vs. display:
  *   - `id` is the file name (`sessions/<id>.json`), so it is stable forever:
@@ -31,6 +32,12 @@ export interface SessionEntry {
   id: string
   /** Display name: trimmed, non-empty, unique case-insensitively. */
   name: string
+  /**
+   * The scramble type this session solves (e.g. '444wca'); absent means the
+   * app default (SCRAMBLE_DEFAULT_TYPE). Remembered per session so switching
+   * restores the type dropdown — applySessionType in main.ts.
+   */
+  scrambleType?: string
 }
 
 export type LibraryChange =
@@ -38,6 +45,8 @@ export type LibraryChange =
   | { kind: 'renamed'; entry: SessionEntry }
   | { kind: 'deleted'; entry: SessionEntry }
   | { kind: 'switched'; id: string; previousId: string }
+  /** The session's scramble type changed (the index save persists it). */
+  | { kind: 'retyped'; entry: SessionEntry }
 
 /** Why a display name cannot be used (`exceptId` aside). */
 export type NameError = 'empty' | 'long' | 'duplicate'
@@ -131,11 +140,35 @@ export class SessionLibrary {
     const name = rawName.trim()
     if (this.nameError(name) !== null) return null
 
-    const entry: SessionEntry = { id: this.uniqueId(name), name }
+    const entry: SessionEntry = {
+      id: this.uniqueId(name),
+      name,
+      // A new session continues in the type you are solving right now —
+      // creating "4x4 practice" from a 4x4 session must not snap the
+      // dropdown back to the default.
+      ...(this.active.scrambleType !== undefined
+        ? { scrambleType: this.active.scrambleType }
+        : {}),
+    }
     this.items.push(entry)
     this.emit({ kind: 'created', entry })
     this.switchTo(entry.id)
     return entry
+  }
+
+  /**
+   * Give a session its own scramble type (the UI calls this when the user
+   * picks one). Emits `retyped` so main.ts's index subscription persists
+   * it; an unchanged value emits nothing — same rule as Session.setPenalty.
+   */
+  setScrambleType(id: string, scrambleType: string): boolean {
+    const index = this.items.findIndex((entry) => entry.id === id)
+    if (index < 0 || this.items[index].scrambleType === scrambleType) return false
+
+    const entry = { ...this.items[index], scrambleType }
+    this.items[index] = entry
+    this.emit({ kind: 'retyped', entry })
+    return true
   }
 
   /** Rename a session; the id (and so the file) is untouched. */

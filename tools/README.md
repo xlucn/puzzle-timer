@@ -42,13 +42,30 @@ read `$DISPLAY`):
 - **XTEST there is plain X11** — no RemoteDesktop consent prompt, ever
   (trap 4). The nested window stays on your desktop, so a human can still
   watch the test run.
-- No physical mouse or window drag to fight, and screenshots are always
-  fresh — trap 2's stale-frame archaeology mostly disappears.
+- No physical mouse or window drag to fight. **But trap 2 is not gone**:
+  on 2026-10-02 `shot` *and* `rootshot` on `:99` returned frames *minutes*
+  old — a whole session-menu state replayed while the live window already
+  showed something else (XGetImage reads server buffers GTK's GL rendering
+  does not promise to update). `cmp` only proves two grabs agree, not that
+  they are current: verify state changes against the store
+  (`jq …/sessions/_index.json`) or a human watching the window, and trust a
+  pixel only when it *differs* from the pre-action frame in the way the
+  action should change it.
 - Windows sit at known coordinates with **1× pixels and no shadows** —
   window-relative = root-relative, no HiDPI (trap 6) arithmetic.
 - Popups (menus, popovers) are ordinary toplevels *of the nested server*,
   so `rootshot`/`popup` see them instead of the solid black the live
   XWayland root gives (trap 4's caveat).
+- **One caveat — physical keys ≠ XWayland**: a *human* holding a key in
+  Xephyr runs the nested server's stock XKB auto-repeat, which can emit
+  release/press *pairs* mid-hold. That faked an inspection bug (green
+  "Release to start" bouncing back to red "Keep holding…" with the
+  countdown already eating seconds) which did **not** reproduce on the
+  same machine under GNOME with either backend — Wayland, or
+  `GDK_BACKEND=x11` (xlsclients-confirmed XWayland) — user test,
+  2026-10-02. Synthetic `press`/`hold` never auto-repeats, so automation
+  will not see it either: verify hold flows with synthetic input, and
+  distrust a bounce seen only under a physical hand in Xephyr.
 
 ## The six traps these tools work around
 
@@ -68,7 +85,9 @@ read `$DISPLAY`):
    Identical frames mean *a stale grab*, not a frozen app — the state machine
    and input handling are unaffected (this was confirmed by logging every key
    event and transition while the walk ran: all five states, correct timing).
-   Re-run, or look at the window with your own eyes.
+   Re-run, or look at the window with your own eyes. Staleness is not
+   XWayland-specific: the nested server does it too (confirmed on Xephyr
+   `:99`, 2026-10-02 — see the workflow section above).
 
    The settle costs ~0.35 s, so for short-lived states pass
    `force_repaint=False` / `--no-repaint`: a 300 ms hold threshold will not
@@ -209,6 +228,22 @@ python3 tools/xtest.py --window "csTimer GTK" \
     press Delete release Delete sleep 0.6 shot deleted.png
 # …then click the toast's Undo (bottom-centre, window-relative) in the same
 # invocation and screenshot again to prove the batch came back.
+
+# The scramble-type dropdown (header type button, window-relative ≈495,31):
+# open it, clear any remembered search with ctrl+a, filter, then Down +
+# Return. Tab *leaves* the popup (focus jumps back into the header) and
+# Return in the search entry alone commits nothing — Down is what moves
+# focus onto the filtered row.
+python3 tools/xtest.py --window "csTimer GTK" \
+    click 495 31 sleep 0.5 \
+    press ctrl+a release ctrl+a sleep 0.2 \
+    type 4x4 sleep 0.4 press Down release Down sleep 0.2 \
+    press Return release Return sleep 1.5 shot type444.png
+
+# Per-session scramble type (M4): the index file is ground truth for this
+# feature — screenshots go stale (trap 2), so pair every switch with jq.
+jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
+    ~/.local/share/cstimer-gtk/sessions/_index.json
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …

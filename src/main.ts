@@ -319,9 +319,30 @@ app.on('activate', () => {
 
   const typeSelect = createScrambleTypeSelect({
     initialType: SCRAMBLE_DEFAULT_TYPE,
-    onChange: (type) => feed.setType(type),
+    onChange: (type) => {
+      feed.setType(type)
+      // The choice belongs to the active session — a switch restores it
+      // (below); setScrambleType's `retyped` event rides the index
+      // subscription from the top of this function.
+      library.setScrambleType(library.activeId, type)
+    },
   })
   header.packStart(typeSelect.widget)
+
+  /**
+   * Scramble type is per session: switching applies the new active
+   * session's type to the dropdowns and the feed (absent = the default
+   * type, which the feed is already on — nothing moves, no regeneration).
+   * Unknown ids from a hand-edited index are ignored by selectType.
+   */
+  const applySessionType = (id: string): void => {
+    const type = library.find(id)?.scrambleType ?? SCRAMBLE_DEFAULT_TYPE
+    if (type !== feed.state.type && typeSelect.selectType(type)) feed.setType(type)
+  }
+  library.subscribe((change) => {
+    if (change.kind === 'switched') applySessionType(change.id)
+  })
+  applySessionType(library.activeId) // startup: a stored type beats the default
 
   const refreshScramble = new Gtk.Button({
     iconName: 'view-refresh-symbolic',

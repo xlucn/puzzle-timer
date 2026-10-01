@@ -110,6 +110,42 @@ describe('store — the index', () => {
     expect(store.loadIndex().activeId).toBe('default')
   })
 
+  it('round-trips each session scramble type, dropping bad values', () => {
+    store.saveIndex(
+      [
+        { id: 'default', name: 'Default' },
+        { id: 'four', name: '4x4 practice', scrambleType: '444wca' },
+      ],
+      'four',
+    )
+
+    expect(store.loadIndex().sessions).toEqual([
+      { id: 'default', name: 'Default' },
+      { id: 'four', name: '4x4 practice', scrambleType: '444wca' },
+    ])
+
+    // The index is hand-editable: a non-string or empty type must not
+    // reach the dropdowns, while the entry itself stays listed.
+    writeFile(
+      '_index.json',
+      JSON.stringify({
+        version: 1,
+        active: 'default',
+        sessions: [
+          { id: 'default', name: 'Default' },
+          { id: 'weird', name: 'Weird', scrambleType: 42 },
+          { id: 'blank', name: 'Blank', scrambleType: '' },
+        ],
+      }),
+    )
+
+    expect(store.loadIndex().sessions).toEqual([
+      { id: 'default', name: 'Default' },
+      { id: 'weird', name: 'Weird' },
+      { id: 'blank', name: 'Blank' },
+    ])
+  })
+
   it('skips unreadable entries and says so', () => {
     writeFile(
       '_index.json',
