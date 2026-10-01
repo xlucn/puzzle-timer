@@ -186,6 +186,21 @@ app.on('activate', () => {
   if (loadedPrefs.notice !== null) console.error(`[store] ${loadedPrefs.notice}`)
   let prefs = loadedPrefs.preferences
 
+  // The colour scheme is applied as soon as prefs are known — before the
+  // window is presented — so the very first paint is already right. On the
+  // default StyleManager, ColorScheme.DEFAULT follows the system (light
+  // fallback); FORCE_LIGHT / FORCE_DARK ignore it entirely.
+  const applyColorScheme = (scheme: Preferences['colorScheme']): void => {
+    Adw.StyleManager.getDefault().setColorScheme(
+      scheme === 'dark'
+        ? Adw.ColorScheme.FORCE_DARK
+        : scheme === 'light'
+          ? Adw.ColorScheme.FORCE_LIGHT
+          : Adw.ColorScheme.DEFAULT,
+    )
+  }
+  applyColorScheme(prefs.colorScheme)
+
   const toastOverlay = new Adw.ToastOverlay()
 
   /**
@@ -573,6 +588,7 @@ app.on('activate', () => {
     store.savePreferences(prefs)
 
     if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
+    if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
     if ('inspection' in patch) {
       // setState does not re-activate the action, so this cannot loop back
       // into the handler above.

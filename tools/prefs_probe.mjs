@@ -60,24 +60,34 @@ app.on('activate', () => {
   const dialog = open()
 
   dialog.on('map', () => {
-    // Walk the built dialog: page → group → rows.
+    // Walk the built dialog: page → group → rows. From the dialog itself, so
+    // rows on pages that are not the visible one are found too.
     const page = dialog.getVisiblePage?.() ?? null
     check(page !== null, 'the dialog has a visible page')
 
-    const hold = findRow(page, 'Hold time')
+    const hold = findRow(dialog, 'Hold time')
     check(hold !== null, 'found the Hold time SpinRow')
     if (hold !== null) {
       check(Math.abs(hold.value - 0.3) < 1e-9, `opens on the stored 0.30 s (got ${hold.value})`)
       hold.value = 0.55 // a user step / typed value
     }
 
-    const inspection = findRow(page, 'WCA inspection')
+    const inspection = findRow(dialog, 'WCA inspection')
     check(inspection !== null, 'found the WCA inspection SwitchRow')
     if (inspection !== null) inspection.setActive(false)
 
-    const cues = findRow(page, 'Inspection sound cues')
+    const cues = findRow(dialog, 'Inspection sound cues')
     check(cues !== null, 'found the sound cues SwitchRow')
     if (cues !== null) check(cues.getActive() === true, 'cues start ON (default)')
+
+    // Appearance: the ComboRow exists (setExpression survived — the property
+    // path would have aborted the process) and opens on the stored scheme.
+    const theme = findRow(dialog, 'Theme')
+    check(theme !== null, 'found the Theme ComboRow (setExpression did not abort)')
+    if (theme !== null) {
+      check(theme.selected === 0, `opens on "Follow system" (got ${theme.selected})`)
+      theme.selected = 2 // "Dark"
+    }
 
     // Let the notify emissions settle, then read back the merged state.
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 100, () => {      check(
@@ -91,6 +101,11 @@ app.on('activate', () => {
       check(prefs.holdThresholdMs === 550, 'the merged preference holds 550 ms')
       check(prefs.inspection === false, 'the merged preference has inspection off')
       check(prefs.inspectionSound === true, 'untouched fields survive the merge')
+      check(
+        patches.some((p) => p.colorScheme === 'dark'),
+        `the ComboRow reported the colour scheme (${JSON.stringify(patches)})`,
+      )
+      check(prefs.colorScheme === 'dark', 'the merged preference is dark')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
       app.quit()

@@ -25,8 +25,11 @@ import {
   HOLD_THRESHOLD_STEP_MS,
   MAX_HOLD_THRESHOLD_MS,
   MIN_HOLD_THRESHOLD_MS,
+  type ColorScheme,
   type Preferences,
 } from '../core/preferences.js'
+
+import { makeStringExpression } from './stringExpression.js'
 
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
@@ -48,6 +51,13 @@ export interface PreferencesPanelOptions {
    */
   set: (patch: Partial<Preferences>) => void
 }
+
+/** The colour-scheme choices, in the order the ComboRow lists them. */
+const COLOR_SCHEME_CHOICES: { id: ColorScheme; label: string }[] = [
+  { id: 'system', label: 'Follow system' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+]
 
 export function createPreferences(options: PreferencesPanelOptions) {
   const open = (): InstanceType<typeof Adw.PreferencesDialog> => {
@@ -103,6 +113,36 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     timerPage.add(timerGroup)
     dialog.add(timerPage)
+
+    // ---- page: appearance ------------------------------------------------
+    // The theming row (M5): libadwaita's StyleManager is application-wide,
+    // so choosing here repaints every window at once — including this one.
+    const appearancePage = new Adw.PreferencesPage({
+      title: 'Appearance',
+      iconName: 'preferences-desktop-appearance-symbolic',
+    })
+    const appearanceGroup = new Adw.PreferencesGroup({ title: 'Colour scheme' })
+
+    const schemeRow = new Adw.ComboRow({
+      title: 'Theme',
+      model: Gtk.StringList.new(COLOR_SCHEME_CHOICES.map((choice) => choice.label)),
+    })
+    // The default label factory needs an expression to read GtkStringObject
+    // (see stringExpression.ts); setExpression() takes it as a positional
+    // argument — the `expression` *property* would abort node-gtk.
+    schemeRow.setExpression(makeStringExpression())
+    schemeRow.selected = Math.max(
+      0,
+      COLOR_SCHEME_CHOICES.findIndex((choice) => choice.id === prefs.colorScheme),
+    )
+    schemeRow.on('notify::selected', () => {
+      const choice = COLOR_SCHEME_CHOICES[schemeRow.selected]
+      if (choice !== undefined) options.set({ colorScheme: choice.id })
+    })
+    appearanceGroup.add(schemeRow)
+
+    appearancePage.add(appearanceGroup)
+    dialog.add(appearancePage)
 
     dialog.present(options.window)
     return dialog
