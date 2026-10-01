@@ -5,6 +5,7 @@ import {
   effectiveMs,
   formatAverage,
   formatFullTimestamp,
+  formatInspection,
   formatSolve,
   formatTime,
   formatTimestamp,
@@ -137,11 +138,17 @@ describe('Timer — lifecycle of one solve', () => {
     const timer = new Timer()
     expect(timer.state).toBe('idle')
     expect(timer.lastResultMs).toBeNull()
-    expect(timer.snapshot(T0)).toEqual({ state: 'idle', elapsedMs: 0, holdProgress: 0 })
+    expect(timer.snapshot(T0)).toEqual({
+      state: 'idle',
+      elapsedMs: 0,
+      holdProgress: 0,
+      inspectionMs: 0,
+      penalty: undefined,
+    })
   })
 
   it('runs a full hold → ready → release → stop cycle', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     const solved = vi.fn()
     timer.onSolved(solved)
 
@@ -167,12 +174,12 @@ describe('Timer — lifecycle of one solve', () => {
     expect(timer.state).toBe('stopped')
     expect(timer.lastResultMs).toBe(2_000)
     expect(solved).toHaveBeenCalledTimes(1)
-    expect(solved).toHaveBeenCalledWith(2_000)
+    expect(solved).toHaveBeenCalledWith(2_000, undefined)
     expect(timer.snapshot(T0 + 2_320).elapsedMs).toBe(2_000)
   })
 
   it('cancels when the start key is released before the threshold', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     const solved = vi.fn()
     timer.onSolved(solved)
 
@@ -186,7 +193,7 @@ describe('Timer — lifecycle of one solve', () => {
 
   it('still starts when released just after the threshold, without a tick', () => {
     // The UI may not have ticked between press and release.
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.keyUp('space', T0 + 450)
     expect(timer.state).toBe('running')
@@ -194,7 +201,7 @@ describe('Timer — lifecycle of one solve', () => {
   })
 
   it('moves holding → ready on update once the threshold passes', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.update(T0 + 299)
     expect(timer.state).toBe('holding')
@@ -205,7 +212,7 @@ describe('Timer — lifecycle of one solve', () => {
 
 describe('Timer — keyboard auto-repeat', () => {
   it('ignores repeated presses of a key that is still held', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.keyDown('space', T0 + 50) // auto-repeat while held
     timer.keyDown('space', T0 + 100) // auto-repeat again
@@ -217,7 +224,7 @@ describe('Timer — keyboard auto-repeat', () => {
   })
 
   it('does not stop a running solve twice on a repeated press', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     const solved = vi.fn()
     timer.onSolved(solved)
 
@@ -235,7 +242,7 @@ describe('Timer — keyboard auto-repeat', () => {
   })
 
   it('accepts a fresh press of the same key after its release', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.keyUp('space', T0 + 350) // running
     timer.keyDown('space', T0 + 900) // stops
@@ -249,7 +256,7 @@ describe('Timer — keyboard auto-repeat', () => {
 
 describe('Timer — which keys matter', () => {
   it('only the start key arms the timer', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('a', T0)
     expect(timer.state).toBe('idle')
     timer.keyDown('Control_L', T0)
@@ -257,7 +264,7 @@ describe('Timer — which keys matter', () => {
   })
 
   it('any fresh key press stops a running solve', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.update(T0 + 300)
     timer.keyUp('space', T0 + 320)
@@ -268,7 +275,7 @@ describe('Timer — which keys matter', () => {
   })
 
   it('ignores keys pressed while arming', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.keyDown('a', T0 + 50)
     expect(timer.state).toBe('holding')
@@ -279,7 +286,7 @@ describe('Timer — which keys matter', () => {
   })
 
   it('ignores a release that was never preceded by a press', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyUp('space', T0 + 10)
     expect(timer.state).toBe('idle')
   })
@@ -287,7 +294,7 @@ describe('Timer — which keys matter', () => {
 
 describe('Timer — repeated solves', () => {
   it('keeps the previous result visible while arming the next solve', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.update(T0 + 300)
     timer.keyUp('space', T0 + 320)
@@ -301,7 +308,7 @@ describe('Timer — repeated solves', () => {
   })
 
   it('reports each solve exactly once', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     const solved = vi.fn()
     timer.onSolved(solved)
 
@@ -317,13 +324,13 @@ describe('Timer — repeated solves', () => {
     timer.keyUp('space', 1_820)
     timer.keyDown('y', 2_820)
     expect(solved).toHaveBeenCalledTimes(2)
-    expect(solved).toHaveBeenNthCalledWith(2, 1_000)
+    expect(solved).toHaveBeenNthCalledWith(2, 1_000, undefined)
   })
 })
 
 describe('Timer — subscriptions', () => {
   it('emits on transitions but not on idle updates', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     const listener = vi.fn()
     timer.subscribe(listener)
 
@@ -336,6 +343,8 @@ describe('Timer — subscriptions', () => {
       state: 'holding',
       elapsedMs: 0,
       holdProgress: 0,
+      inspectionMs: 0,
+      penalty: undefined,
     })
 
     timer.update(T0 + 100) // progress changed
@@ -356,7 +365,7 @@ describe('Timer — subscriptions', () => {
   })
 
   it('reset clears the last result and any held keys', () => {
-    const timer = new Timer({ holdThresholdMs: 300 })
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.keyDown('space', T0)
     timer.update(T0 + 300)
     timer.keyUp('space', T0 + 320)
@@ -371,5 +380,174 @@ describe('Timer — subscriptions', () => {
     // A stale release must not start the timer after a reset.
     timer.keyUp('space', T0 + 2_100)
     expect(timer.state).toBe('idle')
+  })
+})
+
+describe('formatInspection', () => {
+  it('counts 15…1 down, then +2, then DNF', () => {
+    expect(formatInspection(0)).toBe('15')
+    expect(formatInspection(1)).toBe('15')
+    expect(formatInspection(1_000)).toBe('14')
+    expect(formatInspection(14_999)).toBe('1')
+    expect(formatInspection(15_000)).toBe('+2')
+    expect(formatInspection(16_999)).toBe('+2')
+    expect(formatInspection(17_000)).toBe('DNF')
+    expect(formatInspection(40_000)).toBe('DNF')
+  })
+
+  it('clamps clock wobble below zero to the full count', () => {
+    expect(formatInspection(-5)).toBe('15')
+  })
+})
+
+describe('Timer — WCA inspection', () => {
+  /** Arm and release Space; returns the instant the countdown starts. */
+  const startInspection = (timer: Timer, at: number): number => {
+    timer.keyDown('space', at)
+    timer.keyUp('space', at + 400) // held ≥ 300 ms → release
+    expect(timer.state).toBe('inspecting')
+    return at + 400
+  }
+
+  it('the first release begins an inspection, not a solve', () => {
+    const timer = new Timer() // inspection starts ON in the app
+    const t0 = startInspection(timer, T0)
+    expect(timer.snapshot(t0).inspectionMs).toBe(0)
+    expect(timer.snapshot(t0 + 2_500).inspectionMs).toBe(2_500)
+    expect(timer.snapshot(t0 + 2_500).penalty).toBeUndefined()
+  })
+
+  it('ignores other keys, and Esc cancels so the next hold inspects from zero', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.keyDown('q', t0 + 1_000)
+    expect(timer.state).toBe('inspecting')
+
+    timer.keyDown('escape', t0 + 9_000)
+    expect(timer.state).toBe('idle')
+    expect(timer.snapshot(t0 + 9_000).inspectionMs).toBe(0)
+
+    const t1 = startInspection(timer, t0 + 10_000)
+    expect(timer.snapshot(t1).inspectionMs).toBe(0)
+  })
+
+  it('fires the 8 s and 12 s cues once each, in order', () => {
+    const timer = new Timer()
+    const cues: string[] = []
+    timer.onCue((cue) => cues.push(cue))
+    const t0 = startInspection(timer, T0)
+
+    timer.update(t0 + 7_999)
+    expect(cues).toEqual([])
+    timer.update(t0 + 8_000)
+    expect(cues).toEqual(['8s'])
+    timer.update(t0 + 11_999)
+    expect(cues).toEqual(['8s'])
+    timer.update(t0 + 12_000)
+    expect(cues).toEqual(['8s', '12s'])
+    timer.update(t0 + 40_000) // a late tick must not repeat either cue
+    expect(cues).toEqual(['8s', '12s'])
+  })
+
+  it('a jump past both thresholds fires both cues in one update', () => {
+    const timer = new Timer()
+    const cues: string[] = []
+    timer.onCue((cue) => cues.push(cue))
+    const t0 = startInspection(timer, T0)
+
+    timer.update(t0 + 13_000)
+    expect(cues).toEqual(['8s', '12s'])
+  })
+
+  it('grades the run by the inspection age at start (WCA limits)', () => {
+    const cases: Array<[number, 'plus2' | 'dnf' | undefined]> = [
+      [14_999, undefined],
+      [15_000, 'plus2'],
+      [16_999, 'plus2'],
+      [17_000, 'dnf'],
+    ]
+    for (const [elapsed, penalty] of cases) {
+      const timer = new Timer()
+      const solved = vi.fn()
+      timer.onSolved(solved)
+      const t0 = startInspection(timer, T0)
+      const releaseAt = t0 + elapsed
+
+      timer.keyDown('space', releaseAt - 350)
+      timer.keyUp('space', releaseAt)
+      expect(timer.state).toBe('running')
+      expect(timer.snapshot(releaseAt).penalty).toBe(penalty)
+
+      timer.keyDown('q', releaseAt + 2_000)
+      expect(solved).toHaveBeenCalledWith(2_000, penalty)
+    }
+  })
+
+  it('the stopped readout carries the grade until the next hold', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+    const releaseAt = t0 + 15_000
+    timer.keyDown('space', releaseAt - 350)
+    timer.keyUp('space', releaseAt)
+    timer.keyDown('q', releaseAt + 1_500)
+
+    expect(timer.state).toBe('stopped')
+    expect(timer.snapshot(releaseAt + 1_500).penalty).toBe('plus2')
+
+    timer.keyDown('space', releaseAt + 2_000) // arming the next solve
+    expect(timer.snapshot(releaseAt + 2_000).penalty).toBeUndefined()
+
+    timer.reset(releaseAt + 3_000)
+    expect(timer.snapshot(releaseAt + 3_000)).toEqual({
+      state: 'idle',
+      elapsedMs: 0,
+      holdProgress: 0,
+      inspectionMs: 0,
+      penalty: undefined,
+    })
+  })
+
+  it('an early release during the inspection hold returns to the running countdown', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.keyDown('space', t0 + 5_000)
+    timer.keyUp('space', t0 + 5_100) // 100 ms < threshold: cancel the hold only
+    expect(timer.state).toBe('inspecting')
+    expect(timer.snapshot(t0 + 5_100).inspectionMs).toBe(5_100) // not reset
+  })
+
+  it('inspection off: release starts the run directly, with no grade', () => {
+    const timer = new Timer({ inspection: false })
+    expect(timer.inspectionEnabled).toBe(false)
+
+    timer.keyDown('space', T0)
+    timer.keyUp('space', T0 + 400)
+    expect(timer.state).toBe('running')
+    expect(timer.snapshot(T0 + 400).inspectionMs).toBe(0)
+    expect(timer.snapshot(T0 + 400).penalty).toBeUndefined()
+  })
+
+  it('toggling off mid-countdown cancels it; off mid-hold drops the grade', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.setInspection(false, t0 + 5_000)
+    expect(timer.state).toBe('idle')
+    expect(timer.snapshot(t0 + 5_000).inspectionMs).toBe(0)
+
+    // Re-enable: the next release inspects from zero again.
+    timer.setInspection(true, t0 + 6_000)
+    const t1 = startInspection(timer, t0 + 7_000)
+
+    // Now toggle off while the run is already armed inside the countdown:
+    // the hold survives, the release starts an ungraded run.
+    timer.keyDown('space', t1 + 1_000)
+    timer.setInspection(false, t1 + 1_100)
+    expect(timer.state).toBe('holding')
+    timer.keyUp('space', t1 + 1_500)
+    expect(timer.state).toBe('running')
+    expect(timer.snapshot(t1 + 1_500).penalty).toBeUndefined()
   })
 })

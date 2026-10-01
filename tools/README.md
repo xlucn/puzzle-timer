@@ -144,6 +144,15 @@ read `$DISPLAY`):
    broken this way), and without the handback every run left the user's
    keystrokes going to the app under test.
 
+   Note what `hold KEY SECS` means: press and **keep holding** for SECS — it
+   does not release (only `tap` does). Pair it with an explicit `release KEY`,
+   or use `press`/`sleep`/`release` for anything that arms the timer (e.g. the
+   WCA inspection hold). A run that ends with Space still held makes every
+   later shot in it show the same frozen `ready` frame — and the exit safety
+   then releases the key *after* the screenshots, silently starting whatever
+   the pending release was supposed to start (cost a whole verification round,
+   2026-10-02: two "identical" frames and a mystery leftover inspection).
+
 6. **HiDPI: screenshot pixels are physical, widget sizes are logical.** This
    machine runs the X11 session at scale 2 (`Xft.dpi: 192` = 96 × 2). The
    screen itself follows the monitor — 3456×2160 during M2, 5120×2880 after

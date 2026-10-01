@@ -152,6 +152,20 @@ export function formatFullTimestamp(epochMs: number): string {
   return `${date} ${clock}`
 }
 
+/**
+ * WCA inspection readout: counts 15…1 (seconds left before the +2 zone),
+ * then "+2" from 15 s, then "DNF" from 17 s — the same limits the timer
+ * applies when the solve actually starts (core/timer.ts). `elapsedMs` is
+ * seconds since inspection began; negative input (clock wobble) clamps to
+ * the full count.
+ */
+export function formatInspection(elapsedMs: number): string {
+  if (elapsedMs >= 17_000) return 'DNF'
+  if (elapsedMs >= 15_000) return '+2'
+  const remaining = Math.ceil((15_000 - Math.max(0, elapsedMs)) / 1000)
+  return String(Math.min(15, remaining))
+}
+
 export function formatTime(ms: number, options: FormatOptions = {}): string {
   const useMs = options.useMs ?? false
 

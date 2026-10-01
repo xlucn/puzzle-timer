@@ -192,6 +192,31 @@ describe('Session — penalties', () => {
     expect(session.setPenalty(99, 'dnf')).toBeNull()
     expect(session.setPenalty(99, undefined)).toBeNull()
   })
+
+  it('stores a penalty that arrives with the solve itself (inspection)', () => {
+    const session = new Session([stored(1)])
+
+    const solve = session.add({
+      timeMs: 4_790,
+      scramble: "R U R'",
+      scrambleType: '333',
+      createdAtMs: 1_700_000_000_000,
+      penalty: 'dnf',
+    })
+
+    expect(solve.id).toBe(2)
+    expect(solve.penalty).toBe('dnf')
+    expect(session.find(2)?.penalty).toBe('dnf')
+
+    // OK is still "absent" — no penalty key gets written for a clean solve.
+    const clean = session.add({
+      timeMs: 5_010,
+      scramble: "U2 F'",
+      scrambleType: '333',
+      createdAtMs: 1_700_000_001_000,
+    })
+    expect('penalty' in clean).toBe(false)
+  })
 })
 
 describe('Session — comments', () => {

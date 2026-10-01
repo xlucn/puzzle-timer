@@ -48,6 +48,7 @@ import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core
 import { SessionLibrary } from './core/sessionLibrary.js'
 import type { Penalty } from './core/time.js'
 import { Timer, type TimerState } from './core/timer.js'
+import { playInspectionCue } from './platform/audio.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
@@ -95,6 +96,9 @@ const MODIFIER_KEYVALS = new Set<number>(
  */
 function keyId(keyval: number): string | null {
   if (MODIFIER_KEYVALS.has(keyval)) return null
+  // Escape by name: the core cancels an inspection on it (everything else
+  // reaches the timer as its raw keyval, which is stable but unreadable).
+  if (keyval === Gdk.KEY_Escape) return 'escape'
   return keyval === Gdk.KEY_space ? START_KEY : String(keyval)
 }
 
@@ -331,17 +335,23 @@ app.on('activate', () => {
   // read before advance(), which swaps in the pre-generated one — and then
   // the feed promotes that scramble and warms the one after it, so the next
   // solve never waits on the scrambler. `scramble` is null only while the
-  // very first one is still generating; record the solve anyway.
-  timer.onSolved((elapsedMs) => {
+  // very first one is still generating; record the solve anyway. The
+  // penalty comes from the timer: an inspection that ran past 15 s (or
+  // 17 s) starts the run graded +2 / DNF.
+  timer.onSolved((elapsedMs, penalty) => {
     const { scramble, type } = feed.state
     activeSession().add({
       timeMs: elapsedMs,
       scramble: scramble ?? '',
       scrambleType: type,
       createdAtMs: Date.now(),
+      penalty,
     })
     feed.advance()
   })
+
+  // WCA acoustic signals: one beep at 8 s, two at 12 s (core decides when).
+  timer.onCue((cue) => playInspectionCue(cue))
 
   // ---- content: header, scramble, centered timer -------------------------
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
@@ -374,8 +384,10 @@ app.on('activate', () => {
   const render = () => timerView.render(timer.snapshot(nowMs()))
 
   // The 16 ms tick only runs while it has something to show: a hold in
-  // progress, or a solve being timed. Everywhere else the display is static.
-  const needsTick = (state: TimerState) => state === 'holding' || state === 'running'
+  // progress, an inspection counting down, or a solve being timed.
+  // Everywhere else the display is static.
+  const needsTick = (state: TimerState) =>
+    state === 'holding' || state === 'inspecting' || state === 'running'
   let tickId = 0
 
   const ensureTicking = () => {
@@ -482,11 +494,20 @@ app.on('activate', () => {
 
   // WCA inspection toggle (M4): the menu check item's state lives here —
   // memory only until M5's preferences (user call, 2026-10-01) — and starts
-  // ON so the feature is live on launch. Stage 5 wires the timer to
-  // `notify::state`; for now the action only remembers.
+  // ON so the feature is live on launch. activate hands the new value
+  // straight to the timer (which cancels a running inspection if the toggle
+  // goes off mid-countdown).
+  //
+  // The parameter type MUST be null: this is a plain toggle, activated by
+  // Ctrl+I and the menu check item with no argument. Declaring 'b' instead
+  // makes GTK refuse those no-argument activations outright — warning
+  // "Trying to invoke action without arguments, but action expects
+  // parameter with type 'b'" and a silently dead toggle (user-caught,
+  // 2026-10-02). Parameterized actions are fine with a type — see
+  // sessionSwitch in sessionMenu.ts, whose items carry their target.
   const inspectionAction = Gio.SimpleAction.newStateful(
     'inspection',
-    GLib.VariantType.new('b'),
+    null,
     GLib.Variant.newBoolean(true),
   )
   inspectionAction.on('activate', () => {
@@ -494,6 +515,7 @@ app.on('activate', () => {
     // always has one, and "no state" would read as off anyway.
     const next = !(inspectionAction.getState()?.getBoolean() ?? false)
     inspectionAction.setState(GLib.Variant.newBoolean(next))
+    timer.setInspection(next, nowMs())
   })
   app.addAction(inspectionAction)
   app.setAccelsForAction('app.inspection', ['<Control>i'])

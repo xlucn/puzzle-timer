@@ -107,9 +107,12 @@ export class Session {
   add(solve: NewSolve): Solve {
     // Explicit fields, id first: the session file is meant to be readable
     // (and hand-editable), and NewSolve omits `id` at the type level -- so
-    // don't let a runtime spread smuggle one in either.
-    const { timeMs, scramble, scrambleType, createdAtMs } = solve
+    // don't let a runtime spread smuggle one in either. `penalty` is
+    // optional and only written when present (an inspection DNF/+2 arrives
+    // with the solve itself; OK is still "absent").
+    const { timeMs, scramble, scrambleType, createdAtMs, penalty } = solve
     const stored: Solve = { id: this.nextId++, timeMs, scramble, scrambleType, createdAtMs }
+    if (penalty !== undefined) stored.penalty = penalty
     this.items.push(stored)
     this.emit({ kind: 'added', solve: stored, position: this.items.length - 1 })
     return stored

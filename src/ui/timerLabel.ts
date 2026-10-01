@@ -9,8 +9,8 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
-import type { TimerSnapshot, TimerState } from '../core/timer.js'
-import { formatTime } from '../core/time.js'
+import { INSPECTION_DNF_MS, type TimerSnapshot, type TimerState } from '../core/timer.js'
+import { formatInspection, formatSolve, formatTime } from '../core/time.js'
 import type { createStatsStrip } from './statsStrip.js'
 
 /**
@@ -36,6 +36,10 @@ styles.add(`
   .timer-display.state-ready    { color: @success_color; }
   .timer-display.state-running  { color: @window_fg_color; }
   .timer-display.state-stopped  { color: @window_fg_color; }
+  /* Inspection: orange while counting down (and in the +2 window), red once
+     the solve is doomed (≥ 17 s → the readout spells DNF). */
+  .timer-display.state-inspecting          { color: @warning_color; }
+  .timer-display.state-inspecting.expired  { color: @error_color; }
 
   .timer-hint {
     font-size: 15px;
@@ -47,6 +51,7 @@ const HINTS: Record<TimerState, string> = {
   idle: 'Hold Space to start',
   holding: 'Keep holding…',
   ready: 'Release to start',
+  inspecting: 'Inspection — Space starts, Esc cancels',
   running: 'Press any key to stop',
   stopped: 'Hold Space for next solve',
 }
@@ -88,8 +93,21 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
     widget,
     /** Redraw for a new snapshot. */
     render(snapshot: TimerSnapshot) {
-      label.setLabel(formatTime(snapshot.elapsedMs))
-      label.setCssClasses(['timer-display', `state-${snapshot.state}`])
+      // Inspection counts down (then +2 / DNF); a stopped solve shows its
+      // graded result — `formatSolve` adds the "+" or prints DNF, so the
+      // readout always matches what the list will record.
+      const text =
+        snapshot.state === 'inspecting'
+          ? formatInspection(snapshot.inspectionMs)
+          : snapshot.state === 'stopped' && snapshot.penalty !== undefined
+            ? formatSolve(snapshot.elapsedMs, snapshot.penalty)
+            : formatTime(snapshot.elapsedMs)
+      const classes = ['timer-display', `state-${snapshot.state}`]
+      if (snapshot.state === 'inspecting' && snapshot.inspectionMs >= INSPECTION_DNF_MS) {
+        classes.push('expired')
+      }
+      label.setLabel(text)
+      label.setCssClasses(classes)
       hint.setLabel(HINTS[snapshot.state])
     },
   }
