@@ -60,7 +60,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm run dev` — start app with CSS hot-reload
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
-- `npm test` — run Vitest on `src/core/`
+- `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
+  (96 tests as of M3 — timer, session, sessionLibrary, scramble, store)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
@@ -71,6 +72,10 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   screenshots each; the app must be running on X11
   (`GDK_BACKEND=x11 npm start`).
 - `python3 tools/xtest.py --help` — scripted key injection + capture.
+- Session UI by keyboard (M3's real accelerators — no clicking needed):
+  `<Ctrl+S>` opens the session menu (focus starts on its **first** item, so
+  `Down`+`Return` picks the second session), `<Ctrl+N>` new, `F2` rename,
+  `<Ctrl>Delete` delete.
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
 - **Hand interactive testing over early.** "There is too much time debugging

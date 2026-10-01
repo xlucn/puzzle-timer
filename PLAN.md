@@ -201,7 +201,7 @@ desktop); node-gtk wins on capability for this app's dependencies. The pure
 | Segfaults in custom widget subclassing | Stock widgets + CSS only (rule 5) |
 | Cairo toy text API broken (`textExtents` returns `{}`) | Pango / `Gtk.Label` (rule 6) |
 | GStreamer unref issue | Audio isolated in `platform/audio.ts`; `pw-play` subprocess fallback |
-| Memory consumption report | Check RSS around M3 (thousands of records) |
+| Memory consumption report | **Checked at M3** (see §6): 10 000 solves cost ≈ +26 MB, scrolling adds nothing |
 | Single maintainer / per-Node ABI prebuilds | Pure `core/` keeps a runtime swap cheap |
 | Key events eaten by the focused widget (found in M0: the header `MenuButton` swallowed Space, so the timer never saw it) | `EventControllerKey` in **CAPTURE** phase on the window |
 | `@dim_label_color` silently renders white in GTK4/libadwaita (found in M0: dim text was invisible) | Dim text with `alpha(@window_fg_color, 0.55)`; stick to `@window_fg_color`, `@success_color`, `@error_color`, `@warning_color` |
@@ -338,6 +338,67 @@ Evidence:
   revealing (`2 selected`) then collapsing again once a rebuild clears the
   selection.
 
+### M3 — landed 2026-10-01
+
+Sessions. Core: `src/core/sessionLibrary.ts` owns the rules — names unique
+case-insensitively, the library is never empty, the last session cannot be
+deleted, `create()` switches to the new session, and a session's **id is its
+file name, which never changes on rename** (22 tests). Storage:
+`sessions/_index.json` + `sessions/<id>.json` under the XDG data dir, ids
+validated `/^[a-z0-9][a-z0-9-]{0,63}$/` before they touch a path, a missing or
+corrupt index rebuilt from the session files on disk — that rebuild *is* the
+M2→M3 migration (`default.json` becomes the `default` session). Solves stay on
+the debounced 250 ms atomic write; the index writes immediately (a crash right
+after a delete must not leave a ghost entry), `flush()` on exit, and
+`deleteSessionFile()` drops a pending write first (16 store tests). UI:
+`src/ui/sessionMenu.ts` — one `Gtk.MenuButton` packed **after the sidebar
+toggle** (`[toggle][session ▾][WCA][3x3x3][refresh] … title …`), its label the
+active session, its `Gio.Menu` a radio-section of sessions plus
+`New session… / Rename… / Delete…`. Name dialogs are `Adw.AlertDialog`s with
+live duplicate validation (accept stays insensitive until the name is usable);
+the delete confirm states the solve count. The sidebar follows the active
+session and retitles itself (`name / N solves`); `main.ts` keeps one cached
+`Session` per id with its own save subscription, so a change to a background
+session still reaches disk — that is what lets an undo toast outlive the
+switch that followed it.
+
+Two findings worth carrying forward: `AdwAlertDialog`'s `default-response`
+makes the accept button the dialog's default widget, which claims focus on
+map — rename's accept is sensitive immediately, so the caret left the entry
+(New only worked because an empty name keeps Create insensitive); the dialog
+re-claims focus (and selects the initial text) on `map`. And the header grew
+its default window to **1080×540**: measured at 900 the header had 660
+logical against ~686 of natural demand, so GTK shrank the session label and
+the window title (the math is in the `setDefaultSize` comment; staying right
+when the window shrinks is M6).
+
+Accelerators (real menu accelerators, GtkMenuButton draws them beside their
+items): `<Ctrl+S>` session menu, `<Ctrl+N>` new, `F2` rename,
+`<Ctrl>Delete` delete — plain Delete stays the solve list's key.
+
+Evidence:
+
+- **96 Vitest tests green** (M2's 58 + 22 sessionLibrary + 16 store);
+  `npm run typecheck` clean.
+- **Every flow driven end-to-end in the running app**, keyboard-only: create
+  (`meet weekly` → id `meet-weekly`), switch (index `active` + header label +
+  sidebar rows all follow), rename via `F2` (typed text *replaced* the old
+  name — the focus fix — and the id stayed `default`), delete (confirm →
+  file gone → active fell to its neighbour), duplicate name (Return produced
+  no accept), and Delete being inert while only one session remains.
+- **Cross-session undo:** deleted a solve in `scratch`, switched to
+  `Default`, clicked Undo — the solve came back in `scratch.json` while
+  `default.json` kept its 9.
+- **Restart-safe:** relaunch restored `active: default`, the name and all 9
+  solves.
+- **Memory (§5 risk row), measured with 10 000 solves via `XDG_DATA_HOME`:**
+  baseline (9 solves) 296.5 MB → 312 MB fresh, 327 MB after recording a
+  solve, **322.6 MB after 15 wheel-scrolls** — ≈ +26 MB for 10k records, and
+  scrolling *releases* rather than accumulates (the ColumnView stays
+  virtualized). Trap for the next one: the store lives at
+  `$XDG_DATA_HOME/cstimer-gtk/sessions/`, one directory deeper than a naive
+  guess — a wrong path silently boots an empty `Default` instead of failing.
+
 ---
 
 ## 7. Session handoff
@@ -345,18 +406,28 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **Next milestone: M3** — sessions: create/rename/switch/delete, per-session
-  lists and stats, header dropdown. (M0, M1 and M2 are landed — see the dated
-  blocks in §6.) M2 left the single session in
-  `~/.local/share/cstimer-gtk/sessions/default.json`, `{version: 1, solves}`
-  — M3 is what gives that file a session list around its solves.
-- **Layout M3 inherits:** the solve list is the **left** sidebar
-  (`sidebarPosition: START`, width clamped 240–320 logical); the sidebar
-  toggle is the content header's first `packStart`, so the header reads
-  `[toggle][WCA][3x3x3][refresh] … title … [menu][window controls]` — M3's
-  session dropdown joins that row and needs a placement call. Adaptive
-  layout (drawer breakpoint, header shedding, width caps) is M6's job, not
-  M3's.
+- **Next milestone: M4** — statistics ported from csTimer's rules (ao5/ao12/
+  mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection
+  with GStreamer beeps. (M0–M3 are landed — see the dated blocks in §6.) The
+  rule for stats is **per-session, always**: M3 made the scope explicit (the
+  sidebar counts only its own session), so `src/core/` is where the averaging
+  math belongs, and csTimer's GPL source may be ported for the *math*, not
+  the DOM (AGENTS.md). M3 shipped count-only stats by agreement — M4 is what
+  turns `9 solves` into ao5/PB.
+- **Layout M3 inherited and left:** the solve list is the **left** sidebar
+  (`sidebarPosition: START`, width clamped 240–320 logical); the header now
+  reads `[toggle][session ▾][WCA][3x3x3][refresh] … title … [menu][window
+  controls]` — the session control sits directly after the toggle (user call),
+  as one menu button holding sessions + actions. The default window grew to
+  **1080×540** so the header renders uncut on start (measured — see the
+  `setDefaultSize` comment in `src/main.ts`). Still M6's, deliberately
+  deferred: long category/type selections (`FTO (Face-Turning Octahedron)`,
+  `last slot + last layer (old)`) can outgrow the header when the window is
+  dragged narrow, the drawer breakpoint, and sidebar width caps.
+- **Keyboard drives the session UI** (useful for testing, shipped as real
+  accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
+  rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`
+  selects a session (the menu focuses its *first* item, not the checked one).
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read
