@@ -1,7 +1,13 @@
 # csTimer GTK
 
-An [Adwaita](https://gnome.pages.gitlab.gnome.org/libadwaita/) application built
-with [node-gtk](https://github.com/romgrk/node-gtk) and TypeScript.
+A native Linux cube timer in the spirit of
+[csTimer](https://www.cstimer.net/): WCA-legal scrambles for 206 puzzle
+types, inspection, sessions, and per-session statistics. Built with GTK 4 +
+libadwaita through [node-gtk](https://github.com/romgrk/node-gtk) and
+TypeScript — no build step in development.
+
+Architecture, decisions and milestone evidence live in [PLAN.md](./PLAN.md);
+project rules in [AGENTS.md](./AGENTS.md).
 
 ## Prerequisites
 
@@ -29,6 +35,25 @@ That's it — a window should appear. Edit `style.css` while it runs and the
 window restyles instantly, no restart. To also restart the app when you edit
 `src/`, run `npm run dev:app-reload` instead (it adds `node --watch`).
 
+## What it does
+
+- **Timer** — hold Space, release to start, stop on the next press; µs-accurate
+  timing and key-repeat safe (the state machine lives in pure TypeScript).
+- **WCA inspection** — the first release starts the 15 s countdown (8 s / 12 s
+  beeps), the second starts the solve, graded `+2` ≥ 15 s and `DNF` ≥ 17 s;
+  Esc cancels. Toggle with `Ctrl+I`.
+- **Scrambles** — 206 types from `cstimer_module`, always generated off the
+  main thread (`worker_threads`) with the next scramble prefetched.
+- **Sessions** — create/rename/switch/delete (`Ctrl+S` menu, `Ctrl+N`, `F2`,
+  `Ctrl+Delete`); every session owns its solve list, statistics **and its
+  current scramble type** (switching restores each one).
+- **Statistics & solves** — ao5/ao12/mo3 with csTimer's trimming rules
+  (DNF-as-∞), bests and a PB target; penalties `+2`/`DNF`, comments, and an
+  edit dialog (`Ctrl+E`, or `Ctrl+1`/`Ctrl+2`/`Ctrl+3` to grade the selected
+  solve directly). `Ctrl+T` opens the full Statistics dialog.
+- **Keyboard first** — every menu and dialog action has an accelerator; the
+  in-app reference is under the sidebar app menu → *Keyboard Shortcuts*.
+
 ## How it works
 
 Namespaces are imported with the `gi:` scheme, and their default export is the
@@ -52,9 +77,41 @@ loop automatically.
 | `npm run dev`            | Run with live CSS reload — edit `style.css`, the window restyles, no restart. |
 | `npm run dev:app-reload` | Like `dev`, but also restarts the app when you edit `src/` (`node --watch`). |
 | `npm start`              | Run once without building.                                        |
-| `npm run build`     | Type-check and compile `src/` to `dist/` with `tsc`.             |
-| `npm run typecheck` | Type-check only, no output.                                      |
-| `npm run generate-types` | (Re)generate TypeScript types for the GI namespaces you use. |
+| `npm test`               | Vitest over `src/core/` and `src/platform/store.test.ts` — no display needed. |
+| `npm run build`          | Type-check and compile `src/` to `dist/` with `tsc`.             |
+| `npm run typecheck`      | Type-check only, no output.                                       |
+| `npm run generate-types` | (Re)generate TypeScript types for the GI namespaces you use.      |
+
+## Testing
+
+- **Unit:** `npm test` — pure-logic tests only (timer state machine, stats
+  math, sessions, scramble feed, store), co-located as `*.test.ts` next to
+  their sources. No display server required.
+- **UI:** [`tools/`](./tools/README.md) — scripted key/click injection
+  (`xtest.py`), a five-state timer walkthrough (`timer_walk.py`) and probes.
+  Run the app on a nested X server (`Xephyr :99`) so synthetic input needs no
+  portal approval and screenshots stay observable — the README documents the
+  traps (stale `XGetImage` frames, duplicate instances, auto-repeat).
+
+## Project structure
+
+```
+.
+├── src/
+│   ├── main.ts          # bootstrap: application, window, header, actions
+│   ├── core/            # ★ pure TypeScript — timer, stats, sessions, scrambles
+│   ├── scramble/        # worker_threads host for cstimer_module
+│   ├── platform/        # Node-only: persistence, CSPRNG, audio out
+│   └── ui/              # GTK widgets — the only place that imports gi:*
+├── tools/               # UI test harness (see tools/README.md)
+├── style.css            # custom CSS (hot-reloads live under `npm run dev`)
+├── PLAN.md              # architecture, decisions, milestone evidence
+├── AGENTS.md            # project rules (auto-loaded by contributing agents)
+├── tsconfig.json
+└── package.json
+```
+
+Tests live beside the code they cover (`src/core/stats.test.ts` …).
 
 ## TypeScript types
 
@@ -76,17 +133,11 @@ re-run it:
 npm run generate-types
 ```
 
-## Project structure
+## License
 
-```
-.
-├── src/
-│   ├── main.ts        # the application entry point
-│   └── welcome.ts     # a component with its own inline, hot-reloadable styles
-├── style.css          # custom CSS (hot-reloads live under `npm run dev`)
-├── tsconfig.json
-└── package.json
-```
+GPL-3.0. Not a preference: this project ports GPL-3.0 code from
+[csTimer](https://github.com/cs0x7f/cstimer) (scramble generation via
+`cstimer_module`, statistics rules) — the About dialog credits both.
 
 ## Learn more
 
