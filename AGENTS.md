@@ -76,6 +76,16 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `<Ctrl+S>` opens the session menu (focus starts on its **first** item, so
   `Down`+`Return` picks the second session), `<Ctrl+N>` new, `F2` rename,
   `<Ctrl>Delete` delete.
+- Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
+  leaves focus on the **session row** (a popover restores focus to its
+  anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`
+  opens it; `Down`+`Return` activates Keyboard Shortcuts), `Shift+Tab`×7 →
+  the sidebar toggle (chain: app menu, scramble text, app-functions ⋮,
+  refresh, type, category) — `Return` closes the sidebar, and `<Ctrl+S>`
+  from that state must reveal it *and* pop the menu (the `ensureVisible`
+  path in `src/ui/sessionMenu.ts`). The shortcuts window is a separate
+  toplevel: find its id with `xwininfo -root -tree | grep "Keyboard
+  Shortcuts"` and `maim -i 0x<id>` to capture it (unmapped ⇒ black).
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
 - **Hand interactive testing over early.** "There is too much time debugging

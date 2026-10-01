@@ -23,9 +23,16 @@
  * M3 scope: sessions. A session list on disk (index + one solve file per
  * session, src/platform/store.ts) around a core SessionLibrary
  * (src/core/sessionLibrary.ts) that can create, rename, switch and delete;
- * the header's session menu (src/ui/sessionMenu.ts) drives it, and the
+ * the sidebar's session menu (src/ui/sessionMenu.ts) drives it, and the
  * sidebar follows whichever session is active. All timing, scramble, session
  * and solve policy live in src/core/, which knows nothing about GTK.
+ *
+ * Layout F (2026-10-01): the sidebar owns the app chrome — its header holds
+ * the app name and the app menu (About / Keyboard Shortcuts / Quit), the
+ * session switch sits under it, and the solve list under that. The content
+ * header keeps only the timer's controls: sidebar toggle, category/type
+ * switchers, refresh, the (currently empty) app-functions menu, and the
+ * window controls.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -45,6 +52,7 @@ import { createScrambleService } from './scramble/service.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
+import { createShortcutsWindow, type ShortcutsWindow } from './ui/shortcuts.js'
 import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
@@ -102,27 +110,32 @@ app.on('activate', () => {
 
   const window = new Adw.ApplicationWindow({ application: app })
   window.setTitle(APP_NAME)
-  // Wide enough for the whole header to render uncut (measured, M3): at 900
-  // the content header is 660 logical against a natural demand of ~686 —
-  // over by ~40, so GTK shrank the session label and the window title. The
-  // sidebar takes clamp(0.25W, 240, 320), so the header is 0.75W here: 1080
-  // → sidebar 270, header 810 ≥ ~760 needed (start 442 + title 90 + end 154,
-  // with a full-length session name). M6 is what makes this *stay* right when
-  // the window is dragged smaller; for now, start wide (user call, 2026-10-01).
-  window.setDefaultSize(1080, 540)
+  // 900×540 again (layout F, 2026-10-01): the content header lost the window
+  // title and the session pill to the sidebar, dropping its natural demand to
+  // ~560 (start: toggle + category/type + refresh; end: app-functions +
+  // window controls). At 900 the sidebar takes its 240 floor (0.25W = 225
+  // clamps up), so the header gets 660 ≥ ~560 — verified uncut after the
+  // change. M6 is what keeps this right when the window is dragged smaller;
+  // for now this is the startup size (user call, 2026-10-01).
+  window.setDefaultSize(900, 540)
 
-  // ---- header bar with a primary menu ----------------------------------
-  const header = new Adw.HeaderBar()
+  // ---- content header: the timer's controls ------------------------------
+  // No title here (layout F, 2026-10-01): the app name is the *sidebar's*
+  // header, and the window title still goes to the taskbar. Dropping it (and
+  // the session pill that used to sit here) is part of what lets the header
+  // render uncut at 900 px — see the setDefaultSize comment above.
+  const header = new Adw.HeaderBar({ showTitle: false })
 
-  const menu = new Gio.Menu()
-  menu.append(`About ${APP_NAME}`, 'app.about')
-  menu.append('Quit', 'app.quit')
-
+  // App functions, packed at the end before the window controls: empty for
+  // now (stats, settings, … arrive with M4+ and go here) — About / Keyboard
+  // Shortcuts / Quit are application-level, so they live in the sidebar's
+  // app menu instead (user call, layout F).
+  const appFunctions = new Gio.Menu()
   header.packEnd(
     new Gtk.MenuButton({
       iconName: 'open-menu-symbolic',
-      menuModel: menu,
-      primary: true,
+      menuModel: appFunctions,
+      tooltipText: 'App functions',
     }),
   )
 
@@ -234,22 +247,43 @@ app.on('activate', () => {
     if (removed.length > 0) offerUndo(target, removed)
   }
 
-  const timesList = createTimesList({
-    library,
-    getSession: activeSession,
-    onDelete: removeSolves,
-  })
-
-  // The header control: current session as the label, every session plus
-  // New / Rename / Delete underneath it — packed after the sidebar toggle,
-  // which opens the list this session owns.
+  // The session control lives in the sidebar (layout F): a full-width row
+  // under the sidebar's header, labeling the list it switches — so it is
+  // built first and handed to createTimesList below. Ctrl+S can arrive while
+  // the sidebar is closed, and a popover cannot anchor to an unmapped
+  // widget: ensureVisible() reveals the sidebar through the toggle (which is
+  // already in both directions sync with the split view), and the menu pops
+  // itself once the button has been mapped.
   const sessionMenu = createSessionMenu({
     library,
     app,
     window,
     getSolveCount: (id) => sessionFor(id).size,
+    ensureVisible: () => sidebarToggle.setActive(true),
   })
-  header.packStart(sessionMenu.widget)
+
+  // The app menu travels with the sidebar's header (layout F): About, the
+  // keyboard reference and Quit — application-level actions, which is what
+  // a primary menu is for.
+  const appMenuModel = new Gio.Menu()
+  appMenuModel.append(`About ${APP_NAME}`, 'app.about')
+  appMenuModel.append('Keyboard Shortcuts', 'app.shortcuts')
+  appMenuModel.append('Quit', 'app.quit')
+  const appMenuButton = new Gtk.MenuButton({
+    iconName: 'open-menu-symbolic',
+    menuModel: appMenuModel,
+    primary: true,
+    tooltipText: 'Main menu',
+  })
+
+  const timesList = createTimesList({
+    library,
+    getSession: activeSession,
+    onDelete: removeSolves,
+    appName: APP_NAME,
+    appMenu: appMenuButton,
+    sessionControl: sessionMenu.widget,
+  })
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
   const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
@@ -409,6 +443,19 @@ app.on('activate', () => {
   const aboutAction = Gio.SimpleAction.new('about', null)
   aboutAction.on('activate', () => showAbout())
   app.addAction(aboutAction)
+
+  // The keyboard reference (src/ui/shortcuts.ts), opened from the sidebar's
+  // app menu. Built lazily and kept: hide-on-close means one window per run,
+  // and a node-gtk failure around Gtk.ShortcutsWindow (if there is one) then
+  // only costs this menu item, not the whole startup path. No accelerator of
+  // its own — the window *is* the accelerator documentation.
+  let shortcutsWindow: ShortcutsWindow | null = null
+  const shortcutsAction = Gio.SimpleAction.new('shortcuts', null)
+  shortcutsAction.on('activate', () => {
+    if (shortcutsWindow === null) shortcutsWindow = createShortcutsWindow(window)
+    shortcutsWindow.present()
+  })
+  app.addAction(shortcutsAction)
 
   // The scramble worker is a thread of this process: drop it before the loop
   // goes, otherwise it outlives the window it was serving. The pending

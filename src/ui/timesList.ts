@@ -21,6 +21,13 @@
  * switch re-points `current` and rebuilds wholesale rather than trying to
  * diff two sessions' rows together.
  *
+ * Layout F (2026-10-01): this sidebar carries the app's top chrome too —
+ * a HeaderBar with the app name and the app menu (About / Keyboard
+ * Shortcuts / Quit), and under it a row with the session switch button
+ * (src/ui/sessionMenu.ts) that names the list below. The content header
+ * keeps the timer's controls: sidebar toggle, category/type switchers,
+ * refresh, and the (currently empty) app-functions menu.
+ *
  * Interaction: clicking a row selects it (Shift/Ctrl-click builds a
  * selection, as GTK does for any multi-selection list), and a toolbar under
  * the list — a stock Gtk.ActionBar, the bottom bar Warehouse and other
@@ -56,6 +63,13 @@ styles.add(`
   /* The footer needs no CSS: Gtk.ActionBar carries its own chrome. */
 `)
 
+/*
+ * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
+ * types come from InstanceType — this module only *places* the chrome it is
+ * handed, so the base Widget type says enough.
+ */
+type Widget = InstanceType<typeof Gtk.Widget>
+
 export interface TimesListOptions {
   /** Whose session is on show: the sidebar always follows the active one. */
   library: SessionLibrary
@@ -70,6 +84,12 @@ export interface TimesListOptions {
    * the batch instead of a queue of toasts.
    */
   onDelete: (solves: readonly Solve[]) => void
+  /** App name, shown as the sidebar header's title. */
+  appName: string
+  /** The app menu (About / Keyboard Shortcuts / Quit), at the header's end. */
+  appMenu: Widget
+  /** The session switch button; a row between the header and the list. */
+  sessionControl: Widget
 }
 
 /**
@@ -166,8 +186,27 @@ export function createTimesList(options: TimesListOptions) {
     vexpand: true,
   })
 
-  const title = new Adw.WindowTitle({ title: 'Solves', subtitle: '' })
+  // ---- sidebar chrome: header, then the session row ----------------------
+  // Layout F: the app name and the app menu are this sidebar's header (the
+  // app's "where am I" column starts with the app itself). Window controls
+  // are not here — GTK puts those in the content header, the first HeaderBar
+  // in the toplevel, which is where they stay.
+  const title = new Adw.WindowTitle({ title: options.appName, subtitle: '' })
   const header = new Adw.HeaderBar({ titleWidget: title, showTitle: true })
+  header.packEnd(options.appMenu)
+
+  // The session switch labels the list below it, so it sits between header
+  // and list as a full-width flat row — not as a third header button (user
+  // call, layout F, 2026-10-01). The margins keep the hover highlight off
+  // the sidebar's edges.
+  const sessionRow = new Gtk.Box({
+    orientation: Gtk.Orientation.HORIZONTAL,
+    marginTop: 4,
+    marginBottom: 4,
+    marginStart: 6,
+    marginEnd: 6,
+  })
+  sessionRow.append(options.sessionControl)
 
   // ---- footer: the actions available on the selected row -----------------
   // Gtk.ActionBar is the stock GTK4 bottom bar — the one Warehouse and other
@@ -209,6 +248,7 @@ export function createTimesList(options: TimesListOptions) {
     cssClasses: ['sidebar'],
   })
   widget.append(header)
+  widget.append(sessionRow)
   widget.append(scroller)
   widget.append(empty)
   widget.append(footer)
@@ -268,12 +308,6 @@ export function createTimesList(options: TimesListOptions) {
     const ids: string[] = []
     for (let i = solves.length - 1; i >= 0; i -= 1) ids.push(String(solves[i].id))
     model.splice(0, model.nItems, ids)
-
-    // The active session's name is this sidebar's title: the header button
-    // says which session is live, and the list under it says the same thing.
-    // The count is that session's alone — stats never mix sessions (M4).
-    title.title = options.library.active.name
-    title.subtitle = solves.length === 0 ? '' : `${solves.length} solve${solves.length === 1 ? '' : 's'}`
     scroller.setVisible(solves.length > 0)
     empty.setVisible(solves.length === 0)
     syncFooter()
@@ -284,9 +318,10 @@ export function createTimesList(options: TimesListOptions) {
   // One listener covers every way the list can change direction. A switch
   // hands it a different Session to read — re-point the subscription first,
   // so the old session's changes stop arriving and the new session's start;
-  // a rename changes only the title. Either way a single rebuild settles it,
-  // and rebuild is idempotent, so a create (which emits created *and*
-  // switched) costs two cheap passes rather than two code paths.
+  // a rename now lands on the session row's own label and needs nothing
+  // here, but the rebuild it triggers is idempotent and cheap. So is a
+  // create (which emits created *and* switched): two passes, not two code
+  // paths.
   options.library.subscribe(() => {
     const next = options.getSession()
     if (next !== current) {

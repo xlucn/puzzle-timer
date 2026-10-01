@@ -1,5 +1,5 @@
 /*
- * sessionMenu.ts — the header's session control (M3).
+ * sessionMenu.ts — the sidebar's session control (M3, layout F).
  *
  * One widget does both jobs (user call, 2026-10-01): a Gtk.MenuButton whose
  * label is the *current* session's name, with a Gio.Menu underneath that
@@ -9,9 +9,12 @@
  * Delete. A dropdown plus a row of separate buttons would have put the same
  * three actions in a second place to hunt for.
  *
- * Placement: packed at the start of the content header, right after the
- * sidebar toggle (user call, 2026-10-01) — the session is *which* list that
- * toggle opens, so the two belong side by side.
+ * Placement (layout F, 2026-10-01): a full-width row in the sidebar, between
+ * the sidebar's header (app name + app menu) and the solve list — it labels
+ * the list below it, so it lives with the list. It is *not* in the content
+ * header anymore, which means Ctrl+S can be pressed while the sidebar is
+ * closed; `ensureVisible` lets the open path reveal the sidebar first,
+ * because a popover cannot anchor to an unmapped widget.
  *
  * Everything here is UI only: dialogs call `library.create/rename/remove`
  * and the library announces the change. Persistence (index write, session
@@ -35,6 +38,12 @@ export interface SessionMenuOptions {
   window: Window
   /** Solve count, for the delete confirmation (may load the session). */
   getSolveCount: (id: string) => number
+  /**
+   * Make this control's host visible (the sidebar). Called by the
+   * Ctrl+S / app.sessionOpen path when the button is off-screen: the caller
+   * only has to reveal the host — the menu pops itself once the button maps.
+   */
+  ensureVisible: () => void
 }
 
 /*
@@ -45,8 +54,8 @@ export interface SessionMenuOptions {
 type Application = InstanceType<typeof Adw.Application>
 type Window = InstanceType<typeof Adw.ApplicationWindow>
 
-/** Longest session name shown in the header before it ellipsizes. */
-const HEADER_NAME_CHARS = 16
+/** Longest session name shown in the sidebar row before it ellipsizes. */
+const SIDEBAR_NAME_CHARS = 20
 
 export function createSessionMenu(options: SessionMenuOptions) {
   const { library, app, window } = options
@@ -126,12 +135,16 @@ export function createSessionMenu(options: SessionMenuOptions) {
 
   // ---- the button --------------------------------------------------------
   // The current session's name *is* the label: an icon would say "a menu is
-  // here" but not "you are solving in Meet weekly". Capped so a long name
-  // ellipsizes instead of pushing the header's title aside.
+  // here" but not "you are solving in Meet weekly". As a full-width sidebar
+  // row the label is left-aligned (xalign 0) and expands, so the arrow sits
+  // at the row's right edge and long names ellipsize at 20 characters instead
+  // of crowding the arrow.
   const label = new Gtk.Label({
     label: library.active.name,
     ellipsize: Pango.EllipsizeMode.END,
-    maxWidthChars: HEADER_NAME_CHARS,
+    maxWidthChars: SIDEBAR_NAME_CHARS,
+    xalign: 0,
+    hexpand: true,
   })
 
   const button = new Gtk.MenuButton({
@@ -140,6 +153,8 @@ export function createSessionMenu(options: SessionMenuOptions) {
     alwaysShowArrow: true,
     tooltipText: 'Session',
     cssClasses: ['flat'],
+    // Span the sidebar; harmless packed size anywhere else.
+    hexpand: true,
   })
 
   // ---- actions -----------------------------------------------------------
@@ -218,7 +233,24 @@ export function createSessionMenu(options: SessionMenuOptions) {
   // without aiming a pointer at a moving button (see tools/README.md: synthetic
   // clicks fight the physical mouse).
   const openAction = Gio.SimpleAction.new('sessionOpen', null)
-  openAction.on('activate', () => (button.active ? button.popdown() : button.popup()))
+  openAction.on('activate', () => {
+    if (button.active) {
+      button.popdown()
+      return
+    }
+    if (button.getMapped()) {
+      button.popup()
+      return
+    }
+    // The control lives in the sidebar (layout F): with the sidebar closed
+    // it has no on-screen anchor, and a popover cannot anchor to an
+    // unmapped widget. Connect the map listener *first* (a reveal cannot
+    // map anything before ensureVisible() returns, but ordering it this way
+    // costs nothing), then reveal the sidebar; the menu pops on the frame
+    // the button lands on.
+    button.once('map', () => button.popup())
+    options.ensureVisible()
+  })
   app.addAction(openAction)
 
   app.setAccelsForAction('app.sessionOpen', ['<Ctrl>S'])

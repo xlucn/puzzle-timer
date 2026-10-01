@@ -83,6 +83,7 @@ OPS_HELP = """command list, executed in order:
                         opened it -- GTK unmaps it when focus goes)
 
 Key names are X keysym names: space, Return, Escape, a, z, F5, ...
+Keys may carry modifier prefixes: ctrl+2, shift+F5, ctrl+shift+a.
 """
 
 
@@ -389,6 +390,28 @@ class App:
         return w.value, h.value
 
     # -- keys --------------------------------------------------------------
+    # Modifier prefixes a key spec may carry: `tap ctrl+2`, `press shift+F5`.
+    # Matched as whole words so a literal `+` key (`tap plus`) stays a key.
+    MOD_PREFIXES = {
+        "ctrl": "Control_L",
+        "control": "Control_L",
+        "shift": "Shift_L",
+        "alt": "Alt_L",
+        "super": "Super_L",
+        "meta": "Super_L",
+    }
+
+    def _split_mods(self, spec: str) -> tuple[list[str], str]:
+        """Peel modifier prefixes off a key spec: 'ctrl+shift+a' → mods, 'a'."""
+        mods: list[str] = []
+        while True:
+            prefix, sep, rest = spec.partition("+")
+            name = self.MOD_PREFIXES.get(prefix.lower())
+            if not sep or name is None or not rest:
+                return mods, spec
+            mods.append(name)
+            spec = rest
+
     def keycode(self, key: str) -> int:
         keysym = self.x11.XStringToKeysym(key.encode())
         if keysym == 0:
@@ -402,14 +425,22 @@ class App:
         return code
 
     def press(self, key: str):
+        mods, key = self._split_mods(key)
+        for mod in mods:
+            self.xtst.XTestFakeKeyEvent(self.d, self.keycode(mod), 1, 0)
+            self._held.add(mod)  # released by close() unless paired
         self.xtst.XTestFakeKeyEvent(self.d, self.keycode(key), 1, 0)
         self.x11.XFlush(self.d)
         self._held.add(key)  # released by close() unless paired
 
     def release(self, key: str):
+        mods, key = self._split_mods(key)
         self.xtst.XTestFakeKeyEvent(self.d, self.keycode(key), 0, 0)
-        self.x11.XFlush(self.d)
         self._held.discard(key)
+        for mod in reversed(mods):  # modifiers come off after the key
+            self.xtst.XTestFakeKeyEvent(self.d, self.keycode(mod), 0, 0)
+            self._held.discard(mod)
+        self.x11.XFlush(self.d)
 
     def hold(self, key: str, seconds: float):
         """Press and keep holding — for states that only exist while held."""

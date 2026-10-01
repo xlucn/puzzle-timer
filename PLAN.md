@@ -106,8 +106,11 @@ src/
      auto-collapsing on narrow windows.
    - Center column: scramble text (monospace, selectable) → big timer →
      ao5/ao12 label strip.
-   - Header bar: session `Adw.DropDown`, scramble category + type dropdowns,
-     stats button, menu.
+   - Two headers (layout F, 2026-10-01): the **sidebar's** header carries
+     the app name and the app menu (About / Keyboard Shortcuts / Quit),
+     with the session switch as a row under it; the **content** header
+     carries the sidebar toggle, scramble category + type dropdowns,
+     refresh and an app-functions menu (empty until M4+ fills it).
    - Statistics in an `Adw.Dialog`; settings in `Adw.PreferencesDialog`.
    - `Adw.ToastOverlay` for undo ("Solve deleted [Undo]"), `Adw.StatusPage`
      for the empty state.
@@ -414,16 +417,23 @@ Evidence:
   math belongs, and csTimer's GPL source may be ported for the *math*, not
   the DOM (AGENTS.md). M3 shipped count-only stats by agreement — M4 is what
   turns `9 solves` into ao5/PB.
-- **Layout M3 inherited and left:** the solve list is the **left** sidebar
-  (`sidebarPosition: START`, width clamped 240–320 logical); the header now
-  reads `[toggle][session ▾][WCA][3x3x3][refresh] … title … [menu][window
-  controls]` — the session control sits directly after the toggle (user call),
-  as one menu button holding sessions + actions. The default window grew to
-  **1080×540** so the header renders uncut on start (measured — see the
-  `setDefaultSize` comment in `src/main.ts`). Still M6's, deliberately
-  deferred: long category/type selections (`FTO (Face-Turning Octahedron)`,
-  `last slot + last layer (old)`) can outgrow the header when the window is
-  dragged narrow, the drawer breakpoint, and sidebar width caps.
+- **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
+  (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
+  owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
+  session switch is a full-width row under it (its label *is* the current
+  session name), then the list. The content header reads
+  `[toggle][WCA][3x3x3][refresh] … [app-functions ⋮][window controls]` with
+  no title — the app name lives in the sidebar header; the window title still
+  goes to the taskbar. This layout came out of the A–E mockup comparison
+  (`mockups/`, GTK and HTML variants — deleted once F landed in the real
+  app); the default window is back to **900×540**, since the header lost the
+  title and session pill (math in the `setDefaultSize` comment). Still M6's,
+  deliberately deferred: long category/type selections (`FTO (Face-Turning
+  Octahedron)`, `last slot + last layer (old)`) can outgrow the header when
+  the window is dragged narrow, the drawer breakpoint, and sidebar width
+  caps. About / Keyboard Shortcuts / Quit sit in the sidebar app menu —
+  unreachable while the sidebar is closed, which is why `<Ctrl+Q>` stays the
+  quit path that always works.
 - **Keyboard drives the session UI** (useful for testing, shipped as real
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`
