@@ -43,6 +43,7 @@ import Gtk from 'gi:Gtk-4.0'
 import { styles } from 'node-gtk/styles'
 
 import { ScrambleFeed } from './core/scrambleFeed.js'
+import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
 import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core/session.js'
 import { SessionLibrary } from './core/sessionLibrary.js'
@@ -51,6 +52,7 @@ import { Timer, type TimerState } from './core/timer.js'
 import { playInspectionCue } from './platform/audio.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
+import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
@@ -134,12 +136,14 @@ app.on('activate', () => {
   const header = new Adw.HeaderBar({ showTitle: false })
 
   // App functions, packed at the end before the window controls: the
-  // Statistics dialog and the WCA inspection toggle (M4) — settings and the
-  // rest arrive with M5+. About / Keyboard Shortcuts / Quit are
-  // application-level, so they live in the sidebar's app menu instead (user
-  // call, layout F). The toggle is a stateful boolean action, so GTK draws
-  // the checkmark against the action's state itself.
+  // Preferences and Statistics dialogs and the WCA inspection toggle (M5
+  // added Preferences; the dialog itself is src/ui/preferences.ts). About /
+  // Keyboard Shortcuts / Quit are application-level, so they live in the
+  // sidebar's app menu instead (user call, layout F). The toggle is a
+  // stateful boolean action, so GTK draws the checkmark against the
+  // action's state itself.
   const appFunctions = new Gio.Menu()
+  appFunctions.append('Preferences', 'app.preferences')
   appFunctions.append('Statistics', 'app.statistics')
   const appToggles = new Gio.Menu()
   appToggles.append('WCA Inspection', 'app.inspection')
@@ -174,6 +178,13 @@ app.on('activate', () => {
   const index = store.loadIndex()
   if (index.notice !== null) console.error(`[store] ${index.notice}`)
   const library = new SessionLibrary(index.sessions, index.activeId)
+
+  // Settings (M5): one object for the whole run. Every change goes through
+  // applyPreferences() below (defined with the timer wiring), so the file on
+  // disk and the running app can never hold different values.
+  const loadedPrefs = store.loadPreferences()
+  if (loadedPrefs.notice !== null) console.error(`[store] ${loadedPrefs.notice}`)
+  let prefs = loadedPrefs.preferences
 
   const toastOverlay = new Adw.ToastOverlay()
 
@@ -300,7 +311,13 @@ app.on('activate', () => {
   })
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
-  const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
+  // The timer starts on the stored preferences (M5): the hold threshold it
+  // arms on and whether the first release begins an inspection.
+  const timer = new Timer({
+    holdThresholdMs: prefs.holdThresholdMs,
+    startKey: START_KEY,
+    inspection: prefs.inspection,
+  })
   // The ao5/ao12 strip rides under the timer's hint line (M4): same live
   // session reading as the list, so it tracks adds, penalties and switches.
   const statsStrip = createStatsStrip({ library, getSession: activeSession })
@@ -372,7 +389,11 @@ app.on('activate', () => {
   })
 
   // WCA acoustic signals: one beep at 8 s, two at 12 s (core decides when).
-  timer.onCue((cue) => playInspectionCue(cue))
+  // The preference gates them here rather than in the timer — core decides
+  // *when* a cue is due, the app decides whether the user wants to hear it.
+  timer.onCue((cue) => {
+    if (prefs.inspectionSound) playInspectionCue(cue)
+  })
 
   // ---- content: header, scramble, centered timer -------------------------
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
@@ -514,10 +535,10 @@ app.on('activate', () => {
   app.setAccelsForAction('app.statistics', ['<Control>t'])
 
   // WCA inspection toggle (M4): the menu check item's state lives here —
-  // memory only until M5's preferences (user call, 2026-10-01) — and starts
-  // ON so the feature is live on launch. activate hands the new value
-  // straight to the timer (which cancels a running inspection if the toggle
-  // goes off mid-countdown).
+  // seeded from (and written back to) the M5 preferences — activate hands
+  // the new value straight to applyPreferences below, which pushes it into
+  // the timer (which cancels a running inspection if the toggle goes off
+  // mid-countdown).
   //
   // The parameter type MUST be null: this is a plain toggle, activated by
   // Ctrl+I and the menu check item with no argument. Declaring 'b' instead
@@ -529,17 +550,47 @@ app.on('activate', () => {
   const inspectionAction = Gio.SimpleAction.newStateful(
     'inspection',
     null,
-    GLib.Variant.newBoolean(true),
+    GLib.Variant.newBoolean(prefs.inspection),
   )
   inspectionAction.on('activate', () => {
     // getState() is typed nullable (GSimpleAction can have no state); ours
     // always has one, and "no state" would read as off anyway.
     const next = !(inspectionAction.getState()?.getBoolean() ?? false)
-    inspectionAction.setState(GLib.Variant.newBoolean(next))
-    timer.setInspection(next, nowMs())
+    applyPreferences({ inspection: next })
   })
   app.addAction(inspectionAction)
   app.setAccelsForAction('app.inspection', ['<Control>i'])
+
+  /**
+   * The single path for a settings change (M5): merge the patch into this
+   * run's Preferences, persist it, then push the new values into everything
+   * they drive. The preferences dialog and the inspection menu check item
+   * both come through here, so the checkmark, the timer and prefs.json can
+   * never disagree.
+   */
+  const applyPreferences = (patch: Partial<Preferences>): void => {
+    prefs = { ...prefs, ...patch }
+    store.savePreferences(prefs)
+
+    if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
+    if ('inspection' in patch) {
+      // setState does not re-activate the action, so this cannot loop back
+      // into the handler above.
+      inspectionAction.setState(GLib.Variant.newBoolean(prefs.inspection))
+      timer.setInspection(prefs.inspection, nowMs())
+    }
+  }
+
+  // The Preferences dialog (src/ui/preferences.ts): built fresh on open, one
+  // patch per row change, routed through applyPreferences. Ctrl+comma — the
+  // freed `<Ctrl>S` is the session menu.
+  createPreferences({
+    app,
+    window,
+    get: () => prefs,
+    set: (patch) => applyPreferences(patch),
+  })
+  app.setAccelsForAction('app.preferences', ['<Control>comma'])
 
   // ---- editing a solve (M4 stage 4) --------------------------------------
   // Ctrl+1/2/3 = OK / +2 / DNF on the *newest* solve of the active session
@@ -601,9 +652,14 @@ app.on('activate', () => {
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   window.present()
 
-  // Surface the index's load notice (details already went to stderr).
+  // Surface the load notices (details already went to stderr).
   if (index.notice !== null) {
     toastOverlay.addToast(new Adw.Toast({ title: 'Session list could not be read', timeout: 10 }))
+  }
+  if (loadedPrefs.notice !== null) {
+    toastOverlay.addToast(
+      new Adw.Toast({ title: 'Settings could not be read — defaults are in use', timeout: 10 }),
+    )
   }
 
   // The loop integration is already running; under ESM this returns immediately.

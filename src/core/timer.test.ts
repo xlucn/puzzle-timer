@@ -589,3 +589,41 @@ describe('Timer — WCA inspection', () => {
     expect(timer.snapshot(t1 + 1_500).penalty).toBeUndefined()
   })
 })
+
+describe('Timer — live hold threshold (M5 preferences)', () => {
+  it('applies a new threshold to the very next hold', () => {
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
+    timer.setHoldThreshold(50)
+
+    timer.keyDown('space', T0)
+    timer.update(T0 + 60)
+    expect(timer.state).toBe('ready') // 60 ms is past the new 50 ms, not the old 300
+  })
+
+  it('clamps out-of-range values instead of trusting them', () => {
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
+
+    timer.setHoldThreshold(99_999)
+    timer.keyDown('space', T0)
+    timer.update(T0 + 2_001)
+    expect(timer.state).toBe('ready') // capped at the maximum, not at 99 s
+
+    timer.setHoldThreshold(-50) // an unusable threshold would make it unarmable
+    const timer2 = new Timer({ inspection: false })
+    timer2.setHoldThreshold(-50)
+    timer2.keyDown('space', T0)
+    timer2.update(T0)
+    expect(timer2.state).toBe('ready') // 0 ms arms on the first tick
+  })
+
+  it('falls back to the default when handed something unusable', () => {
+    const timer = new Timer({ holdThresholdMs: 300, inspection: false })
+    timer.setHoldThreshold(Number.NaN)
+
+    timer.keyDown('space', T0)
+    timer.update(T0 + 250)
+    expect(timer.state).toBe('holding')
+    timer.update(T0 + 300)
+    expect(timer.state).toBe('ready')
+  })
+})

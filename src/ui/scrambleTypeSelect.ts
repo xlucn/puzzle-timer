@@ -9,14 +9,14 @@
  * exploit — see SCRAMBLE_GROUPS in src/core/scrambleTypes.ts.
  *
  * Both popups are searchable (`enableSearch` adds a search entry). GTK only
- * filters when DropDown:expression is set — see makeStringExpression().
+ * filters when DropDown:expression is set — see stringExpression.ts.
  */
 import Gtk from 'gi:Gtk-4.0'
-import GObject from 'gi:GObject-2.0'
 
 import { styles } from 'node-gtk/styles'
 
 import { SCRAMBLE_GROUPS, groupOfScrambleType } from '../core/scrambleTypes.js'
+import { makeStringExpression } from './stringExpression.js'
 
 styles.add(`
   /* Long category names ("FTO (Face-Turning Octahedron)") must not push the
@@ -28,27 +28,6 @@ styles.add(`
     min-width: 132px;
   }
 `)
-
-/**
- * Expression Gtk.DropDown needs to evaluate each row's text.
- *
- * GTK's update_filter() (gtk/gtkdropdown.c) installs a GtkStringFilter only
- * when DropDown:expression is non-NULL; otherwise it installs GtkEveryFilter,
- * which matches everything and makes the popup's search entry a no-op. Rows of
- * a GtkStringList are GtkStringObject, so we read their "string" property.
- *
- * node-gtk cannot set the `expression` *property*: its GValue converter has no
- * case for the GtkExpression fundamental type and aborts. Passing the
- * expression to the Gtk.DropDown.new() constructor works — arguments are
- * marshalled by a different path.
- */
-function makeStringExpression(): any {
-  return Gtk.PropertyExpression.new(
-    GObject.typeFromName('GtkStringObject') as any,
-    null,
-    'string',
-  )
-}
 
 function makeDropDown(labels: string[], cssClass: string) {
   const model = Gtk.StringList.new(labels)

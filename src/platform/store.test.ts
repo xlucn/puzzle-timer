@@ -14,6 +14,11 @@ import path from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { MAX_COMMENT_LENGTH, type Solve } from '../core/session.js'
+import {
+  DEFAULT_PREFERENCES,
+  MAX_HOLD_THRESHOLD_MS,
+  type Preferences,
+} from '../core/preferences.js'
 import * as store from './store.js'
 
 /** One data home per run; the store reads it through the environment. */
@@ -40,6 +45,13 @@ beforeEach(() => {
   // Every test starts with no leftovers — and no queued write from the last one.
   store.flush()
   fs.rmSync(sessionsDir(), { recursive: true, force: true })
+  // prefs.json *and* any `prefs.json.corrupt-*` quarantine of the last test.
+  const appDir = path.dirname(store.preferencesPath())
+  if (fs.existsSync(appDir)) {
+    for (const name of fs.readdirSync(appDir)) {
+      if (name.startsWith('prefs.json')) fs.rmSync(path.join(appDir, name), { force: true })
+    }
+  }
 })
 
 afterAll(() => {
@@ -339,5 +351,73 @@ describe('store — deleting a session', () => {
 
   it('is happy to delete a session that never had a file', () => {
     expect(() => store.deleteSessionFile('never-existed')).not.toThrow()
+  })
+})
+
+describe('store — preferences (M5)', () => {
+  it('starts from the defaults when no file exists', () => {
+    const loaded = store.loadPreferences()
+    expect(loaded.notice).toBeNull()
+    expect(loaded.preferences).toEqual(DEFAULT_PREFERENCES)
+  })
+
+  it('round-trips every setting through prefs.json', () => {
+    const prefs: Preferences = {
+      holdThresholdMs: 550,
+      inspection: false,
+      inspectionSound: false,
+      scrambleImage: false,
+      colorScheme: 'dark',
+    }
+
+    store.savePreferences(prefs)
+    const loaded = store.loadPreferences()
+
+    expect(loaded.notice).toBeNull()
+    expect(loaded.preferences).toEqual(prefs)
+    expect(fs.readFileSync(store.preferencesPath(), 'utf8')).toContain('"version": 1')
+    // Atomic, like everything else: the temp file is renamed, not left behind.
+    expect(fs.readdirSync(path.dirname(store.preferencesPath())).some((n) => n.endsWith('.tmp'))).toBe(false)
+  })
+
+  it('quarantines an unparseable file and starts from the defaults', () => {
+    fs.mkdirSync(path.dirname(store.preferencesPath()), { recursive: true })
+    fs.writeFileSync(store.preferencesPath(), '{ not json', 'utf8')
+
+    const loaded = store.loadPreferences()
+
+    expect(loaded.preferences).toEqual(DEFAULT_PREFERENCES)
+    expect(loaded.notice).toMatch(/not valid JSON.*moved to/)
+    expect(fs.readdirSync(path.dirname(store.preferencesPath())).some((n) => n.startsWith('prefs.json.corrupt-'))).toBe(true)
+  })
+
+  it('quarantines a file of the wrong version rather than overwriting it', () => {
+    fs.mkdirSync(path.dirname(store.preferencesPath()), { recursive: true })
+    fs.writeFileSync(
+      store.preferencesPath(),
+      JSON.stringify({ version: 99, inspection: false }),
+      'utf8',
+    )
+
+    const loaded = store.loadPreferences()
+
+    expect(loaded.preferences).toEqual(DEFAULT_PREFERENCES)
+    expect(loaded.notice).toMatch(/unrecognised format/)
+  })
+
+  it('validates fields individually, keeping the good ones', () => {
+    fs.mkdirSync(path.dirname(store.preferencesPath()), { recursive: true })
+    fs.writeFileSync(
+      store.preferencesPath(),
+      JSON.stringify({ version: 1, holdThresholdMs: 99_999, colorScheme: 'neon', inspection: false }),
+      'utf8',
+    )
+
+    const loaded = store.loadPreferences()
+
+    expect(loaded.notice).toBeNull()
+    expect(loaded.preferences.holdThresholdMs).toBe(MAX_HOLD_THRESHOLD_MS) // clamped
+    expect(loaded.preferences.colorScheme).toBe('system') // unknown → default
+    expect(loaded.preferences.inspection).toBe(false) // good value kept
   })
 })

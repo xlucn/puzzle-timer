@@ -30,6 +30,7 @@
  */
 
 import { type Penalty } from './time.js'
+import { MAX_HOLD_THRESHOLD_MS, MIN_HOLD_THRESHOLD_MS } from './preferences.js'
 
 export type TimerState = 'idle' | 'holding' | 'ready' | 'inspecting' | 'running' | 'stopped'
 
@@ -141,6 +142,20 @@ export class Timer {
   onCue(listener: CueListener): Unsubscribe {
     this.cueListeners.add(listener)
     return () => this.cueListeners.delete(listener)
+  }
+
+  /**
+   * Live-update the hold threshold (preferences, M5): the value the dialog
+   * writes lands here directly, so the next hold uses it. Clamped to the
+   * same range the preferences normaliser enforces — a bad number must not
+   * be able to make the timer unarmable (a threshold above 0 with no upper
+   * bound would).
+   */
+  setHoldThreshold(ms: number): void {
+    const clamped = Number.isFinite(ms)
+      ? Math.min(MAX_HOLD_THRESHOLD_MS, Math.max(MIN_HOLD_THRESHOLD_MS, ms))
+      : DEFAULT_TIMER_CONFIG.holdThresholdMs
+    this.config.holdThresholdMs = clamped
   }
 
   /**

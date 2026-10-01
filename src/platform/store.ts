@@ -7,8 +7,9 @@
  * and the two agree: `XDG_DATA_HOME` when it is absolute (per the spec a
  * relative value is ignored), otherwise `~/.local/share`.
  *
- * Layout (M3):
+ * Layout (M3, plus M5's preferences):
  *
+ *   ~/.local/share/cstimer-gtk/prefs.json               app settings (M5)
  *   ~/.local/share/cstimer-gtk/sessions/_index.json     which sessions exist + which is active
  *   ~/.local/share/cstimer-gtk/sessions/default.json    one file of solves per session
  *
@@ -38,6 +39,7 @@ import path from 'node:path'
 
 import type { Solve } from '../core/session.js'
 import { MAX_COMMENT_LENGTH } from '../core/session.js'
+import { PREFERENCES_FILE_VERSION, type Preferences, normalizePreferences } from '../core/preferences.js'
 import { MAX_NAME_LENGTH, type SessionEntry } from '../core/sessionLibrary.js'
 
 /** Bumped only when a session file's shape changes incompatibly. */
@@ -48,6 +50,7 @@ export const INDEX_FILE_VERSION = 1
 const APP_DIR = 'cstimer-gtk'
 const SESSION_SUBDIR = 'sessions'
 const INDEX_FILE = '_index.json'
+const PREFERENCES_FILE = 'prefs.json'
 const DEFAULT_SESSION = 'default'
 
 /** Coalesces the writes that arrive while a solve is being recorded. */
@@ -77,6 +80,11 @@ export function indexPath(): string {
   return path.join(sessionsDir(), INDEX_FILE)
 }
 
+/** Absolute path of the preferences file (app-wide, next to `sessions/`). */
+export function preferencesPath(): string {
+  return path.join(dataHome(), APP_DIR, PREFERENCES_FILE)
+}
+
 /** Absolute path of one session's solve file. Throws on a malformed id. */
 export function sessionFilePath(id: string): string {
   if (!ID_PATTERN.test(id)) throw new Error(`invalid session id: ${JSON.stringify(id)}`)
@@ -96,6 +104,13 @@ export interface IndexResult {
   /** The session to open first; null only when there are no session files at all. */
   activeId: string | null
   /** Human-readable note when the index had to be rebuilt or partly skipped. */
+  notice: string | null
+}
+
+export interface PreferencesResult {
+  /** Preferences from disk, field-validated; defaults when there is no file. */
+  preferences: Preferences
+  /** Human-readable note when the file had to be moved aside. */
   notice: string | null
 }
 
@@ -258,6 +273,59 @@ export function saveIndex(sessions: readonly SessionEntry[], activeId: string | 
     2,
   )}\n`
   writeAtomically(indexPath(), data)
+}
+
+/**
+ * Read the preferences. A missing file means "defaults" (fresh install);
+ * anything else that cannot be understood is moved aside and reported, then
+ * the defaults are used anyway — the notice tells the app to say so, never to
+ * overwrite. Field-level validation happens in core (normalizePreferences).
+ */
+export function loadPreferences(): PreferencesResult {
+  const file = preferencesPath()
+
+  let raw: string
+  try {
+    raw = fs.readFileSync(file, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { preferences: normalizePreferences(undefined), notice: null }
+    }
+    return {
+      preferences: normalizePreferences(undefined),
+      notice: `${file} could not be read: ${messageOf(error)}`,
+    }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { preferences: normalizePreferences(undefined), notice: quarantine(file, 'not valid JSON') }
+  }
+
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    (parsed as { version?: unknown }).version !== PREFERENCES_FILE_VERSION
+  ) {
+    return {
+      preferences: normalizePreferences(undefined),
+      notice: quarantine(file, 'unrecognised format'),
+    }
+  }
+
+  return { preferences: normalizePreferences(parsed), notice: null }
+}
+
+/**
+ * Write the preferences now. A few dozen bytes, changed only when the user
+ * moves a setting — nothing to debounce, and an immediate atomic write means
+ * a quit right after a change cannot lose it.
+ */
+export function savePreferences(preferences: Preferences): void {
+  const data = `${JSON.stringify({ version: PREFERENCES_FILE_VERSION, ...preferences }, null, 2)}\n`
+  writeAtomically(preferencesPath(), data)
 }
 
 /**
