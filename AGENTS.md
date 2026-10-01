@@ -38,6 +38,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `Adw.PreferencesDialog`, `Adw.ToastOverlay`, `Adw.StatusPage`.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
+- **`Gtk.Overlay` children are not counted in the parent's size request**
+  (measured, 2026-10-01) — the right home for a spinner/status that must
+  not shift layout: overlay it on the content it annotates
+  (`scramblePanel.ts`), never stack it underneath.
+- **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
+  not `'Space'`. A typo fails silently in the UI: the chip renders empty in
+  `Gtk.ShortcutsWindow` (plus a `Failed to parse` Gtk-WARNING in the log).
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
   Attribute csTimer and `cstimer_module` in the About dialog.
@@ -88,6 +95,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   Shortcuts"` and `maim -i 0x<id>` to capture it (unmapped ⇒ black).
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
+- Transient frames and focus chains: confirm where a `Shift+Tab` chain
+  actually left focus with a single focus-ring `shot` before trusting the
+  arithmetic — counts shift whenever a key races a popover popdown. Judge
+  a frame only after two shots + `cmp` (`shot` forces a repaint but can
+  still return the pre-action frame). To *see* a sub-second state (e.g. a
+  scramble generating), widen the window — switch to `4x4x4` (~1.2 s) —
+  rather than racing 3x3's ~50 ms; or hand it to the user to watch.
 - **Hand interactive testing over early.** "There is too much time debugging
   the testers … find a solution quick, or I can help testing" (user, M2): if
   synthetic clicks keep landing off-window or the physical mouse keeps

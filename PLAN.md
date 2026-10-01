@@ -416,7 +416,10 @@ Evidence:
   sidebar counts only its own session), so `src/core/` is where the averaging
   math belongs, and csTimer's GPL source may be ported for the *math*, not
   the DOM (AGENTS.md). M3 shipped count-only stats by agreement — M4 is what
-  turns `9 solves` into ao5/PB.
+  turns `9 solves` into ao5/PB. M4 should also resolve the **app-functions
+  menu** in the content header: it is empty today (opens a small blank
+  popover, kept spec-literal — "currently none, might add later") — fill it
+  starting with stats, or grey the button out until it has items.
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
   owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
@@ -438,6 +441,22 @@ Evidence:
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`
   selects a session (the menu focuses its *first* item, not the checked one).
+  The keyboard reference is a stock `Gtk.ShortcutsWindow`
+  (`src/ui/shortcuts.ts`, built lazily on `app.shortcuts`, `hideOnClose`, no
+  accelerator of its own) — it constructs and renders fine under node-gtk, so
+  the planned fallback of putting the keys in the About dialog body is not
+  needed. Watch the key names: gdk_keyval names are case-sensitive
+  (`space`, not `Space`), or the chip renders empty.
+- **Scramble panel stability (2026-10-01)** — the timer must not move when
+  the scramble updates, in either direction. The spinner/status row is a
+  `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost
+  +22 px against a one-line scramble — measured 86 vs 64; GTK4 does not
+  measure overlay children). And while the feed is busy the last scramble
+  stays on screen as a dimmed ghost (`.scramble-text.pending`, opacity 0.4),
+  so a tall text's slot never collapses: the panel height is the text's, in
+  every state. First load has no ghost (bare slot); a warm failure still
+  reports *under* visible text — the one status that shares the panel with a
+  scramble. User-verified live on 4x4.
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read
