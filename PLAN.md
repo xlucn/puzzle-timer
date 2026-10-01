@@ -51,12 +51,12 @@ src/
 ├── core/                ★ pure TypeScript — NO `gi:`, NO Node APIs
 │   ├── timer.ts          state machine: idle → holding → ready → running → stopped
 │   │                     (+ WCA inspection: 15 s → +2, 17 s → DNF, splits)
-│   ├── time.ts           formatting, penalty math, DNF-as-∞
+│   ├── time.ts           formatting, penalty math, DNF-as-∞, inspection clock
 │   ├── stats.ts          ao5/ao12/mo3/aoX trimming, best single/avg, PB target
 │   ├── session.ts        Solve & Session models, CRUD, undo, penalties, comments
+│   ├── sessionLibrary.ts session index rules: names, ids, active, scramble type
 │   ├── scrambleTypes.ts  206-type catalogue + 44-group menu (data-driven)
-│   ├── scrambleFeed.ts   prefetch state machine: type switch / advance / ready
-│   └── eventbus.ts       minimal pub/sub the UI subscribes to
+│   └── scrambleFeed.ts   prefetch state machine: type switch / advance / ready
 ├── scramble/
 │   ├── worker.ts         worker_threads host for cstimer_module
 │   ├── protocol.ts       typed request/response messages worker ↔ main
@@ -65,17 +65,17 @@ src/
 ├── platform/
 │   ├── store.ts          atomic JSON persistence in XDG data dir (Node fs)
 │   ├── random.ts         CSPRNG seeding (crypto.getRandomValues)
-│   └── audio.ts          inspection beeps (GStreamer GI, pw-play fallback)
-├── ui/                   GTK widgets only; subscribes to core via event bus
-│   ├── window.ts         Adw.ApplicationWindow + OverlaySplitView
-│   ├── timerLabel.ts     monospace digits; gray/red/green/white states
+│   └── audio.ts          inspection beeps — pre-rendered C6 WAV pulses played
+│                         fire-and-forget: pw-play → paplay → gst → aplay
+├── ui/                   GTK widgets only; talks to core via callbacks
+│   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors (category → type)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture (image in M5)
 │   ├── timesList.ts      Gtk.ColumnView of solves
+│   ├── statsStrip.ts     ao5/ao12 line under the timer
 │   ├── statsPanel.ts     statistics (Adw.Dialog)
-│   ├── sessionBar.ts     Adw.DropDown session selector
-│   └── preferences.ts    Adw.PreferencesDialog
-└── test/                 Vitest against src/core
+│   ├── sessionMenu.ts    session radio-menu (Gtk.MenuButton + Gio.Menu)
+│   └── shortcuts.ts      Gtk.ShortcutsWindow (built lazily on app.shortcuts)
 ```
 
 ### Why the boundary matters
@@ -222,7 +222,7 @@ Each milestone ends with a runnable app.
 | **M1** | Scramble worker (`worker_threads`) + prefetch queue + scramble panel + scramble-type selector | 206 types, zero UI freezes |
 | **M2** | Record solves → `Gtk.ColumnView` → atomic JSON in XDG data dir, restart-safe; undo/delete | A usable timer |
 | **M3** | Sessions: create/rename/switch/delete, per-session lists and stats, header dropdown | Multi-session works |
-| **M4** | Statistics ported from csTimer rules (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection with GStreamer beeps | Feature-complete core |
+| **M4** | Statistics ported from csTimer rules (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection with beeps, per-session scramble type | Feature-complete core |
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
 | **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
 
@@ -402,6 +402,85 @@ Evidence:
   `$XDG_DATA_HOME/cstimer-gtk/sessions/`, one directory deeper than a naive
   guess — a wrong path silently boots an empty `Default` instead of failing.
 
+### M4 — landed 2026-10-02
+
+Feature-complete core: statistics, penalties, comments, WCA inspection, and
+the app-functions menu M3 left spec-empty — plus a queued feature
+(per-session scramble type). Five stages, one feature commit.
+
+**Statistics (stages 1–3).** `core/stats.ts` ports csTimer's rules — the *math*,
+not the DOM (AGENTS): ao5/ao12/mo3 with trimming (best/worst dropped, DNF
+scores ∞ so it lands in the worst slot and can kill a 3-of-5 average), aoX
+generalised, best single/average and a PB target, all strictly per-session.
+Penalties and comments join the model and the store: `+2` adds 2 000 ms at
+read time, `DNF` scores ∞, a comment rides the solve. UI: an ao5/ao12 strip
+under the timer, a `Statistics` `Adw.Dialog` (per-session aggregates + target),
+both behind the content header's app-functions ⋮ — the section the handoff
+flagged as empty — with `<Ctrl+T>` for the dialog.
+
+**Edit dialog (stage 4).** `Adw.Dialog` over the selected solve: radio
+`ok`/`+2`/`DNF` (with mnemonics), a comment `Gtk.TextView`, the solve's
+scramble and full timestamp; the dialog re-claims focus on `map` (the M3
+`default-response` trick) so typing lands in the comment box, not on the
+default button. `<Ctrl+E>` opens it; `<Ctrl+1/2/3>` grade the selection
+directly.
+
+**WCA inspection (stage 5).** A sixth timer state, `inspecting`: the first
+ready→release starts the 15 s countdown (`formatInspection`, orange, clamped),
+the second starts the run graded by the inspection's age at release —
+≥ 15 s → `+2`, ≥ 17 s → `DNF` — carried through `onSolved(elapsedMs, penalty)`
+into `session.add()`. Esc cancels; releasing early during a mid-countdown hold
+resumes the countdown; toggling off mid-countdown cancels, mid-hold drops the
+grade. The 8 s and 12 s cues fire exactly once each (per-inspection dedup, so
+pause/resume jumps cannot double-beep) — pre-rendered C6 WAV pulses via
+`platform/audio.ts`, `pw-play → paplay → gst-launch → aplay`, first present
+wins, fire-and-forget (§5's mitigation — no GI audio). `app.inspection`
+starts ON and stays memory-only until M5's preferences.
+
+**Per-session scramble type (feature, `8b30797`)** — queued by the user: the
+dropdown's choice belongs to the active session. `SessionEntry.scrambleType?`
+(absent = default `333`), `setScrambleType()` emits `retyped` into the
+existing index-save subscription; `applySessionType` runs on every switch and
+at startup, moving both dropdown levels through `selectType()` **without**
+re-announcing `onChange` (which would write the session's own value back onto
+itself), and regenerating the feed only when the type actually differs.
+`create()` inherits the active session's type; `loadIndex` shape-checks the
+stored string (the index stays hand-editable).
+
+Two findings worth carrying forward:
+
+- **A stateful action with a `'b'` parameter type kills every no-argument
+  activation** — GTK refuses them ("Trying to invoke action without
+  arguments…") and the toggle dies silently. Plain toggles take `null`;
+  only `sessionSwitch` is genuinely parameterized. User-caught; both
+  directions verified after the fix.
+- **Inspection hold behavior is environment, not code** — a physical
+  long-hold in Xephyr bounces through the nested server's stock XKB
+  auto-repeat (release/press pairs), faking a countdown-on-hold bug that
+  never reproduced under GNOME with Wayland *or* `GDK_BACKEND=x11`
+  (user-tested, both backends). Don't add timing heuristics; drive hold
+  flows with synthetic input.
+
+Evidence:
+
+- **164 Vitest tests green** — 96 (M3) → 148 by stage 4 → 160 with stage 5 →
+  164 with the per-session type; `npm run typecheck` clean.
+- **User-verified on the live app:** `+2` and `DNF` from the edit dialog
+  round-trip into list and store; Esc cancels inspection; both directions of
+  the inspection toggle with a clean log; correct hold behavior under GNOME
+  on both GDK backends; and the per-session type ("indeed default shows
+  4x4x4") after automated round-trips.
+- **Automation on Xephyr `:99`:** countdown/+2/DNF label states captured;
+  both cue WAVs on disk; graded solves round-trip the store; the type
+  round-trip checked with `jq` against `_index.json` after every switch
+  (444 ↔ 555 on `Default`, distinct types per session, both restored on
+  every switch).
+- **Tooling lessons recorded in [`tools/README.md`](./tools/README.md):**
+  `XGetImage` staleness is not XWayland-only — `shot` *and* `rootshot` on
+  `:99` replayed minutes-old frames, so state claims were checked against
+  the store or a human, not pixels; and the type dropdown is driven with
+  search → `Down` → `Return` (Tab leaves the popup).
+
 ---
 
 ## 7. Session handoff
@@ -409,17 +488,17 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **Next milestone: M4** — statistics ported from csTimer's rules (ao5/ao12/
-  mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection
-  with GStreamer beeps. (M0–M3 are landed — see the dated blocks in §6.) The
-  rule for stats is **per-session, always**: M3 made the scope explicit (the
-  sidebar counts only its own session), so `src/core/` is where the averaging
-  math belongs, and csTimer's GPL source may be ported for the *math*, not
-  the DOM (AGENTS.md). M3 shipped count-only stats by agreement — M4 is what
-  turns `9 solves` into ao5/PB. M4 should also resolve the **app-functions
-  menu** in the content header: it is empty today (opens a small blank
-  popover, kept spec-literal — "currently none, might add later") — fill it
-  starting with stats, or grey the button out until it has items.
+- **Next milestone: M5** — preferences dialog, full shortcut set, scramble
+  image (Rsvg), dark-mode theming, empty states/toasts, polish. (M0–M4 are
+  landed — see the dated blocks in §6.) M4 delivered the statistics port
+  (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), `+2`/`DNF` penalties with
+  comments and the edit dialog, WCA inspection with beeps, the per-session
+  scramble type, and the **app-functions menu** this handoff once flagged as
+  empty — it now holds Statistics (`<Ctrl+T>`) and the WCA Inspection toggle
+  (`<Ctrl+I>`). The stats rule stands: **per-session, always** (M3's scope),
+  `src/core/` owns the math, and csTimer's GPL source may be ported for the
+  *math*, not the DOM (AGENTS.md). Inspection's `app.inspection` toggle is
+  deliberately memory-only until M5's preferences give it a home.
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
   owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
@@ -460,6 +539,7 @@ Evidence:
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read
-  [`tools/README.md`](./tools/README.md): X captures on XWayland are often
-  stale, and the duplicate-instance rule means a second `npm start` silently
-  attaches to the first.
+  [`tools/README.md`](./tools/README.md): X captures are often stale — on
+  XWayland *and* on the nested server (M4 saw `shot` and `rootshot` on `:99`
+  replay minutes-old frames) — and the duplicate-instance rule means a second
+  `npm start` silently attaches to the first.

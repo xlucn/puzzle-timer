@@ -68,7 +68,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (148 tests as of M4 stage 4 — timer/time, session, sessionLibrary,
+  (164 tests as of M4 complete — timer/time, session, sessionLibrary,
   scramble, stats, store)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
