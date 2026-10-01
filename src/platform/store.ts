@@ -37,6 +37,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import type { Solve } from '../core/session.js'
+import { MAX_COMMENT_LENGTH } from '../core/session.js'
 import { MAX_NAME_LENGTH, type SessionEntry } from '../core/sessionLibrary.js'
 
 /** Bumped only when a session file's shape changes incompatibly. */
@@ -102,7 +103,19 @@ function isSolve(value: unknown): value is Solve {
   if (typeof value !== 'object' || value === null) return false
   const solve = value as Record<string, unknown>
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+  // M4 added two optional fields. Absent is always fine (M2 files), but a
+  // present one must be of the exact shape the rest of the app assumes —
+  // an unrecognised penalty would silently become "OK" in the statistics,
+  // and an unbounded comment could not be shown meaningfully, so both reject
+  // the whole solve and it is skipped with a notice rather than loaded wrong.
+  const penaltyOk =
+    solve.penalty === undefined || solve.penalty === 'plus2' || solve.penalty === 'dnf'
+  const commentOk =
+    solve.comment === undefined ||
+    (typeof solve.comment === 'string' && solve.comment.length <= MAX_COMMENT_LENGTH)
   return (
+    penaltyOk &&
+    commentOk &&
     finite(solve.id) &&
     Number.isInteger(solve.id) &&
     solve.id >= 0 &&

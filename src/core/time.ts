@@ -15,6 +15,80 @@ export interface FormatOptions {
 }
 
 /**
+ * A WCA penalty on a solve. Absent everywhere it is optional (`Solve.penalty`)
+ * means the solve is OK — session files from M2 stay valid, and a file that
+ * never had a penalty carries no new bytes.
+ *
+ *   'plus2' — 2 seconds added (measured time + 2000 ms)
+ *   'dnf'   — the attempt does not count; in statistics it behaves as ∞
+ *             (ported from csTimer's rule: DNF sorts last, counts as the
+ *             worst solve, and poisons an average only if it survives
+ *             trimming)
+ */
+export type Penalty = 'plus2' | 'dnf'
+
+/** WCA +2 penalty, in milliseconds. */
+export const PLUS2_MS = 2000
+
+/**
+ * The time a solve is *scored* at, in milliseconds:
+ *
+ *   effectiveMs(12_345)           → 12_340
+ *   effectiveMs(12_345, 'plus2')  → 14_340
+ *   effectiveMs(12_345, 'dnf')    → Infinity      (DNF-as-∞)
+ *
+ * The value is truncated to centiseconds first, which is what WCA Regulation
+ * 9f1 measures results to and what csTimer's statistics do (`roundMilli` of
+ * 10 by default): stats are computed on the times as they are read, not on
+ * the sub-centisecond residue the timer happened to catch. Truncating the
+ * *sum* for +2 is equivalent to truncating first (2000 is a multiple of 10).
+ *
+ * Returning ∞ rather than a sentinel like -1 is what lets the averaging math
+ * in stats.ts stay plain arithmetic: ∞ sorts last on its own, so one DNF in
+ * an ao5 falls out as the worst solve and is trimmed, while two DNFs leave an
+ * ∞ in the mean — exactly the WCA rules (9f8–9f9, 9f10).
+ */
+export function effectiveMs(timeMs: number, penalty?: Penalty): number {
+  if (penalty === 'dnf') return Number.POSITIVE_INFINITY
+  const scored = penalty === 'plus2' ? timeMs + PLUS2_MS : timeMs
+  return Math.floor(scored / 10) * 10
+}
+
+/**
+ * How one solve is written down (the list, the footer, the timer's result):
+ *
+ *   formatSolve(12_345)           → "12.34"
+ *   formatSolve(12_345, 'plus2')  → "14.34+"
+ *   formatSolve(12_345, 'dnf')    → "DNF"
+ *
+ * The trailing '+' on a +2 is csTimer's own notation (`pretty()` appends it
+ * after the penalised time): the number shown is the number that scores.
+ */
+export function formatSolve(timeMs: number, penalty?: Penalty): string {
+  if (penalty === 'dnf') return 'DNF'
+  const scored = formatTime(effectiveMs(timeMs, penalty))
+  return penalty === 'plus2' ? `${scored}+` : scored
+}
+
+/**
+ * An average or mean, which WCA Regulation 9f1 *rounds* to the nearest
+ * hundredth (singles are truncated — that is `formatTime` itself):
+ *
+ *   formatAverage(10_866) → "10.87"
+ *   formatAverage(10_833) → "10.83"
+ *   formatAverage(Infinity) → "DNF"
+ *
+ * Averages do not always land on a whole centisecond (a mean of three is a
+ * sum divided by three), so this is a genuine rounding step, unlike every
+ * other display path in this file.
+ */
+export function formatAverage(ms: number): string {
+  if (Number.isNaN(ms)) return 'DNF'
+  if (!Number.isFinite(ms)) return ms > 0 ? 'DNF' : '0.00'
+  return formatTime(Math.round(ms / 10) * 10)
+}
+
+/**
  * Format an elapsed time the way a speedcubing timer displays it:
  *
  *   formatTime(0)        → "0.00"

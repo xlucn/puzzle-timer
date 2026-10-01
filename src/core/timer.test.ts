@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { Timer } from './timer.js'
-import { formatTime, formatTimestamp } from './time.js'
+import {
+  effectiveMs,
+  formatAverage,
+  formatSolve,
+  formatTime,
+  formatTimestamp,
+} from './time.js'
 
 /** Test clock — milliseconds, advanced by hand. */
 const T0 = 1_000
@@ -37,6 +43,47 @@ describe('formatTime', () => {
     expect(formatTime(-5)).toBe('0.00')
     expect(formatTime(Number.NaN)).toBe('0.00')
     expect(formatTime(Number.POSITIVE_INFINITY)).toBe('0.00')
+  })
+})
+
+describe('effectiveMs / formatSolve — penalties', () => {
+  it('truncates an OK time to centiseconds', () => {
+    expect(effectiveMs(12_345)).toBe(12_340)
+    expect(effectiveMs(12_349)).toBe(12_340)
+  })
+
+  it('adds the +2 and keeps the result on a centisecond boundary', () => {
+    expect(effectiveMs(12_345, 'plus2')).toBe(14_340)
+    expect(effectiveMs(12_349, 'plus2')).toBe(14_340)
+  })
+
+  it('scores a DNF as ∞', () => {
+    expect(effectiveMs(12_345, 'dnf')).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  it('writes a solve the way the list shows it', () => {
+    expect(formatSolve(12_345)).toBe('12.34')
+    expect(formatSolve(12_345, 'plus2')).toBe('14.34+') // csTimer's trailing '+'
+    expect(formatSolve(12_345, 'dnf')).toBe('DNF')
+    expect(formatSolve(62_345, 'plus2')).toBe('1:04.34+')
+  })
+})
+
+describe('formatAverage', () => {
+  it('rounds to the nearest hundredth (WCA 9f1) — unlike single times', () => {
+    expect(formatAverage(10_866)).toBe('10.87')
+    expect(formatAverage(10_833)).toBe('10.83')
+    expect(formatAverage(10_850)).toBe('10.85')
+  })
+
+  it('shows a non-centisecond mean without losing precision', () => {
+    // A mean of three: (10.00 + 10.00 + 10.01) / 3 = 10.0033… → 10.00
+    expect(formatAverage(10_003.33)).toBe('10.00')
+  })
+
+  it('writes ∞ (a DNF that survived trimming) as DNF', () => {
+    expect(formatAverage(Number.POSITIVE_INFINITY)).toBe('DNF')
+    expect(formatAverage(Number.NaN)).toBe('DNF')
   })
 })
 

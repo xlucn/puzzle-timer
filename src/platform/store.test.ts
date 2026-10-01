@@ -13,7 +13,7 @@ import path from 'node:path'
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 
-import type { Solve } from '../core/session.js'
+import { MAX_COMMENT_LENGTH, type Solve } from '../core/session.js'
 import * as store from './store.js'
 
 /** One data home per run; the store reads it through the environment. */
@@ -203,6 +203,86 @@ describe('store — session files', () => {
     store.flush()
     expect(filesInSessionsDir()).toContain('meet-weekly.json')
     expect(filesInSessionsDir()).not.toContain('Meet weekly.json')
+  })
+})
+
+describe('store — penalties and comments (M4)', () => {
+  it('round-trips an M4 solve with a penalty and a comment', () => {
+    store.scheduleSave('practice', [
+      { ...solve(1), penalty: 'plus2', comment: 'lockup' },
+      { ...solve(2), penalty: 'dnf' },
+      solve(3), // plain OK solve — carries neither field
+    ])
+    store.flush()
+
+    const { solves, notice } = store.loadSession('practice')
+
+    expect(notice).toBeNull()
+    expect(solves).toEqual([
+      { ...solve(1), penalty: 'plus2', comment: 'lockup' },
+      { ...solve(2), penalty: 'dnf' },
+      solve(3),
+    ])
+  })
+
+  it('still loads an M2 file unchanged — both fields are optional', () => {
+    writeFile(
+      'default.json',
+      `${JSON.stringify({ version: 1, solves: [solve(1)] }, null, 2)}\n`,
+    )
+
+    expect(store.loadSession('default')).toEqual({ solves: [solve(1)], notice: null })
+  })
+
+  it('skips a solve whose penalty is not one of plus2/dnf', () => {
+    writeFile(
+      'practice.json',
+      `${JSON.stringify(
+        {
+          version: 1,
+          solves: [solve(1), { ...solve(2), penalty: 'plus5' }, { ...solve(3), penalty: 7 }],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const { solves, notice } = store.loadSession('practice')
+
+    expect(solves.map((each) => each.id)).toEqual([1])
+    expect(notice).toMatch(/skipped 2 unreadable solve/)
+  })
+
+  it('skips a solve whose comment is malformed or absurdly long', () => {
+    writeFile(
+      'practice.json',
+      `${JSON.stringify(
+        {
+          version: 1,
+          solves: [
+            solve(1),
+            { ...solve(2), comment: 42 },
+            { ...solve(3), comment: 'x'.repeat(MAX_COMMENT_LENGTH + 1) },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const { solves, notice } = store.loadSession('practice')
+
+    expect(solves.map((each) => each.id)).toEqual([1])
+    expect(notice).toMatch(/skipped 2 unreadable solve/)
+  })
+
+  it('accepts a comment right up to the shared limit', () => {
+    store.scheduleSave('practice', [
+      { ...solve(1), comment: 'x'.repeat(MAX_COMMENT_LENGTH) },
+    ])
+    store.flush()
+
+    expect(store.loadSession('practice').notice).toBeNull()
   })
 })
 

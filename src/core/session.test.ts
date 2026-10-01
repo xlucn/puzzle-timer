@@ -147,3 +147,97 @@ describe('Session — restore (the undo toast)', () => {
     expect(session.add(fresh(4_000)).id).toBe(4)
   })
 })
+
+describe('Session — penalties', () => {
+  it('sets a penalty and reports it with the solve position', () => {
+    const session = new Session([stored(1), stored(2)])
+    const listener = vi.fn()
+    session.subscribe(listener)
+
+    const solve = session.setPenalty(2, 'plus2')
+
+    expect(solve?.penalty).toBe('plus2')
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'penalty', position: 1, solve }),
+    )
+  })
+
+  it('replaces one penalty with another', () => {
+    const session = new Session([stored(1)])
+    session.setPenalty(1, 'plus2')
+    session.setPenalty(1, 'dnf')
+    expect(session.find(1)?.penalty).toBe('dnf')
+  })
+
+  it('clears back to OK with undefined', () => {
+    const session = new Session([stored(1)])
+    session.setPenalty(1, 'dnf')
+    session.setPenalty(1, undefined)
+    expect(session.find(1)?.penalty).toBeUndefined()
+  })
+
+  it('emits nothing when the penalty does not actually change', () => {
+    const session = new Session([stored(1)])
+    const listener = vi.fn()
+    session.subscribe(listener)
+
+    session.setPenalty(1, 'plus2')
+    session.setPenalty(1, 'plus2') // no-op
+
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses to touch a solve it does not have', () => {
+    const session = new Session([stored(1)])
+    expect(session.setPenalty(99, 'dnf')).toBeNull()
+    expect(session.setPenalty(99, undefined)).toBeNull()
+  })
+})
+
+describe('Session — comments', () => {
+  it('sets a comment and reports it with the solve position', () => {
+    const session = new Session([stored(1)])
+    const listener = vi.fn()
+    session.subscribe(listener)
+
+    const solve = session.setComment(1, 'lockup on the last alg')
+
+    expect(solve?.comment).toBe('lockup on the last alg')
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'comment', position: 0, solve }),
+    )
+  })
+
+  it('replaces and clears a comment', () => {
+    const session = new Session([stored(1)])
+    session.setComment(1, 'first note')
+    session.setComment(1, 'second note')
+    expect(session.find(1)?.comment).toBe('second note')
+
+    session.setComment(1, undefined)
+    expect(session.find(1)?.comment).toBeUndefined()
+  })
+
+  it('treats an empty comment as no comment', () => {
+    const session = new Session([stored(1)])
+    session.setComment(1, '')
+    expect(session.find(1)?.comment).toBeUndefined()
+    expect('comment' in session.find(1)!).toBe(false)
+  })
+
+  it('emits nothing when the comment does not actually change', () => {
+    const session = new Session([stored(1)])
+    const listener = vi.fn()
+    session.subscribe(listener)
+
+    session.setComment(1, 'note')
+    session.setComment(1, 'note') // no-op
+
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses to touch a solve it does not have', () => {
+    const session = new Session([stored(1)])
+    expect(session.setComment(99, 'note')).toBeNull()
+  })
+})

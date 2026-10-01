@@ -18,6 +18,8 @@
  * makes the undo toast work without keeping a second copy of history.
  */
 
+import type { Penalty } from './time.js'
+
 export interface Solve {
   /** Stable identity, unique within the session; never reused. */
   id: number
@@ -29,6 +31,13 @@ export interface Solve {
   scrambleType: string
   /** Wall-clock time the solve finished, in ms since the epoch. */
   createdAtMs: number
+  /**
+   * WCA-style result penalty; absent means OK (see src/core/time.ts).
+   * Optional so session files written before M4 still load unchanged.
+   */
+  penalty?: Penalty
+  /** Free-text note shown next to the time. */
+  comment?: string
 }
 
 /** What the timer hands over when a solve finishes (the session assigns `id`). */
@@ -45,9 +54,20 @@ export type SessionChange =
   | { kind: 'added'; solve: Solve; position: number }
   | { kind: 'removed'; removed: RemovedSolve }
   | { kind: 'restored'; solve: Solve; position: number }
+  /** A penalty was set (`penalty` present) or cleared back to OK (absent). */
+  | { kind: 'penalty'; solve: Solve; position: number }
+  /** A comment was set or replaced. */
+  | { kind: 'comment'; solve: Solve; position: number }
 
 export type Unsubscribe = () => void
 type Listener = (change: SessionChange) => void
+
+/**
+ * Longest comment accepted, shared by the editor dialog and the loader: a
+ * solve's note is a short aside, not a document, and a file that exceeds it
+ * is skipped (with a notice) rather than truncated.
+ */
+export const MAX_COMMENT_LENGTH = 500
 
 export class Session {
   private items: Solve[]
@@ -121,6 +141,38 @@ export class Session {
 
     this.emit({ kind: 'restored', solve: removed.solve, position })
     return removed.solve
+  }
+
+  /**
+   * Set (or, with `undefined`, clear) a solve's penalty. Returns the solve,
+   * or null if the id is unknown. Listeners get a `'penalty'` change so the
+   * row, footer and statistics all refresh from one code path.
+   */
+  setPenalty(id: number, penalty: Penalty | undefined): Solve | null {
+    const position = this.indexOf(id)
+    if (position < 0) return null
+    const solve = this.items[position]
+    if (solve.penalty === penalty) return solve
+    if (penalty === undefined) delete solve.penalty
+    else solve.penalty = penalty
+    this.emit({ kind: 'penalty', solve, position })
+    return solve
+  }
+
+  /**
+   * Set (or, with `undefined`, clear) a solve's comment. Same contract as
+   * `setPenalty` — a `'comment'` change event follows every real change.
+   */
+  setComment(id: number, comment: string | undefined): Solve | null {
+    const position = this.indexOf(id)
+    if (position < 0) return null
+    const solve = this.items[position]
+    const next = comment === undefined || comment === '' ? undefined : comment
+    if (solve.comment === next) return solve
+    if (next === undefined) delete solve.comment
+    else solve.comment = next
+    this.emit({ kind: 'comment', solve, position })
+    return solve
   }
 
   /** Subscribe to every change. Returns an unsubscribe fn. */
