@@ -460,6 +460,44 @@ describe('Timer — WCA inspection', () => {
     expect(cues).toEqual(['8s', '12s'])
   })
 
+  it('cancels the pending cues when the release starts the run early', () => {
+    const timer = new Timer()
+    const cues: string[] = []
+    timer.onCue((cue) => cues.push(cue))
+    const t0 = startInspection(timer, T0)
+
+    timer.update(t0 + 4_000) // still inspecting, nothing due yet
+    timer.keyDown('space', t0 + 5_000)
+    timer.keyUp('space', t0 + 5_400) // held ≥ 300 ms → the run starts
+    expect(timer.state).toBe('running')
+
+    // Ticks past both cue deadlines, now inside the run: silence. The cues
+    // belong to an inspection that the early release consumed.
+    timer.update(t0 + 8_000)
+    timer.update(t0 + 12_500)
+    timer.update(t0 + 40_000)
+    expect(cues).toEqual([])
+    expect(timer.snapshot(t0 + 40_000).inspectionMs).toBe(0)
+  })
+
+  it('cancels only the cue that has not rung yet', () => {
+    const timer = new Timer()
+    const cues: string[] = []
+    timer.onCue((cue) => cues.push(cue))
+    const t0 = startInspection(timer, T0)
+
+    timer.update(t0 + 8_500) // the 8 s cue rings during the inspection
+    expect(cues).toEqual(['8s'])
+
+    timer.keyDown('space', t0 + 9_000)
+    timer.keyUp('space', t0 + 9_400) // start before the 12 s deadline
+    expect(timer.state).toBe('running')
+
+    timer.update(t0 + 12_000)
+    timer.update(t0 + 30_000)
+    expect(cues).toEqual(['8s']) // the 12 s cue is cancelled, not delayed
+  })
+
   it('grades the run by the inspection age at start (WCA limits)', () => {
     const cases: Array<[number, 'plus2' | 'dnf' | undefined]> = [
       [14_999, undefined],

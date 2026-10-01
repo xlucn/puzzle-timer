@@ -316,6 +316,13 @@ export class Timer {
       this.pendingPenalty =
         elapsed >= INSPECTION_DNF_MS ? 'dnf' : elapsed >= INSPECTION_MS ? 'plus2' : undefined
     }
+    // The inspection is consumed by starting the solve — clearing the start
+    // time is what *cancels* the 8 s / 12 s cues: update() gates fireCues on
+    // it, so an early release must not let the deadlines ring out mid-run.
+    this.inspectionStartedAt = 0
+    this.holdFromInspection = false
+    this.cue8Fired = false
+    this.cue12Fired = false
     this.startedAt = now
     this.transition('running', now)
   }
