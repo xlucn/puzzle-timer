@@ -6,13 +6,17 @@
  *
  * Three things can be true at once, and this is the display rule:
  *   scramble   → show it (wrapped, selectable so it can be copied);
- *   generating → spinner + status line, overlaid on the scramble's own
- *                slot so it adds no height — the timer must not move;
- *   error      → the reason, in @error_color; with no scramble on screen
- *                it takes the slot the same way. A failure of the *warm*
- *                scramble is reported under the scramble currently on
- *                screen — the solve in front of you is still usable, you
- *                just know the next one is not ready.
+ *   generating → the previous scramble stays on screen as a dimmed ghost
+ *                (`.pending`) with the spinner + status line over it: the
+ *                slot keeps the *text's* height, so the timer holds still
+ *                while the next scramble generates — dropping the text
+ *                would collapse a tall slot and jump the timer (first load
+ *                has no ghost and shows the bare slot);
+ *   error      → the reason, in @error_color, over the ghost the same way
+ *                (or in the bare slot when there is nothing to ghost). A
+ *                failure of the *warm* scramble is reported under the
+ *                scramble currently on screen — the solve in front of you
+ *                is still usable, you just know the next one is not ready.
  */
 import Gtk from 'gi:Gtk-4.0'
 
@@ -24,6 +28,11 @@ styles.add(`
   .scramble-text {
     font-family: monospace;
     font-size: 18px;
+  }
+  /* Ghost of the scramble being replaced: it keeps its space (so the timer
+     doesn't move while the next one generates) without reading as live. */
+  .scramble-text.pending {
+    opacity: 0.4;
   }
   .scramble-status {
     font-size: 13px;
@@ -103,17 +112,21 @@ export function createScramblePanel() {
     marginEnd: 18,
   })
   // The status row rides *in* the text's slot (an overlay), never under it.
-  // Stacked, the panel asked for the empty slot plus spacing plus the row —
+  // Stacked, the panel asked for the slot plus spacing plus the row —
   // measured, 86 against a one-line scramble's 64 — so the timer jumped
   // ~22 px down every time the gear spun. GTK4 does not count overlay
-  // children in the size request, so the panel keeps the text slot's height
-  // alone; the row fits comfortably inside the empty scrolled window's own
-  // reservation (46 px for an 18 px row).
+  // children in the size request, so the panel keeps the slot's height
+  // alone: the ghost text's height while updating, or the empty scrolled
+  // window's own 46 px reservation on first load (for an 18 px row).
   const overlay = new Gtk.Overlay({ child: scroll })
   overlay.addOverlay(statusRow)
 
   widget.append(overlay)
   widget.append(warmError)
+
+  // The last scramble that had a turn on screen; while the feed is busy it
+  // stays visible as a ghost so the slot never collapses mid-update.
+  let lastText: string | null = null
 
   let spinning = false
   const setSpinning = (on: boolean) => {
@@ -131,14 +144,24 @@ export function createScramblePanel() {
       const hasScramble = state.scramble !== null
       const generating = !hasScramble && state.error === null
 
-      text.setVisible(hasScramble)
-      if (hasScramble) text.setLabel(state.scramble ?? '')
+      // A new scramble replaces the ghost; while there is none, the last
+      // one stays on screen dimmed — the slot keeps *its* height, so the
+      // timer holds still for the whole update. First load has no ghost:
+      // the bare slot shows the spinner.
+      if (state.scramble !== null) {
+        lastText = state.scramble
+        text.setLabel(lastText)
+        text.setCssClasses(['scramble-text'])
+      } else if (lastText !== null) {
+        text.setCssClasses(['scramble-text', 'pending'])
+      }
+      text.setVisible(lastText !== null)
 
-      // No scramble on screen (generating or failed): the row *is* the
+      // No scramble on screen (updating or failed): the row *is* the
       // slot's content, overlaid — it can never add height to the panel.
-      statusRow.setVisible(!hasScramble)
+      statusRow.setVisible(state.scramble === null)
       setSpinning(generating)
-      if (!hasScramble) {
+      if (state.scramble === null) {
         status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
         status.setCssClasses(generating ? ['scramble-status'] : ['scramble-status', 'error'])
       }
