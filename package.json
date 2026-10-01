@@ -4,6 +4,7 @@
   "description": "An Adwaita application built with node-gtk.",
   "type": "module",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "npm run dev:css-reload",
     "dev:css-reload": "cross-env NODE_ENV=development node --import tsx --import node-gtk/register src/main.ts",

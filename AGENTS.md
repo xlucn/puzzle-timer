@@ -9,7 +9,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - **Language:** TypeScript, run via `tsx` (no separate build step in dev)
 - **Scrambles:** `cstimer_module` (official csTimer package) running in a `worker_threads` worker
 - **Tests:** Vitest, on pure core modules only
-- **License:** GPL-3.0 (mandatory — `cstimer_module` and csTimer source are GPL-3.0)
+- **License:** GPL-3.0-or-later (LICENSE file) — mandatory: `cstimer_module` and csTimer source are GPL-3.0
 
 ## Architecture invariants (highest-priority rules)
 

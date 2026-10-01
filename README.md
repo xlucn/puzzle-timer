@@ -135,7 +135,8 @@ npm run generate-types
 
 ## License
 
-GPL-3.0. Not a preference: this project ports GPL-3.0 code from
+GPL-3.0-or-later — see [LICENSE](./LICENSE). Not a preference: this project
+ports GPL-3.0 code from
 [csTimer](https://github.com/cs0x7f/cstimer) (scramble generation via
 `cstimer_module`, statistics rules) — the About dialog credits both.
 

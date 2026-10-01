@@ -38,7 +38,8 @@ able to continue at the current milestone.
 | Electron / WebView wrapper | Rejected — user wants native GTK only, no web stack. |
 | Python + PyGObject / Rust | Rejected — awkward fit for the JS scramble module. |
 
-**License:** GPL-3.0. Required by `cstimer_module` and permitted for porting
+**License:** GPL-3.0-or-later (LICENSE file). Required by `cstimer_module` and
+permitted for porting
 csTimer's GPL source. Compatible with GTK/Libadwaita (LGPL) and node-gtk (MIT).
 
 ---
