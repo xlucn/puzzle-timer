@@ -350,6 +350,13 @@ Evidence:
   blocks in §6.) M2 left the single session in
   `~/.local/share/cstimer-gtk/sessions/default.json`, `{version: 1, solves}`
   — M3 is what gives that file a session list around its solves.
+- **Layout M3 inherits:** the solve list is the **left** sidebar
+  (`sidebarPosition: START`, width clamped 240–320 logical); the sidebar
+  toggle is the content header's first `packStart`, so the header reads
+  `[toggle][WCA][3x3x3][refresh] … title … [menu][window controls]` — M3's
+  session dropdown joins that row and needs a placement call. Adaptive
+  layout (drawer breakpoint, header shedding, width caps) is M6's job, not
+  M3's.
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read

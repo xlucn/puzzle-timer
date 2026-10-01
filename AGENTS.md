@@ -73,6 +73,11 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `python3 tools/xtest.py --help` — scripted key injection + capture.
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
+- **Hand interactive testing over early.** "There is too much time debugging
+  the testers … find a solution quick, or I can help testing" (user, M2): if
+  synthetic clicks keep landing off-window or the physical mouse keeps
+  winning, switch to key-driven checks — and if the user is at the machine,
+  ask them to click and watch the result instead of wrestling the warp.
 - Details and traps: `tools/README.md`.
 
 ### Fresh install

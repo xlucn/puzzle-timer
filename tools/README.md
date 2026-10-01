@@ -86,7 +86,12 @@ these cover the part Vitest cannot, which is the GTK layer.
    the origin and retry"; and reach for *keys* once focus is in the app, since
    key events go to the focused window wherever it is on screen. This cost real
    time during M2 — screenshots showed "nothing happened" when in fact the
-   click had landed on the desktop beside the app.
+   click had landed on the desktop beside the app. And the origin can be
+   correct while the world is not: if the user is driving the same machine,
+   every warp fights their hand — `over=0x0` with perfectly right math, and a
+   `rootshot` that comes back solid black mid-drag (trap 4) while the window
+   `shot` still shows the truth. When that happens (or the user offers to
+   help test, per AGENTS.md), stop synthesising and hand the run over.
 
    Two safety nets now live in `App.close()`: every key the run pressed and
    did not release gets released, and keyboard focus is handed back to whoever
@@ -97,9 +102,11 @@ these cover the part Vitest cannot, which is the GTK layer.
    keystrokes going to the app under test.
 
 6. **HiDPI: screenshot pixels are physical, widget sizes are logical.** This
-   session's machine runs the X11 session at scale 2 (`Xft.dpi: 192`, screen
-   3456×2160 → logical desktop **1728** wide). GTK lays out in *logical* px
-   and the compositor renders each at 2×, so every measurement needs
+   machine runs the X11 session at scale 2 (`Xft.dpi: 192` = 96 × 2). The
+   screen itself follows the monitor — 3456×2160 during M2, 5120×2880 after
+   it changed — so read it fresh with `xwininfo -root`; logical width is
+   always half the physical (1728 then, **2560** now). GTK lays out in *logical*
+   px and the compositor renders each at 2×, so every measurement needs
    halving before it can be compared with a config value. Cost an entire
    debugging detour: the solve sidebar measured **478 physical px** in
    screenshots while `maxSidebarWidth: 320` claimed it could never exceed
