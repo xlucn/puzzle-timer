@@ -7,9 +7,11 @@ these cover the part Vitest cannot, which is the GTK layer.
 
 | File | What it does |
 |---|---|
-| `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click, screenshot (`shot`/`rootshot`), list windows (`wins`) |
+| `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click (aimed, then verified with `pointer`), screenshot (`shot`/`rootshot`), list windows (`wins`) |
 | `timer_walk.py` | Walks the timer through all five states and captures each one |
 | `keyprobe.mjs` | Minimal node-gtk app that logs raw key events (for plumbing bugs) |
+| `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (M2's sidebar plumbing) |
+| `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 
 ## Requirements
@@ -20,7 +22,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 - Python 3 with `libX11` and `libXtst` (standard on any X system).
 - ImageMagick's `import` for screenshots.
 
-## The four traps these tools work around
+## The six traps these tools work around
 
 1. **Focus.** X sends keys to whichever window owns focus. `App()` takes focus
    and reads it back to verify; otherwise keystrokes land somewhere else and
@@ -55,7 +57,10 @@ these cover the part Vitest cannot, which is the GTK layer.
    hands the activate to the first and exits with code 0, so the walk finds
    the *old* window and your fresh changes are never exercised. If the app
    appears to die on launch, check first: `pgrep -fa "node-gtk/register"`.
-   Kill leftovers with `pkill -f "node-gtk/register"`.
+   Kill leftovers with the bracketed pattern — `pkill -f "[n]ode-gtk/register"`
+   (or `pkill -f "[t]sx.*src/main.ts"` for the `npm start` form). The
+   brackets are not decoration: an unbracketed pattern matches the very shell
+   running the `pkill` command line, so it kills itself instead of the app.
 
 4. **Synthetic *mouse* clicks need a portal approval; keys do not.** XTEST key
    events go straight to the focused X window, but the first synthetic button
@@ -69,6 +74,46 @@ these cover the part Vitest cannot, which is the GTK layer.
    every app after a restart of the session: confirm with `keyprobe.mjs` before
    blaming the app, and if keys do reach the app but nothing changes, drop a
    temporary `console.error` in the handler to see the event arrive.
+
+5. **The window moves, so a click can land off it — verify, don't assume.**
+   `xtest` reads the window origin from `xwininfo` once per run and aims every
+   click there, but a human dragging the window (or a WM animation) invalidates
+   that origin *mid-run*: the warp then parks the pointer over empty root —
+   `pointer` prints `over=0x0` — and the click hits nothing while the test
+   cheerfully reports success. Two habits fix it: run a whole scenario in
+   **one** `xtest` invocation (a single origin read) with `pointer` after each
+   `click`, treating `over=0x<window id>` as "landed" and `0x0` as "re-read
+   the origin and retry"; and reach for *keys* once focus is in the app, since
+   key events go to the focused window wherever it is on screen. This cost real
+   time during M2 — screenshots showed "nothing happened" when in fact the
+   click had landed on the desktop beside the app.
+
+   Two safety nets now live in `App.close()`: every key the run pressed and
+   did not release gets released, and keyboard focus is handed back to whoever
+   had it before the run. Both were written after M2 damage: an unpaired
+   `press`/`hold` leaves X believing the key is physically down, which makes
+   the *user's* real presses on that key do nothing (Space and Escape were
+   broken this way), and without the handback every run left the user's
+   keystrokes going to the app under test.
+
+6. **HiDPI: screenshot pixels are physical, widget sizes are logical.** This
+   session's machine runs the X11 session at scale 2 (`Xft.dpi: 192`, screen
+   3456×2160 → logical desktop **1728** wide). GTK lays out in *logical* px
+   and the compositor renders each at 2×, so every measurement needs
+   halving before it can be compared with a config value. Cost an entire
+   debugging detour: the solve sidebar measured **478 physical px** in
+   screenshots while `maxSidebarWidth: 320` claimed it could never exceed
+   320 — which looked like a libadwaita bug. It wasn't: the window is
+   `setDefaultSize(900, …)` = 900 *logical* wide, so the sidebar computes
+   `CLAMP(0.25 × 900, 240, 320)` = **240 logical = its minimum** → 480
+   physical ≈ the 478 measured (max only binds from 1280 logical up; the
+   probe at 1728 logical correctly clamped to 320). Corollaries: `xwininfo`
+   and `identify` report physical sizes (1900 ≈ `(900 + 2×25) × 2` incl.
+   CSD shadow), and `xdotool windowsize 1900 1180` against a window already
+   ~1900 physical is a **no-op** — which is why a resize-based test appeared
+   to hang. Rule: before trusting a pixel count, derive the scale from
+   something known (window default size vs `xwininfo`, row height vs GTK's
+   ~34 logical default) and never mix units in one comparison.
 
 ## Recipes
 
@@ -93,6 +138,18 @@ python3 tools/xtest.py --window KeyProbe press space sleep 0.6 release space tap
 python3 tools/xtest.py --no-repaint \
     hold space 0.35 release space sleep 0.40 \
     press x release x sleep 0.6 shot timing.png
+
+# M2 sidebar: select three rows (Shift+Down extends natively) and delete them.
+# The pointer is aimed once and re-checked (`pointer` must print the window
+# id, not 0x0); after that everything is keys — the Delete key — so the
+# origin can move without breaking the test.
+python3 tools/xtest.py --window "csTimer GTK" \
+    click 1740 240 pointer sleep 0.3 \
+    press Shift_L press Down release Down press Down release Down release Shift_L \
+    sleep 0.3 shot selected.png \
+    press Delete release Delete sleep 0.6 shot deleted.png
+# …then click the toast's Undo (bottom-centre, window-relative) in the same
+# invocation and screenshot again to prove the batch came back.
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …

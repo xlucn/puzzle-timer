@@ -119,9 +119,14 @@ src/
    atomic write (temp file + rename) after each solve, debounced. Revisit only
    if profiling shows a problem (`node:sqlite` is built into Node).
 
-7. **Penalties / shortcuts** — context menu (`Gtk.PopoverMenu`) on a solve row
-   for `+2`, `DNF`, comment, delete. Shortcuts mirror csTimer: `Ctrl+Z` undo,
-   `Ctrl+1/2/3` = OK/+2/DNF on the latest solve, `Alt+1-7` scramble types.
+7. **Where per-solve actions live — the toolbar, not a context menu.**
+   Select row(s) and act from the footer bar under the list (a
+   `Gtk.ActionBar` revealed on selection); M4 puts `+2`, `DNF`, comment and
+   delete there, acting on the whole multi-row selection. Deliberately **no
+   `Ctrl+Z`**: a shortcut that *deletes* a record is not intuitive (user
+   call, 2026-10-01) — deletions are undone from their toast instead. The
+   other csTimer-parity shortcuts stay: `Ctrl+1/2/3` = OK/+2/DNF on the
+   latest solve, `Alt+1-7` scramble types.
 
 8. **SVG scramble images** — GTK4 has no SVG support; use `Rsvg-2.0` via GI
    → `Gtk.Picture` (typelib confirmed present on this machine).
@@ -216,6 +221,7 @@ Each milestone ends with a runnable app.
 | **M3** | Sessions: create/rename/switch/delete, per-session lists and stats, header dropdown | Multi-session works |
 | **M4** | Statistics ported from csTimer rules (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection with GStreamer beeps | Feature-complete core |
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
+| **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
 
 **Post-MVP backlog:** stackmat, charts (see §1), then packaging if ever needed.
 
@@ -258,6 +264,80 @@ Evidence:
   long relay scramble doesn't resize the window, category/type dropdowns both
   search (`roux`, `pyra`).
 
+### M2 — landed 2026-10-01
+
+Solve recording: `timer.onSolved` reads the scramble that was on screen,
+writes `{timeMs, scramble, scrambleType, createdAtMs}` into
+`src/core/session.ts` (chronological, **ids never reused**), then advances the
+feed. UI: `src/ui/timesList.ts` — a `Gtk.ColumnView` sidebar (never
+`Gtk.ListBox`: sessions reach thousands of solves) whose model is a
+`Gtk.StringList` of solve *ids* newest-first, rebuilt in one `splice()` per
+change; cells read their text from the session in `bind`, so a delete (and the
+undo toast that follows it) can never point at the wrong row. Columns size
+themselves: `fixed-width` stays at its default of `-1` (GTK's native
+content-fit — an explicit width is used "regardless of the size of its
+content"), they are **not** resizable (GTK's drag is a bare 1:1 gesture with
+no sensitivity setting; user call — this list is a log, not a spreadsheet),
+and `Time` + `Solved` have `expand` set — GTK splits the extra width equally
+between them, so the columns span the full sidebar — while the digit-only
+`#` column keeps its content-fit floor instead of wasting an equal share on
+one glyph. All cells are left-aligned (`xalign: 0`): GTK never offers a way
+to move a ColumnView header off the left edge, so the cells go under their
+headers rather than stranding them (user call, 2026-10-01). Hosted in
+`Adw.OverlaySplitView` beside the timer with a header toggle (`collapsed`
+stays false — the drawer breakpoint is M6). Sidebar width is in
+*logical* px: on this scale-2 session the default 900-logical window puts it
+at the `minSidebarWidth` floor (240; `0.25 × 900 < 240`), rising to at most
+`maxSidebarWidth` 320 once the window reaches 1280 logical — verified against
+libadwaita's source and a live probe, not assumed; see `tools/README.md`
+trap 6 before quoting any pixel count from a screenshot. Persistence:
+`src/platform/store.ts` writes `{version: 1, solves: [...]}` to
+`~/.local/share/cstimer-gtk/sessions/default.json` — debounced 250 ms, atomic
+`.tmp` + rename, `flush()` on quit; an unreadable file is quarantined to
+`<file>.corrupt-<ts>` behind a toast rather than being overwritten.
+
+Deleting: rows select with a click (Shift/Ctrl-click extends — GTK's own
+multi-select behaviour on a `Gtk.MultiSelection`), which reveals the sidebar's
+footer bar — a stock `Gtk.ActionBar`, the same bottom bar Warehouse and other
+libadwaita apps hang under a list; Adwaita paints its inner box with the
+headerbar background + a top shade line, and `revealed=false` collapses it to
+nothing, so the bar costs list height only while something is selected. The
+bar shows `#8 · 0.60` (one row) or `3 selected`, plus a 🗑 **Delete** button;
+the Delete key takes the very same `deleteSelected()` path, so button and key
+cannot drift apart. One call carries the whole selection, and one `Adw.Toast`
+with **Undo** puts the lot back (`session.restore()` per removal, **in
+reverse removal order**, each at the index recorded when it happened).
+There is no right-click menu (replaced by this bar — it also took the
+popover-blink bug with it) and no Ctrl+Z (removed as unintuitive);
+`Session.undo()` went with it, hence 58 tests rather than 59.
+
+Evidence:
+
+- **58 Vitest tests green** (M1's 40 + 14 session + 4 `formatTimestamp`; the
+  `undo()` test left with Ctrl+Z).
+- **Restart-safe, end to end:** recorded solves → `Ctrl+Q` → file still holds
+  them → relaunch → same rows with the same chronological `#`s. Deletions
+  during the session left ids 1, 5, 6 in the file — proof ids don't get
+  recycled.
+- Row click + Delete removed exactly that solve from disk and renumbered the
+  rest; the toast's **Undo** put it back at its original position.
+- **The footer bar, three states** (screenshots): nothing selected → no bar
+  at all (no leftover strip); one row clicked → row highlighted, bar reads
+  `#8 · 0.60` + Delete; click Delete → count drops, `Solve deleted` toast
+  appears, bar collapses.
+- **Multi-select + batch:** click + Shift+Down ×2 highlighted three rows with
+  `3 selected` in the bar; Delete removed all three (6 → 3 solves) behind a
+  single `3 solves deleted` toast, and its Undo restored all three at their
+  original positions. `Ctrl+Z` afterwards changed nothing (action, menu entry
+  and `Session.undo()` are gone) and the app log stayed clean.
+- The sidebar toggle round-trips and GTK moves the window controls to the
+  surviving header by itself.
+- `tools/colview_probe.mjs` covers what screenshots can't: factory
+  setup/bind, `getPosition()` → id → row text, the `isSelected()` selection
+  walk returning exactly the selected ids (`[3, 1]`), and the ActionBar
+  revealing (`2 selected`) then collapsing again once a rebuild clears the
+  selection.
+
 ---
 
 ## 7. Session handoff
@@ -265,9 +345,11 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **Next milestone: M2** — record solves → `Gtk.ColumnView` → atomic JSON in
-  the XDG data dir, restart-safe, undo/delete. (M0 and M1 are landed — see the
-  dated blocks in §6.)
+- **Next milestone: M3** — sessions: create/rename/switch/delete, per-session
+  lists and stats, header dropdown. (M0, M1 and M2 are landed — see the dated
+  blocks in §6.) M2 left the single session in
+  `~/.local/share/cstimer-gtk/sessions/default.json`, `{version: 1, solves}`
+  — M3 is what gives that file a session list around its solves.
 - To resume: read this file + the current milestone row, check what exists in
   `src/`, continue from there.
 - Before trusting a screenshot of the running app, read

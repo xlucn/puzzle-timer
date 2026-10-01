@@ -26,6 +26,40 @@ export interface FormatOptions {
  * Truncation (not rounding) matters: a timer must never display a time that
  * is faster than the measured one.
  */
+/**
+ * Wall-clock stamp for the solve list:
+ *
+ *   formatTimestamp(sameDay,   now) → "14:32"
+ *   formatTimestamp(earlier,   now) → "09-30 14:32"
+ *   formatTimestamp(otherYear, now) → "2025-12-31 14:32"
+ *
+ * Local time, and the day is only spelled out when it is not today — that
+ * keeps the sidebar column narrow while still telling yesterday's solves
+ * apart. `now` is injectable so the day/year branches are testable without
+ * depending on the machine's clock or time zone (the tests build their dates
+ * with `new Date(y, m, d, h, min)`, i.e. local time on purpose).
+ */
+export function formatTimestamp(epochMs: number, now: number = Date.now()): string {
+  if (!Number.isFinite(epochMs)) return ''
+
+  const then = new Date(epochMs)
+  const today = new Date(now)
+  const clock = `${pad2(then.getHours())}:${pad2(then.getMinutes())}`
+
+  const sameDay =
+    then.getFullYear() === today.getFullYear() &&
+    then.getMonth() === today.getMonth() &&
+    then.getDate() === today.getDate()
+  if (sameDay) return clock
+
+  const date = `${pad2(then.getMonth() + 1)}-${pad2(then.getDate())}`
+  return then.getFullYear() === today.getFullYear()
+    ? `${date} ${clock}`
+    : `${then.getFullYear()}-${date} ${clock}`
+}
+
+const pad2 = (value: number): string => String(value).padStart(2, '0')
+
 export function formatTime(ms: number, options: FormatOptions = {}): string {
   const useMs = options.useMs ?? false
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { Timer } from './timer.js'
-import { formatTime } from './time.js'
+import { formatTime, formatTimestamp } from './time.js'
 
 /** Test clock — milliseconds, advanced by hand. */
 const T0 = 1_000
@@ -37,6 +37,35 @@ describe('formatTime', () => {
     expect(formatTime(-5)).toBe('0.00')
     expect(formatTime(Number.NaN)).toBe('0.00')
     expect(formatTime(Number.POSITIVE_INFINITY)).toBe('0.00')
+  })
+})
+
+describe('formatTimestamp', () => {
+  // Built in local time on purpose: the expected string is then independent
+  // of the machine's time zone, which is what makes these assertions honest.
+  const local = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m - 1, d, h, min).getTime()
+
+  const today = local(2026, 10, 1, 12, 0)
+
+  it('shows only the clock time for today', () => {
+    expect(formatTimestamp(local(2026, 10, 1, 14, 32), today)).toBe('14:32')
+    expect(formatTimestamp(local(2026, 10, 1, 0, 5), today)).toBe('00:05')
+    expect(formatTimestamp(today, today)).toBe('12:00')
+  })
+
+  it('adds the date for an earlier day of the same year', () => {
+    expect(formatTimestamp(local(2026, 9, 30, 14, 32), today)).toBe('09-30 14:32')
+    expect(formatTimestamp(local(2026, 1, 2, 6, 7), today)).toBe('01-02 06:07')
+  })
+
+  it('adds the year when the solve is from an older year', () => {
+    expect(formatTimestamp(local(2025, 12, 31, 23, 59), today)).toBe('2025-12-31 23:59')
+  })
+
+  it('clamps nonsense input to an empty stamp', () => {
+    expect(formatTimestamp(Number.NaN)).toBe('')
+    expect(formatTimestamp(Number.POSITIVE_INFINITY)).toBe('')
   })
 })
 

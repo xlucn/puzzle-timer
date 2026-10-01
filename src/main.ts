@@ -11,12 +11,16 @@
  * tear everything down from the window's close handler / quit action.
  * See: https://github.com/romgrk/node-gtk/blob/master/doc/importing.md
  *
- * M1 scope: scrambles. The text above the timer comes from cstimer_module,
- * which runs in a worker thread (src/scramble/) so a 1.2 s 4x4 scramble never
- * blocks the UI, while src/core/scrambleFeed.ts decides what to show and when
- * to pre-generate the next one. Solve recording (M2), sessions (M3) and
- * statistics (M4) come next — see PLAN.md. All timing and scramble policy
- * live in src/core/, which knows nothing about GTK.
+ * M2 scope: solving. Every finished solve is recorded against the scramble
+ * that was on screen (src/core/session.ts), listed newest-first in a
+ * Gtk.ColumnView sidebar (src/ui/timesList.ts), and persisted to an atomic
+ * JSON file in the XDG data dir (src/platform/store.ts) — so the list
+ * survives a restart. Select rows (click, Shift/Ctrl-click) and the sidebar's
+ * toolbar — or the Delete key — remove them together, one undo toast for the
+ * whole batch. Scrambles still come from cstimer_module in
+ * a worker (M1, see src/scramble/); sessions (M3) and statistics (M4) come
+ * next — see PLAN.md. All timing, scramble and solve policy live in
+ * src/core/, which knows nothing about GTK.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -28,11 +32,14 @@ import { styles } from 'node-gtk/styles'
 
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
+import { Session, type RemovedSolve, type Solve } from './core/session.js'
 import { Timer, type TimerState } from './core/timer.js'
+import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createTimerView } from './ui/timerLabel.js'
+import { createTimesList } from './ui/timesList.js'
 
 const APP_ID = 'com.oliver.cstimergtk'
 const APP_NAME = 'csTimer GTK'
@@ -45,7 +52,7 @@ const START_KEY = 'space'
 
 /**
  * Keys carrying these modifiers are left alone entirely, so application
- * accelerators (Ctrl+Q, and later Ctrl+Z / Ctrl+1-3) keep working.
+ * accelerators (Ctrl+Q, and later Ctrl+1-3 for M4's penalties) keep working.
  */
 const COMMAND_MASK =
   Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK
@@ -88,7 +95,8 @@ app.on('activate', () => {
 
   const window = new Adw.ApplicationWindow({ application: app })
   window.setTitle(APP_NAME)
-  window.setDefaultSize(720, 480)
+  // Wide enough that the solve sidebar (≈280 px) fits beside a readable timer.
+  window.setDefaultSize(900, 540)
 
   // ---- header bar with a primary menu ----------------------------------
   const header = new Adw.HeaderBar()
@@ -104,6 +112,65 @@ app.on('activate', () => {
       primary: true,
     }),
   )
+
+  // Wired to the split view further down; a ToggleButton so the pressed state
+  // tracks the sidebar even when it is closed some other way. Packed at the
+  // start: the list lives in the left sidebar, so its toggle belongs on that
+  // side — and before the scrambler dropdowns (packed further down), so it
+  // renders leftmost, right beside the sidebar it opens.
+  const sidebarToggle = new Gtk.ToggleButton({
+    iconName: 'sidebar-show-symbolic',
+    tooltipText: 'Show solve list',
+    active: true,
+    cssClasses: ['flat'],
+  })
+  header.packStart(sidebarToggle)
+
+  // ---- solves: what is already on disk, and where a new one lands --------
+  // A session file that could not be parsed has been moved aside by the
+  // store; say so rather than quietly starting a fresh list.
+  const loaded = store.loadSession()
+  if (loaded.notice !== null) {
+    console.error(`[store] ${loaded.notice}`)
+  }
+  const session = new Session(loaded.solves)
+
+  const toastOverlay = new Adw.ToastOverlay()
+
+  /**
+   * Deletion is always undoable, however it was triggered — and a whole
+   * selection goes back with one click: the removals are restored in
+   * reverse order, each at the index recorded when *it* happened, which
+   * lands every solve exactly where it was.
+   */
+  const offerUndo = (removed: readonly RemovedSolve[]) => {
+    const toast = new Adw.Toast({
+      title: removed.length === 1 ? 'Solve deleted' : `${removed.length} solves deleted`,
+      buttonLabel: 'Undo',
+    })
+    toast.on('button-clicked', () => {
+      for (const entry of [...removed].reverse()) session.restore(entry)
+    })
+    toastOverlay.addToast(toast)
+  }
+
+  const removeSolves = (solves: readonly Solve[]) => {
+    const removed: RemovedSolve[] = []
+    for (const solve of solves) {
+      const entry = session.remove(solve.id)
+      if (entry !== null) removed.push(entry)
+    }
+    if (removed.length > 0) offerUndo(removed)
+  }
+
+  const timesList = createTimesList({
+    session,
+    onDelete: removeSolves,
+  })
+
+  // Every mutation is persisted: the store serialises now and writes a
+  // moment later, atomically (see src/platform/store.ts).
+  session.subscribe(() => store.scheduleSave(session.solves))
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
   const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
@@ -134,16 +201,48 @@ app.on('activate', () => {
   refreshScramble.on('clicked', () => feed.refresh())
   header.packStart(refreshScramble)
 
-  // A finished solve promotes the pre-generated scramble and warms the one
-  // after it, so the next solve never waits on the scrambler.
-  timer.onSolved(() => feed.advance())
+  // A finished solve is recorded against the scramble that was on screen —
+  // read before advance(), which swaps in the pre-generated one — and then
+  // the feed promotes that scramble and warms the one after it, so the next
+  // solve never waits on the scrambler. `scramble` is null only while the
+  // very first one is still generating; record the solve anyway.
+  timer.onSolved((elapsedMs) => {
+    const { scramble, type } = feed.state
+    session.add({
+      timeMs: elapsedMs,
+      scramble: scramble ?? '',
+      scrambleType: type,
+      createdAtMs: Date.now(),
+    })
+    feed.advance()
+  })
 
   // ---- content: header, scramble, centered timer -------------------------
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   content.append(header)
   content.append(scramblePanel.widget)
   content.append(timerView.widget)
-  window.setContent(content)
+
+  // The solve list is a sidebar over the left-hand edge: it can be closed,
+  // and closing it hands the full width back to the timer. `collapsed` stays
+  // false — the list is a persistent pane, not a drawer (a breakpoint that
+  // turns it into a drawer on narrow windows is M6). START puts it
+  // left; nothing else claims that side (PLAN §7).
+  const split = new Adw.OverlaySplitView({
+    content,
+    sidebar: timesList.widget,
+    sidebarPosition: Gtk.PackType.START,
+    minSidebarWidth: 240,
+    maxSidebarWidth: 320,
+    sidebarWidthUnit: Adw.LengthUnit.PX,
+    showSidebar: sidebarToggle.active,
+  })
+
+  sidebarToggle.on('toggled', () => split.setShowSidebar(sidebarToggle.active))
+  split.on('notify::show-sidebar', () => sidebarToggle.setActive(split.getShowSidebar()))
+
+  toastOverlay.setChild(split)
+  window.setContent(toastOverlay)
 
   // ---- rendering --------------------------------------------------------
   const render = () => timerView.render(timer.snapshot(nowMs()))
@@ -184,6 +283,11 @@ app.on('activate', () => {
     if (key === null) return false
 
     const wasRunning = timer.state === 'running'
+
+    // Delete removes the selected solve — but while a solve is running every
+    // key means "stop", so the branch below gets it first.
+    if (!wasRunning && keyval === Gdk.KEY_Delete && timesList.deleteSelected()) return true
+
     timer.keyDown(key, nowMs())
 
     // Consume the start key so it cannot activate a focused widget, and any
@@ -221,8 +325,11 @@ app.on('activate', () => {
   app.addAction(aboutAction)
 
   // The scramble worker is a thread of this process: drop it before the loop
-  // goes, otherwise it outlives the window it was serving.
+  // goes, otherwise it outlives the window it was serving. The pending
+  // session write goes first — a solve recorded a moment before quitting
+  // must still be on disk after the restart.
   const shutdown = () => {
+    store.flush()
     scrambleService.dispose()
     loop.quit()
     app.quit()
@@ -239,6 +346,11 @@ app.on('activate', () => {
   render() // paint the initial state before anything happens
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   window.present()
+
+  // Surface the load notice from the store (details already went to stderr).
+  if (loaded.notice !== null) {
+    toastOverlay.addToast(new Adw.Toast({ title: 'Session file could not be read', timeout: 10 }))
+  }
 
   // The loop integration is already running; under ESM this returns immediately.
   // The app keeps running until the close handler (or quit action) stops it.

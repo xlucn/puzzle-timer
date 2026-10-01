@@ -68,6 +68,8 @@ OPS_HELP = """command list, executed in order:
   tap KEY [SECS]        press, wait (default 0.05 s), release
   type TEXT             type lowercase letters/digits (for search entries)
   click X Y [BUTTON]    click at window-relative pixels (default button 1)
+  warp X Y              move the pointer there, without clicking (hover tests)
+  pointer               print where X thinks the pointer is, and what is under it
   sleep SECS            wait
   shot PATH             screenshot (forces a repaint first unless --no-repaint)
   rootshot PATH [window | X Y W H]
@@ -155,6 +157,18 @@ def _declare(x11, xtst):
         ctypes.c_int, ctypes.c_int, ctypes.c_uint, ctypes.c_uint,
         ctypes.c_int, ctypes.c_int,
     ]
+    x11.XQueryPointer.restype = ctypes.c_int
+    x11.XQueryPointer.argtypes = [
+        ctypes.c_void_p,                   # Display *
+        ctypes.c_ulong,                    # Window (query from root)
+        ctypes.POINTER(ctypes.c_ulong),    # Window *root_return
+        ctypes.POINTER(ctypes.c_ulong),    # Window *child_return
+        ctypes.POINTER(ctypes.c_int),      # int *root_x
+        ctypes.POINTER(ctypes.c_int),      # int *root_y
+        ctypes.POINTER(ctypes.c_int),      # int *win_x
+        ctypes.POINTER(ctypes.c_int),      # int *win_y
+        ctypes.POINTER(ctypes.c_uint),     # unsigned int *mask
+    ]
 
 
 def _walk(x11, d, window, title):
@@ -211,6 +225,8 @@ class App:
 
         self.root = self.x11.XDefaultRootWindow(self.d)
         self.title = title
+        self._held: set[str] = set()  # keys we pressed and have not released yet
+        self.prev_focus = 0           # focus owner to restore in close()
         self.win = _find_window(self.x11, self.d, self.root, title, timeout)
         print(f"window: {title!r} = 0x{self.win:x}")
 
@@ -227,12 +243,31 @@ class App:
 
     def close(self):
         if getattr(self, "d", None):
+            # Never leave the machine's keyboard in a state we put it in:
+            # release anything still held (an unpaired `press`/`hold` would
+            # otherwise leave X believing the key is down, which makes the
+            # user's real presses on it do nothing), then give focus back.
+            for key in sorted(getattr(self, "_held", set())):
+                print(f"safety: releasing still-held key {key!r}")
+                self.release(key)
+            prev = getattr(self, "prev_focus", 0)
+            if prev and prev != self.win:
+                self.x11.XSetInputFocus(self.d, prev, 2, 0)  # RevertToParent
+                self.x11.XFlush(self.d)
+                print(f"focus: handed back to 0x{prev:x}")
             self.x11.XCloseDisplay(self.d)
             self.d = None
 
     # -- focus -------------------------------------------------------------
     def focus(self):
         """Take keyboard focus (RevertToParent) and verify it stuck."""
+        # Remember who had it, so close() can restore it: otherwise every
+        # test run leaves the user's keystrokes going to the app under test.
+        prev, revert = ctypes.c_ulong(), ctypes.c_int()
+        self.x11.XGetInputFocus(self.d, ctypes.byref(prev), ctypes.byref(revert))
+        if prev.value not in (0, 1, self.win):  # skip None / PointerRoot
+            self.prev_focus = prev.value
+
         self.x11.XSetInputFocus(self.d, self.win, 2, 0)
         self.x11.XFlush(self.d)
         time.sleep(0.2)
@@ -271,6 +306,16 @@ class App:
         print(out)
         return out
 
+    def _map_state(self, wid: int) -> str:
+        """'IsViewable' / 'IsUnMapped' … for a window (empty if lookup fails)."""
+        out = subprocess.run(
+            ["xwininfo", "-id", hex(wid)], check=True, capture_output=True, text=True
+        ).stdout
+        for line in out.splitlines():
+            if "Map State:" in line:
+                return line.split(":", 1)[1].strip()
+        return ""
+
     def shot_child(self, path: str) -> str:
         """Screenshot an open popup.
 
@@ -280,12 +325,18 @@ class App:
         them. We take the largest root window that overlaps the app's
         rectangle but is not the app itself: popups anchor over their parent,
         while unrelated windows sit elsewhere on the screen.
+
+        Only *mapped* windows count. GTK keeps each cell's popover window
+        alive after closing it, and those stale shells are bigger than the
+        live menu -- grabbing one gives a blank image and no idea why.
         """
         ax, ay = self.origin()
         aw, ah = self.size()
         found = []
         for wid in self.root_children():
             if wid == self.win:
+                continue
+            if self._map_state(wid) != "IsViewable":
                 continue
             wx, wy = self._abs_pos(wid)
             w, h = self._geom(wid)
@@ -353,10 +404,12 @@ class App:
     def press(self, key: str):
         self.xtst.XTestFakeKeyEvent(self.d, self.keycode(key), 1, 0)
         self.x11.XFlush(self.d)
+        self._held.add(key)  # released by close() unless paired
 
     def release(self, key: str):
         self.xtst.XTestFakeKeyEvent(self.d, self.keycode(key), 0, 0)
         self.x11.XFlush(self.d)
+        self._held.discard(key)
 
     def hold(self, key: str, seconds: float):
         """Press and keep holding — for states that only exist while held."""
@@ -395,15 +448,58 @@ class App:
         self.x11.XFlush(self.d)
         time.sleep(0.1)
 
+    def pointer(self):
+        """(root_x, root_y, window under the pointer) as X sees it right now."""
+        root_ret, child_ret = ctypes.c_ulong(), ctypes.c_ulong()
+        rx, ry = ctypes.c_int(), ctypes.c_int()
+        wx, wy = ctypes.c_int(), ctypes.c_int()
+        mask = ctypes.c_uint()
+        ok = self.x11.XQueryPointer(
+            self.d, self.root, ctypes.byref(root_ret), ctypes.byref(child_ret),
+            ctypes.byref(rx), ctypes.byref(ry), ctypes.byref(wx), ctypes.byref(wy),
+            ctypes.byref(mask),
+        )
+        return (rx.value, ry.value, child_ret.value) if ok else None
+
+    def _aim(self, x: int, y: int) -> bool:
+        """Warp to window-relative (x, y) and confirm X agrees we got there.
+
+        XWayland mirrors the *physical* pointer, so a real mouse movement
+        anywhere between our warp and our click puts the cursor somewhere
+        else -- and the click silently lands in another window (or nowhere
+        interesting), which reads as "the app ignores my input". Re-warp a
+        few times; if the hand still wins, say so loudly instead of letting
+        the caller debug a click that never arrived.
+        """
+        ax, ay = self.origin()
+        want = (ax + x, ay + y)
+        for _ in range(6):
+            self.x11.XWarpPointer(self.d, 0, self.win, 0, 0, 0, 0, x, y)
+            self.x11.XFlush(self.d)
+            here = self.pointer()
+            if here and (here[0], here[1]) == want:
+                return True
+        print(f"  WARNING: pointer at {self.pointer()[:2] if self.pointer() else '?'} "
+              f"after warping to window-relative ({x},{y}); the physical mouse "
+              f"keeps moving it -- the next event may miss the app", flush=True)
+        return False
+
     def click(self, x: int, y: int, button: int = 1):
         """Click at window-relative pixels (0,0 is the top-left corner)."""
-        self.x11.XWarpPointer(self.d, 0, self.win, 0, 0, 0, 0, x, y)
-        self.x11.XFlush(self.d)
-        time.sleep(0.05)
+        self._aim(x, y)
         self.xtst.XTestFakeButtonEvent(self.d, button, 1, 0)
         self.xtst.XTestFakeButtonEvent(self.d, button, 0, 0)
         self.x11.XFlush(self.d)
         time.sleep(0.2)
+
+    def warp(self, x: int, y: int):
+        """Move the pointer to window-relative pixels without clicking.
+
+        Uses XWarpPointer (what `click` uses) with position verification:
+        `xdotool mousemove` silently does nothing on this display, which makes
+        hover tests lie about where the pointer is.
+        """
+        self._aim(x, y)
 
     # -- capture -----------------------------------------------------------
     def size(self):
@@ -513,6 +609,13 @@ def _run(app: App, ops: list[str], force_repaint: bool):
                 button = int(ops[i])
                 i += 1
             app.click(x, y, button)
+        elif op == "warp":
+            app.warp(int(ops[i]), int(ops[i + 1]))
+            i += 2
+        elif op == "pointer":
+            here = app.pointer()
+            where = f"root={here[:2]} over=0x{here[2]:x}" if here else "unknown"
+            print(f"  pointer: {where}")
         elif op == "shot":
             app.capture(ops[i], force_repaint=force_repaint)
             i += 1
