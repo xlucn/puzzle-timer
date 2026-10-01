@@ -18,9 +18,37 @@ these cover the part Vitest cannot, which is the GTK layer.
 
 - The app running **on X11**, not native Wayland:
   `GDK_BACKEND=x11 npm start` (XWayland is fine — it is what you get by
-  adding that flag inside a Wayland session).
+  adding that flag inside a Wayland session), **or better, the nested
+  display below**.
 - Python 3 with `libX11` and `libXtst` (standard on any X system).
 - ImageMagick's `import` for screenshots.
+
+## Recommended workflow: drive a nested display (Xephyr)
+
+Run the app on its own X server instead of the live desktop — this sidesteps
+traps 1, 2, 4 and 5 in one move:
+
+```sh
+Xephyr :99 -screen 1280x800 -ac -br &          # nested X server = a window on your desktop
+pkill -f "[n]ode-gtk/register"                 # trap 3: only one instance per session bus
+DISPLAY=:99 GDK_BACKEND=x11 npm start &
+DISPLAY=:99 python3 tools/xtest.py --window "csTimer GTK" \
+  tap ctrl+e sleep 0.5 shot out.png
+```
+
+Why it is worth the two extra prefixes (`xtest.py`, `maim`, `xwininfo` all
+read `$DISPLAY`):
+
+- **XTEST there is plain X11** — no RemoteDesktop consent prompt, ever
+  (trap 4). The nested window stays on your desktop, so a human can still
+  watch the test run.
+- No physical mouse or window drag to fight, and screenshots are always
+  fresh — trap 2's stale-frame archaeology mostly disappears.
+- Windows sit at known coordinates with **1× pixels and no shadows** —
+  window-relative = root-relative, no HiDPI (trap 6) arithmetic.
+- Popups (menus, popovers) are ordinary toplevels *of the nested server*,
+  so `rootshot`/`popup` see them instead of the solid black the live
+  XWayland root gives (trap 4's caveat).
 
 ## The six traps these tools work around
 
@@ -62,21 +90,29 @@ these cover the part Vitest cannot, which is the GTK layer.
    brackets are not decoration: an unbracketed pattern matches the very shell
    running the `pkill` command line, so it kills itself instead of the app.
 
-4. **Synthetic *mouse* clicks need a portal approval; keys do not.** XTEST key
-   events go straight to the focused X window, but the first synthetic button
-   click triggers GNOME's
-   `org.freedesktop.portal.RemoteDesktop.CreateSession` prompt — a human has to
-   approve "desktop sharing" once, after which clicks land. Even then some
-   targets are unverifiable headlessly: popups and the root window capture
-   solid black, so a dropdown opening *cannot* be confirmed from a screenshot —
-   have a human look, or verify the effect instead of the popup (e.g. the
-   selection label changing in the header). **Policy (user call,
-   2026-10-01): don't rely on mouse clicks in tests at all — trigger actions
-   through keybindings.** Every menu/dialog action gets an accelerator
-   (`app.setAccelsForAction` in `src/main.ts`, documented in
-   `src/ui/shortcuts.ts`), and tests press keys; that sidesteps the portal
-   prompt, the physical-mouse fight below, and the black-popup problem in one
-   move. If a new action has no key yet, add one *before* testing it.
+4. **Synthetic input demands a portal approval on the live Wayland session —
+   keys *and* clicks.** XWayland implements XTEST through libei (mutter ≥ 45),
+   and emulated input is gated behind GNOME's
+   `org.freedesktop.portal.RemoteDesktop.CreateSession` consent: the first
+   synthetic key or button event pops the "desktop sharing" prompt, and while
+   it sits unanswered it owns keyboard focus — every later key goes to the
+   dialog instead of the app, which is what "weird test results" look like
+   (user report, 2026-10-02; isolated probes confirmed: key taps and a single
+   click each summoned it immediately, while focus grabs, screenshots and
+   window enumeration did not — the old claim that *keys* bypass it was
+   wrong). **The fix is the nested display above**, where XTEST is plain X11
+   and never asks; if you must drive the live screen, a human answers the
+   prompt first. Even then some targets are unverifiable headlessly: popups
+   and the root window capture solid black, so a dropdown opening *cannot* be
+   confirmed from a screenshot — have a human look, or verify the effect
+   instead of the popup (e.g. the selection label changing in the header).
+   **Policy (user call, 2026-10-01): don't rely on mouse clicks in tests at
+   all — trigger actions through keybindings.** Every menu/dialog action gets
+   an accelerator (`app.setAccelsForAction` in `src/main.ts`, documented in
+   `src/ui/shortcuts.ts`), and tests press keys; on the nested display that
+   sidesteps the portal prompt, the physical-mouse fight below, and the
+   black-popup problem in one move. If a new action has no key yet, add one
+   *before* testing it.
    Input occasionally goes quiet for
    every app after a restart of the session: confirm with `keyprobe.mjs` before
    blaming the app, and if keys do reach the app but nothing changes, drop a

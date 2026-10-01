@@ -68,13 +68,20 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (96 tests as of M3 — timer, session, sessionLibrary, scramble, store)
+  (148 tests as of M4 stage 4 — timer/time, session, sessionLibrary,
+  scramble, stats, store)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
 
 ### Manual UI verification (not part of `npm test`)
 
+- **Drive the app on a nested display**: `Xephyr :99 -screen 1280x800 -ac -br`
+  then prefix the app start and every `xtest.py`/`maim` command with
+  `DISPLAY=:99`. Synthetic XTEST on the live Wayland session summons GNOME's
+  RemoteDesktop consent **even for key taps**, and the unanswered dialog steals
+  focus mid-run (probes, 2026-10-02) — on a nested X server XTEST is plain X11
+  and never asks. Full recipe: `tools/README.md` → "Recommended workflow".
 - `python3 tools/timer_walk.py` — walks the timer through all five states and
   screenshots each; the app must be running on X11
   (`GDK_BACKEND=x11 npm start`).
