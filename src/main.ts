@@ -31,8 +31,8 @@
  * the app name and the app menu (About / Keyboard Shortcuts / Quit), the
  * session switch sits under it, and the solve list under that. The content
  * header keeps only the timer's controls: sidebar toggle, category/type
- * switchers, refresh, the (currently empty) app-functions menu, and the
- * window controls.
+ * switchers, refresh, the app-functions menu (Statistics / WCA Inspection,
+ * M4), and the window controls.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -53,6 +53,8 @@ import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsWindow, type ShortcutsWindow } from './ui/shortcuts.js'
+import { createStatsPanel } from './ui/statsPanel.js'
+import { createStatsStrip } from './ui/statsStrip.js'
 import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
@@ -126,11 +128,17 @@ app.on('activate', () => {
   // render uncut at 900 px — see the setDefaultSize comment above.
   const header = new Adw.HeaderBar({ showTitle: false })
 
-  // App functions, packed at the end before the window controls: empty for
-  // now (stats, settings, … arrive with M4+ and go here) — About / Keyboard
-  // Shortcuts / Quit are application-level, so they live in the sidebar's
-  // app menu instead (user call, layout F).
+  // App functions, packed at the end before the window controls: the
+  // Statistics dialog and the WCA inspection toggle (M4) — settings and the
+  // rest arrive with M5+. About / Keyboard Shortcuts / Quit are
+  // application-level, so they live in the sidebar's app menu instead (user
+  // call, layout F). The toggle is a stateful boolean action, so GTK draws
+  // the checkmark against the action's state itself.
   const appFunctions = new Gio.Menu()
+  appFunctions.append('Statistics', 'app.statistics')
+  const appToggles = new Gio.Menu()
+  appToggles.append('WCA Inspection', 'app.inspection')
+  appFunctions.appendSection(null, appToggles)
   header.packEnd(
     new Gtk.MenuButton({
       iconName: 'open-menu-symbolic',
@@ -287,7 +295,10 @@ app.on('activate', () => {
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
   const timer = new Timer({ holdThresholdMs: 300, startKey: START_KEY })
-  const timerView = createTimerView()
+  // The ao5/ao12 strip rides under the timer's hint line (M4): same live
+  // session reading as the list, so it tracks adds, penalties and switches.
+  const statsStrip = createStatsStrip({ library, getSession: activeSession })
+  const timerView = createTimerView({ statsStrip })
 
   // The type dropdown and the refresh button live in the header; the text
   // itself sits above the timer (see createScramblePanel).
@@ -456,6 +467,34 @@ app.on('activate', () => {
     shortcutsWindow.present()
   })
   app.addAction(shortcutsAction)
+
+  // The Statistics dialog (src/ui/statsPanel.ts): the full current/best/
+  // target table behind the app-functions menu. The component registers its
+  // own action, like the session menu does.
+  createStatsPanel({ app, window, library, getSession: activeSession })
+  // Keybindings for the app-functions menu (user call, 2026-10-01): every
+  // menu action must be reachable from the keyboard, so tests never need a
+  // synthetic click (tools/README traps 4–5). Ctrl+T: Statistics (Ctrl+S is
+  // the session menu); Ctrl+I: Inspection.
+  app.setAccelsForAction('app.statistics', ['<Control>t'])
+
+  // WCA inspection toggle (M4): the menu check item's state lives here —
+  // memory only until M5's preferences (user call, 2026-10-01) — and starts
+  // ON so the feature is live on launch. Stage 5 wires the timer to
+  // `notify::state`; for now the action only remembers.
+  const inspectionAction = Gio.SimpleAction.newStateful(
+    'inspection',
+    GLib.VariantType.new('b'),
+    GLib.Variant.newBoolean(true),
+  )
+  inspectionAction.on('activate', () => {
+    // getState() is typed nullable (GSimpleAction can have no state); ours
+    // always has one, and "no state" would read as off anyway.
+    const next = !(inspectionAction.getState()?.getBoolean() ?? false)
+    inspectionAction.setState(GLib.Variant.newBoolean(next))
+  })
+  app.addAction(inspectionAction)
+  app.setAccelsForAction('app.inspection', ['<Control>i'])
 
   // The scramble worker is a thread of this process: drop it before the loop
   // goes, otherwise it outlives the window it was serving. The pending

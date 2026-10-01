@@ -11,6 +11,14 @@ import { styles } from 'node-gtk/styles'
 
 import type { TimerSnapshot, TimerState } from '../core/timer.js'
 import { formatTime } from '../core/time.js'
+import type { createStatsStrip } from './statsStrip.js'
+
+/**
+ * The ao5/ao12 strip (src/ui/statsStrip.ts). Its widget type cannot be
+ * spelled out — the `gi:*` shims export a value namespace only — so it is
+ * inferred from the factory.
+ */
+type StatsStrip = ReturnType<typeof createStatsStrip>
 
 // Named colors that libadwaita actually defines: @window_fg_color,
 // @success_color, @error_color, @warning_color. Note that GTK3's
@@ -47,8 +55,13 @@ const HINTS: Record<TimerState, string> = {
  * Build the timer view. The return type is inferred rather than annotated:
  * the generated `gi:*` type shims expose GTK as a value namespace, so widget
  * types are only available through inference (`InstanceType` otherwise).
+ *
+ * `statsStrip` is optional so the view can stand alone (timer_walk.py's
+ * headless walks); when present it sits directly under the hint line — the
+ * averages describe the *solves*, so they read as a footnote to the timer
+ * rather than as part of it.
  */
-export function createTimerView() {
+export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   const label = new Gtk.Label({
     label: '0.00',
     cssClasses: ['timer-display', 'state-idle'],
@@ -68,6 +81,7 @@ export function createTimerView() {
   })
   widget.append(label)
   widget.append(hint)
+  if (options?.statsStrip !== undefined) widget.append(options.statsStrip.widget)
 
   return {
     /** Container to place in the window. */

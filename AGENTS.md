@@ -107,6 +107,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   synthetic clicks keep landing off-window or the physical mouse keeps
   winning, switch to key-driven checks — and if the user is at the machine,
   ask them to click and watch the result instead of wrestling the warp.
+- **Drive the UI by keybindings, never synthetic mouse clicks** (user,
+  2026-10-01): every menu/dialog action under test gets an accelerator, and
+  tests trigger it with keys. Clicks need GNOME's RemoteDesktop portal
+  approval, fight the physical mouse, and menus/popups photograph black
+  anyway (tools/README traps 4–5). If an action has no key yet, add one —
+  `app.setAccelsForAction(...)` in `src/main.ts` plus a
+  `Gtk.ShortcutsWindow` entry in `src/ui/shortcuts.ts` — before testing it.
 - Details and traps: `tools/README.md`.
 
 ### Fresh install

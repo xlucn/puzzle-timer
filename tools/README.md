@@ -70,7 +70,14 @@ these cover the part Vitest cannot, which is the GTK layer.
    targets are unverifiable headlessly: popups and the root window capture
    solid black, so a dropdown opening *cannot* be confirmed from a screenshot —
    have a human look, or verify the effect instead of the popup (e.g. the
-   selection label changing in the header). Input occasionally goes quiet for
+   selection label changing in the header). **Policy (user call,
+   2026-10-01): don't rely on mouse clicks in tests at all — trigger actions
+   through keybindings.** Every menu/dialog action gets an accelerator
+   (`app.setAccelsForAction` in `src/main.ts`, documented in
+   `src/ui/shortcuts.ts`), and tests press keys; that sidesteps the portal
+   prompt, the physical-mouse fight below, and the black-popup problem in one
+   move. If a new action has no key yet, add one *before* testing it.
+   Input occasionally goes quiet for
    every app after a restart of the session: confirm with `keyprobe.mjs` before
    blaming the app, and if keys do reach the app but nothing changes, drop a
    temporary `console.error` in the handler to see the event arrive.

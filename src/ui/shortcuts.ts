@@ -66,6 +66,10 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     ['Rename the active session', 'F2'],
     ['Delete the active session', '<Ctrl>Delete'],
   ])
+  group('Statistics', [
+    ['Open the statistics dialog', '<Ctrl>T'],
+    ['Toggle WCA inspection', '<Ctrl>I'],
+  ])
   group('General', [
     ['Quit', '<Ctrl>Q'],
   ])
