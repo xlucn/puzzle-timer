@@ -1,0 +1,281 @@
+/*
+ * layout.ts — the adaptive-layout rules (M6), as pure functions.
+ *
+ * Architecture rule (see AGENTS.md): pure TypeScript — no `gi:*`, no Node
+ * APIs. The *window* measures itself — `Adw.Breakpoint::apply`/`unapply` and
+ * `Gdk.Surface::layout`, both wired up in src/main.ts — and hands the numbers
+ * to this module; what the UI has to do about them is decided here, where it
+ * can be unit tested. Nothing outside this file may hold a threshold, so the
+ * breakpoints in main.ts and the tiers they select cannot drift apart.
+ *
+ * Two jobs:
+ *
+ *   layoutFor(width, height)     which *tier* the window is in: sidebar as a
+ *                                drawer or side by side, the scramble
+ *                                selectors in the header or in their own row,
+ *                                how big the timer / scramble / diagram get,
+ *                                how wide the sidebar may grow.
+ *   timerMargins(placement)      where the timer block sits while the scramble
+ *                                diagram is on screen — see the note on the
+ *                                nudge below.
+ *
+ * Units are **logical px** everywhere: GTK lays out in logical px and the
+ * compositor scales them up (tools/README.md trap 6), so these numbers match
+ * `setDefaultSize`, `minSidebarWidth`, and the sizes the widgets report.
+ */
+
+/**
+ * Every size threshold the layout reacts to, in logical px, in one place:
+ * main.ts builds its `Adw.BreakpointCondition`s from these strings and
+ * `layoutFor` makes the matching decisions, so a threshold cannot exist in one
+ * and not the other.
+ *
+ * The width bands are **mutually exclusive on purpose**. libadwaita keeps a
+ * single current breakpoint ("if multiple breakpoints can be used for the
+ * current size, the last one is always picked" — AdwBreakpointBin docs, which
+ * AdwWindow refers to), so overlapping conditions would starve each other and
+ * a resize could leave a tier unapplied. Disjoint bands mean every crossing of
+ * a boundary changes the current breakpoint, i.e. always fires apply/unapply.
+ */
+export const BREAKPOINTS = {
+  /** ≤ 480 → tier S: the timer's digits step down so they never clip. */
+  smallMax: 480,
+  /** 481–600 → tier C: the selectors leave the header for their own row. */
+  selectorRowMax: 600,
+  /** 601–800 → tier B: the sidebar becomes an overlay drawer. */
+  drawerMax: 800,
+  /** 1200–1599 → tier M: the sidebar may grow, the timer steps up. */
+  mediumMin: 1200,
+  /** ≥ 1600 → tier L: everything takes the room it is given. */
+  largeMin: 1600,
+  /** Height ≤ 620 → the scramble slot gives height back to the timer. */
+  shortMax: 620,
+  /** A window this short needs the smaller timer, whatever its width. */
+  timerSmallMaxHeight: 480,
+  /** Tier L only grows the scramble slot and the diagram when it is also tall. */
+  tallMin: 760,
+  /**
+   * `minSidebarWidth` — the sidebar's share of a side-by-side window, which is
+   * what the header does *not* have (main.ts reads it from here for the same
+   * reason the bands live here: one place, no drift).
+   */
+  sidebarMin: 240,
+  /**
+   * How much header demand may exceed the room it has before the selectors are
+   * moved out to their own row.
+   *
+   * The width bands alone cannot decide this: the header's demand is as long
+   * as the labels the user happens to have selected, and it grows without
+   * bound (measured 2026-10-02: 724px with a 3x3x3 session, 1186px with the
+   * FTO category selected — 462px of extra dropdown text). Gtk.HeaderBar puts
+   * its start widgets at their natural width, so past a point the window
+   * controls are pushed off the right edge of the window: at 900 the
+   * minimize/maximize/close buttons are *gone* with the long labels, and fine
+   * with the short ones.
+   *
+   * 200px is headroom over the point where anything is actually lost. The
+   * header absorbed 163px without complaint in the measurement above
+   * (natural 724 in a 560px content, every control still drawn), so 200
+   * keeps every label set this app ships in the header — and switches to the
+   * row *early* for anything longer, because the row always fits and shows
+   * the labels in full. A too-small value costs an unnecessary row; a
+   * too-large one risks the controls. Prefer the row.
+   */
+  headerSlack: 200,
+  /**
+   * The window refuses to be dragged narrower than this (and shorter than
+   * `minHeight`): below it no tier could keep the layout deliberate — the
+   * selectors row alone wants ~282. AdwWindow's own default minimum is
+   * 360×200, which the docs tell you to override when breakpoints are in use
+   * ("the minimum size must be larger than the smallest UI state").
+   */
+  minWidth: 400,
+  minHeight: 360,
+} as const
+
+/** Timer readout size class (src/ui/timerLabel.ts styles `.size-*`). */
+export type TimerSize = 's' | 'm' | 'l'
+
+/** Everything that changes with the window's size, decided in one call. */
+export interface LayoutTier {
+  /** Sidebar overlays the content instead of sharing the width with it. */
+  drawer: boolean
+  /** The scramble selectors are packed into a second row under the header. */
+  selectorRow: boolean
+  /** Size class for the timer's digits. */
+  timerSize: TimerSize
+  /** `maxWidthChars` for the scramble text — how wide it is allowed to run. */
+  scrambleChars: number
+  /** `maxContentHeight` of the scramble slot, in px. */
+  scrambleMaxHeight: number
+  /** `maxSidebarWidth` — the sidebar may grow with the window (M6). */
+  sidebarMax: number
+  /** Diagram cap, px — the picture is scaled to fit before it is shown. */
+  diagramMaxWidth: number
+  diagramMaxHeight: number
+}
+
+/** Non-finite measurements must not decide a tier. */
+const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, value) : 0)
+
+/**
+ * The tier for a content width/height (logical px). Called on every resize and
+ * from every breakpoint handler, so it must stay cheap and total: same inputs,
+ * same output, no matter which one asked.
+ *
+ * `headerNatural` is optional and only sharpens one decision (see
+ * `BREAKPOINTS.headerSlack`): the natural width the *header* asks for with the
+ * selectors packed into it, measured by main.ts. Left out, the selectors
+ * follow the fixed width bands alone — which is all a caller that has not
+ * measured can be trusted to know.
+ */
+export function layoutFor(width: number, height: number, headerNatural = 0): LayoutTier {
+  const w = sane(width)
+  const h = sane(height)
+  const demand = sane(headerNatural)
+
+  const drawer = w <= BREAKPOINTS.drawerMax
+  // What the header has to fill: the whole window in drawer mode, the window
+  // minus the sidebar's share side by side.
+  const headerRoom = drawer ? w : w - BREAKPOINTS.sidebarMin
+  const headerOverflows = demand > 0 && demand > headerRoom + BREAKPOINTS.headerSlack
+
+  const tier: LayoutTier = {
+    drawer,
+    // Out of the header either because the window is narrow, or because the
+    // labels are: a fixed band cannot defend against a category name the user
+    // is free to select, and the row both fits and shows the full text.
+    selectorRow: w <= BREAKPOINTS.selectorRowMax || headerOverflows,
+    // Narrow *or* short: the digits are the one thing that must never clip.
+    timerSize:
+      w <= BREAKPOINTS.smallMax || h <= BREAKPOINTS.timerSmallMaxHeight
+        ? 's'
+        : w >= BREAKPOINTS.mediumMin
+          ? 'l'
+          : 'm',
+    scrambleChars: 60,
+    scrambleMaxHeight: h <= BREAKPOINTS.shortMax ? 100 : 160,
+    sidebarMax: 320, // the M2 default, still right for a normal window
+    diagramMaxWidth: 440,
+    diagramMaxHeight: 150,
+  }
+
+  // Tall enough for the bigger caps before any of them grow: a 1600×400 strip
+  // gets a wide timer but not a 190 px diagram or a 220 px scramble slot.
+  const roomy = h > BREAKPOINTS.shortMax
+
+  if (w >= BREAKPOINTS.mediumMin) {
+    tier.sidebarMax = 380
+    tier.scrambleChars = 76
+    if (roomy) {
+      tier.diagramMaxWidth = 500
+      tier.diagramMaxHeight = 170
+    }
+  }
+  if (w >= BREAKPOINTS.largeMin) {
+    tier.sidebarMax = 440
+    tier.scrambleChars = 88
+    if (roomy) {
+      tier.diagramMaxWidth = 560
+      tier.diagramMaxHeight = 190
+    }
+    if (h >= BREAKPOINTS.tallMin) tier.scrambleMaxHeight = 220
+  }
+
+  return tier
+}
+
+/** Where the timer block should sit, as the window measures it. */
+export interface TimerPlacement {
+  /**
+   * Whether the scramble diagram is on screen — the nudge exists to balance
+   * it, so with no diagram the timer stays exactly centred.
+   */
+  diagramVisible: boolean
+  /**
+   * Size of the diagram itself, as drawn. The nudge is *relative to the
+   * diagram*: half of it up, half of it left (see `timerMargins`), so a bigger
+   * picture moves the timer further and a diagram-only layout never moves it.
+   */
+  diagramWidth: number
+  diagramHeight: number
+  /** Size of the content view the timer block is centred in (below the sidebar). */
+  viewWidth: number
+  viewHeight: number
+  /**
+   * Y of the top of the timer's own region, i.e. below the header *and* the
+   * scramble panel. The scramble's height depends on how it wraps, so this is
+   * a measurement, not a constant.
+   */
+  regionTop: number
+  /** Natural size of the timer block — what the region has to keep clear. */
+  naturalWidth: number
+  naturalHeight: number
+}
+
+/**
+ * Room kept between the timer block and the edge of the view, on both axes,
+ * so the nudge can never become the thing that makes the window's *minimum*
+ * size grow (the block's natural size plus its margins is the content's
+ * minimum — see the note on `timerMargins`).
+ */
+const NUDGE_SLACK = 16
+
+/**
+ * Margins that offset the timer block from where it would otherwise sit, or
+ * `{0, 0}` when there is no diagram to step aside for.
+ *
+ * The block is centred in the view by default; the rule (user call,
+ * 2026-10-02) is to move it **relative to that centred position** — up by half
+ * the diagram's height, left by half its width — so the offset scales with the
+ * picture rather than with the window, and a diagram that grows at tier L
+ * pushes the timer further out of its way.
+ *
+ * GTK's box model gives the block the whole region below the scramble and
+ * centres its natural height inside it; a margin shrinks the region the block
+ * centres in, so the centre moves by *half* the margin. Hence the 2×: to move
+ * the centre by `d`, set a margin of `2d` — offsetting up by `diagramHeight/2`
+ * is a bottom margin of `diagramHeight`, likewise on the end side.
+ *
+ * Both margins are clamped to the space that is actually spare — the timer
+ * never gets squeezed below its natural size, which is the PLAN invariant that
+ * the timer and the scramble cannot collide or jump (that outranks the rule).
+ *
+ * The slack is not decoration: a child's margins are part of its parent's
+ * *minimum*, so a bottom margin of exactly `regionHeight − naturalHeight`
+ * would make the content's minimum equal its current height — the window
+ * could then never be made shorter (and, resized below that from outside,
+ * would clip: measured, 439px of content in a 370px window). Keeping 16px of
+ * headroom means the minimum always stays below the size the margins were
+ * measured from, so the window can keep shrinking and the margins follow it
+ * down to zero. The horizontal clamp needs it for the same reason: an end
+ * margin of exactly `width − naturalWidth` would lock the window's *width*.
+ */
+export function timerMargins(placement: TimerPlacement): {
+  marginEnd: number
+  marginBottom: number
+} {
+  if (!placement.diagramVisible) return { marginEnd: 0, marginBottom: 0 }
+
+  const width = sane(placement.viewWidth)
+  const height = sane(placement.viewHeight)
+  const regionTop = Math.min(sane(placement.regionTop), height)
+  const naturalWidth = sane(placement.naturalWidth)
+  const naturalHeight = sane(placement.naturalHeight)
+
+  // Horizontal: centre moves left by diagramWidth/2 → end margin of
+  // diagramWidth, capped so the block keeps its slack from the view's edge.
+  const roomEnd = Math.max(0, width - naturalWidth - NUDGE_SLACK)
+  const marginEnd = Math.min(sane(placement.diagramWidth), roomEnd)
+
+  // Vertical: centre moves up by diagramHeight/2 → bottom margin of
+  // diagramHeight, capped so the block stays inside its region *and* leaves
+  // the headroom that keeps the region's minimum below its current height.
+  const regionHeight = Math.max(0, height - regionTop)
+  const marginBottom = Math.min(
+    sane(placement.diagramHeight),
+    Math.max(0, regionHeight - naturalHeight - NUDGE_SLACK),
+  )
+
+  return { marginEnd, marginBottom }
+}
