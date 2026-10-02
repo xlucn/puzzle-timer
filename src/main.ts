@@ -790,8 +790,9 @@ app.on('activate', () => {
 
   /**
    * Step the timer block aside for the diagram — offset from where it would
-   * otherwise sit (centred in its region) by half the picture's height up and
-   * half its width left — but only while the diagram is on screen, and never
+   * otherwise sit (centred in its region) by a quarter of the picture's
+   * height up and a quarter of its width left — but only while the diagram is
+   * on screen, and never
    * at the cost of the block's natural size (see src/core/layout.ts). Writing
    * the same margins twice is skipped, which is what stops the frame-clock
    * hook below from feeding itself: these numbers do not depend on the

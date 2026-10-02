@@ -593,11 +593,12 @@ and `Gdk.FrameClock::after-paint` for the timer nudge.
   (≥1600); timer `s`/`m`/`l` (also `s` below 480 wide *or* 480 tall);
   scramble slot 60/76/88 chars, 100/160/220 px tall; diagram cap 440×150 →
   500×170 → 560×190 (the last two only when tall).
-- **The nudge** (user rule, 2026-10-02): the timer block sits half a
-  diagram's height *up* and half its width *left* of where it would
-  otherwise centre — and nowhere else moves it (the golden-section rule was
-  deleted). Both margins are clamped by `NUDGE_SLACK` (16) against the
-  **window**, never against the content's own allocation.
+- **The nudge** (user rule, 2026-10-02, **halved to a quarter the same
+  day**): the timer block sits a quarter of a diagram's height *up* and a
+  quarter of its width *left* of where it would otherwise centre — and
+  nowhere else moves it (the golden-section rule was deleted). Both margins
+  are clamped by `NUDGE_SLACK` (16) against the **window**, never against
+  the content's own allocation.
 
 Decisions worth carrying forward:
 
@@ -646,9 +647,12 @@ Evidence:
   controls *were* clipped (absorption 536) and at 950 fine (486) — which is
   what `headerSlack: 200` now decides, switching to the row early rather
   than gambling on how much GTK will absorb.
-- **The nudge measures right**: at 900 the timer block's centre lands 2px
-  from `content centre − diagram width / 2` (469 measured vs 471 predicted,
-  screenshot pixel scan) and moves with the diagram at every tier.
+- **The nudge measures right**: at 900 the timer block's centre lands 1.5px
+  from `content centre − diagram width / 4` (519 measured vs 520.5
+  predicted, screenshot pixel scan), and the halving from /2 was visible in
+  the same geometry — the old rule put it at 469 (vs 471 predicted), so the
+  digits moved 50px right and 38px down, which is the 1/2 → 1/4 change on
+  both axes. It moves with the diagram at every tier.
 
 ---
 

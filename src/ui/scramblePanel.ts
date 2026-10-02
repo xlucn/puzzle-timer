@@ -363,7 +363,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     hasImage: (): boolean => picture.visible,
     /**
      * The diagram's size *as drawn* (M6): the nudge is measured from it — the
-     * timer steps half of it up and half of it left. The picture is an overlay
+     * timer steps a quarter of it up and a quarter of it left. The picture is
+     * an overlay
      * child, so its allocation is its own natural size (the scaled texture)
      * or, in a cramped window, whatever room the overlay has — either way it
      * is where the image actually is, and never a size the timer's margins

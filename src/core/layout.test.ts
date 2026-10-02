@@ -139,15 +139,16 @@ describe('timerMargins — the nudge for the diagram', () => {
     })
   })
 
-  it('moves the centre half a diagram left and half a diagram up (user call, 2026-10-02)', () => {
+  it('moves the centre a quarter of a diagram left and a quarter up (user call, 2026-10-02)', () => {
     const m = timerMargins(balanced)
     const before = centred(balanced)
     const after = nudged(balanced, m)
 
     // Margin shrinks the centring area, so the centre moves by half of it: an
-    // end margin of `diagramWidth` is exactly the requested half-diagram shift.
-    expect(before.x - after.x).toBeCloseTo(balanced.diagramWidth / 2, 5)
-    expect(before.y - after.y).toBeCloseTo(balanced.diagramHeight / 2, 5)
+    // end margin of `diagramWidth / 2` is exactly the requested quarter-diagram
+    // shift (the rule was halved from /2 the same day it was introduced).
+    expect(before.x - after.x).toBeCloseTo(balanced.diagramWidth / 4, 5)
+    expect(before.y - after.y).toBeCloseTo(balanced.diagramHeight / 4, 5)
   })
 
   it('scales with the diagram: a bigger picture moves the timer further', () => {
@@ -165,17 +166,17 @@ describe('timerMargins — the nudge for the diagram', () => {
   })
 
   it('clamps horizontally rather than pushing the window wider than it is', () => {
-    // The rule asks for a 240px end margin; a 400px floor window with a 350px
-    // readout has 34px spare, so the nudge gives up ground instead of growing
-    // the content's minimum width.
+    // The rule asks for a 120px end margin (240/2); a 400px floor window with
+    // a 350px readout has 34px spare, so the nudge gives up ground instead of
+    // growing the content's minimum width.
     const narrow = { ...balanced, viewWidth: 400, naturalWidth: 350 }
     const { marginEnd } = timerMargins(narrow)
     expect(marginEnd).toBe(400 - 350 - 16)
   })
 
   it('clamps vertically to the region instead of squeezing the block', () => {
-    // Room for 44 of the 120 the rule wants here: half the offset, never a
-    // block below its natural height.
+    // Room for 44 of the 60 the rule wants here (120/2): a quarter of the
+    // offset, never a block below its natural height.
     const short = { ...balanced, regionTop: 300 }
     expect(timerMargins(short).marginBottom).toBe(
       short.viewHeight - short.regionTop - short.naturalHeight - 16,

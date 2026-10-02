@@ -194,8 +194,9 @@ export interface TimerPlacement {
   diagramVisible: boolean
   /**
    * Size of the diagram itself, as drawn. The nudge is *relative to the
-   * diagram*: half of it up, half of it left (see `timerMargins`), so a bigger
-   * picture moves the timer further and a diagram-only layout never moves it.
+   * diagram*: a quarter of it up, a quarter of it left (see `timerMargins`),
+   * so a bigger picture moves the timer further and a diagram-only layout
+   * never moves it.
    */
   diagramWidth: number
   diagramHeight: number
@@ -226,16 +227,17 @@ const NUDGE_SLACK = 16
  * `{0, 0}` when there is no diagram to step aside for.
  *
  * The block is centred in the view by default; the rule (user call,
- * 2026-10-02) is to move it **relative to that centred position** — up by half
- * the diagram's height, left by half its width — so the offset scales with the
- * picture rather than with the window, and a diagram that grows at tier L
- * pushes the timer further out of its way.
+ * 2026-10-02, halved the same day) is to move it **relative to that centred
+ * position** — up by a quarter of the diagram's height, left by a quarter of
+ * its width — so the offset scales with the picture rather than with the
+ * window, and a diagram that grows at tier L pushes the timer further out of
+ * its way.
  *
  * GTK's box model gives the block the whole region below the scramble and
  * centres its natural height inside it; a margin shrinks the region the block
  * centres in, so the centre moves by *half* the margin. Hence the 2×: to move
- * the centre by `d`, set a margin of `2d` — offsetting up by `diagramHeight/2`
- * is a bottom margin of `diagramHeight`, likewise on the end side.
+ * the centre by `d`, set a margin of `2d` — offsetting up by `diagramHeight/4`
+ * is a bottom margin of `diagramHeight/2`, likewise on the end side.
  *
  * Both margins are clamped to the space that is actually spare — the timer
  * never gets squeezed below its natural size, which is the PLAN invariant that
@@ -263,17 +265,19 @@ export function timerMargins(placement: TimerPlacement): {
   const naturalWidth = sane(placement.naturalWidth)
   const naturalHeight = sane(placement.naturalHeight)
 
-  // Horizontal: centre moves left by diagramWidth/2 → end margin of
-  // diagramWidth, capped so the block keeps its slack from the view's edge.
+  // Horizontal: the centre moves left by a quarter of the diagram's width, and
+  // a margin moves the centre by half of itself → end margin of
+  // diagramWidth/2, capped so the block keeps its slack from the view's edge.
   const roomEnd = Math.max(0, width - naturalWidth - NUDGE_SLACK)
-  const marginEnd = Math.min(sane(placement.diagramWidth), roomEnd)
+  const marginEnd = Math.min(sane(placement.diagramWidth) / 2, roomEnd)
 
-  // Vertical: centre moves up by diagramHeight/2 → bottom margin of
-  // diagramHeight, capped so the block stays inside its region *and* leaves
-  // the headroom that keeps the region's minimum below its current height.
+  // Vertical: centre up by a quarter of the diagram's height → bottom margin
+  // of diagramHeight/2, capped so the block stays inside its region *and*
+  // leaves the headroom that keeps the region's minimum below its current
+  // height.
   const regionHeight = Math.max(0, height - regionTop)
   const marginBottom = Math.min(
-    sane(placement.diagramHeight),
+    sane(placement.diagramHeight) / 2,
     Math.max(0, regionHeight - naturalHeight - NUDGE_SLACK),
   )
 
