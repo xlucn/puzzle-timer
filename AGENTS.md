@@ -116,8 +116,10 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`
   opens it; `Down`+`Return` activates Keyboard Shortcuts), `Shift+Tab`×7 →
-  the sidebar toggle (chain: app menu, scramble text, app-functions ⋮,
-  refresh, type, category) — `Return` closes the sidebar, and `<Ctrl+S>`
+  the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
+  arrow keys scroll a tall one, the label itself is not focusable —,
+  app-functions ⋮, copy, refresh, type, category) — `Return` closes the
+  sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
   path in `src/ui/sessionMenu.ts`). The shortcuts window is a separate
   toplevel: find its id with `xwininfo -root -tree | grep "Keyboard

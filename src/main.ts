@@ -434,6 +434,40 @@ app.on('activate', () => {
   refreshScramble.on('clicked', () => feed.refresh())
   header.packStart(refreshScramble)
 
+  // Copy, beside refresh (user call, 2026-10-02): the scramble is no longer
+  // selectable — see src/ui/scramblePanel.ts — so this button, and the
+  // accelerator below, are *the* ways to get the text out, by mouse or by
+  // keyboard, and they copy what is on screen whether it wrapped or not.
+  // GDK4 has no `clipboard.set_text`: the clipboard takes a content provider,
+  // and text is bytes under a mime type (`text/plain;charset=utf-8` is the
+  // one every paste target asks for).
+  const runCopy = (): void => {
+    const scramble = feed.state.scramble
+    // Null only while the very first scramble is still generating — nothing
+    // to copy yet, and the button is a no-op rather than an error.
+    if (scramble === null || scramble.length === 0) return
+    const bytes = GLib.Bytes.new(Array.from(new TextEncoder().encode(scramble)))
+    window
+      .getDisplay()
+      .getClipboard()
+      .setContent(Gdk.ContentProvider.newForBytes('text/plain;charset=utf-8', bytes))
+    // Feedback matters more here than anywhere else in the header: the
+    // accelerator has no visible subject, so the toast is the only proof the
+    // key did anything.
+    toastOverlay.addToast(new Adw.Toast({ title: 'Scramble copied', timeout: 2 }))
+  }
+  const copyScramble = new Gtk.Button({
+    iconName: 'edit-copy-symbolic',
+    tooltipText: 'Copy the scramble (Ctrl+C)',
+    cssClasses: ['flat'],
+  })
+  copyScramble.on('clicked', runCopy)
+  const copyAction = Gio.SimpleAction.new('copy-scramble', null)
+  copyAction.on('activate', runCopy)
+  app.addAction(copyAction)
+  app.setAccelsForAction('app.copy-scramble', ['<Control>c'])
+  header.packStart(copyScramble)
+
   // A finished solve is recorded against the scramble that was on screen —
   // read before advance(), which swaps in the pre-generated one — and then
   // the feed promotes that scramble and warms the one after it, so the next
@@ -590,11 +624,14 @@ app.on('activate', () => {
     } else {
       selectorRow.remove(box)
       selectorRow.setVisible(false)
-      // The header is now [toggle, refresh], and the selectors belong before
-      // the refresh button — so that one goes out and comes back after them.
+      // The header is now [toggle, refresh, copy], and the selectors belong
+      // before those two — so they go out and come back after them, in order
+      // (the copy button must not end up between the dropdowns and refresh).
+      header.remove(copyScramble)
       header.remove(refreshScramble)
       header.packStart(box)
       header.packStart(refreshScramble)
+      header.packStart(copyScramble)
     }
   }
 

@@ -108,7 +108,8 @@ src/
 4. **Native layout (not the csTimer webpage layout):**
    - `Adw.OverlaySplitView`: solve list as a sliding sidebar over the content,
      auto-collapsing on narrow windows.
-   - Center column: scramble text (monospace, selectable) → big timer →
+   - Center column: scramble text (monospace, display only — copy lives on
+     the header's copy button, `Ctrl+C`) → big timer →
      ao5/ao12 label strip.
    - Two headers (layout F, 2026-10-01): the **sidebar's** header carries
      the app name and the app menu (About / Keyboard Shortcuts / Quit),
@@ -702,6 +703,19 @@ Evidence:
   Cross-check on the shipped session: the newest row reads 6.79 / 5.98 at the
   same moment the strip does, and row 9's ao5 (2.18) is its own five with the
   DNF trimmed away.
+- **Scramble is display-only, copy is a button (user call, 2026-10-02)** —
+  the text is no longer selectable (`selectable: false`), so it left the
+  focus chain with it; copy lives on the header beside refresh and on
+  `<Ctrl+C>`, with a toast as the only proof the key did anything. GDK4 has
+  no `clipboard.set_text`, so the clipboard takes a
+  `Gdk.ContentProvider.newForBytes('text/plain;charset=utf-8', …)` — verified
+  by pasting back through the edit dialog's comment box (no xclip on this
+  box). Two follow-ups from measuring it: the header's demand went 724 →
+  **808px** with the extra button, so the measured-header rule now switches
+  the selectors to their own row below **848** wide instead of 764 (row at
+  835, header at 850 — measured), and `Ctrl+C` inside the comment box still
+  copies the *selection*: GTK gives a focused editable its own key bindings
+  before the app's accelerators.
 - **Keyboard drives the session UI** (useful for testing, shipped as real
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`

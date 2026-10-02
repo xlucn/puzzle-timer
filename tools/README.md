@@ -100,6 +100,14 @@ read `$DISPLAY`):
    (`--no-repaint`) capture against the previous one — and prefer the app's
    own behaviour (logs, state) over pixels for anything timing-related.
 
+   And one thing a capture can show that the app does not put there: **the
+   pointer**. `maim` includes the cursor, and Xephyr runs with no cursor
+   theme, so the X server draws its fallback — a heavy black ✕ — wherever
+   the mouse happens to be parked. An ✕ floating over the header looks
+   exactly like a broken icon or a stray widget: `xdotool mousemove 60 600`
+   it out of the way and re-shoot before believing it (2026-10-02, where one
+   sat beside the copy button and read as a second, mystery button).
+
 3. **A duplicate instance quits instantly.** `Adw.Application` is a
    single-instance `GApplication`: starting a second copy while one is alive
    hands the activate to the first and exits with code 0, so the walk finds

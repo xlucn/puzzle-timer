@@ -5,7 +5,8 @@
  * exports a factory, so `styles.add()` hot-reloads the CSS under `npm run dev`.
  *
  * Three things can be true at once, and this is the display rule:
- *   scramble   → show it (wrapped, selectable so it can be copied), with its
+ *   scramble   → show it (wrapped, display only — copying it is the header's
+ *                copy button / Ctrl+C), with its
  *                diagram floating in the view's bottom-right corner when the
  *                type has one (M5 — main.ts places it, see `image`);
  *   generating → the previous scramble stays on screen as a dimmed ghost
@@ -137,7 +138,12 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     label: '',
     visible: false,
     wrap: true,
-    selectable: true,
+    // Display, not an editor (user call, 2026-10-02): a selectable label puts
+    // itself in the focus chain — Tab used to land on the scramble — and
+    // invites dragging a highlight across the one thing on screen that is
+    // there to be read. Copying lives on the header's copy button (Ctrl+C),
+    // which also copies text that has wrapped over several lines.
+    selectable: false,
     xalign: 0.5, // centred while unwrapped…
     justify: Gtk.Justification.CENTER, // …and when the lines wrap
     // A wrapping label asks for its *unwrapped* width, so a multi-cube

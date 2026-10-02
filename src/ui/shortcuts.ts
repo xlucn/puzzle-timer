@@ -3,7 +3,8 @@
  *
  * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer
  * (and Escape to cancel an inspection, or to close the solve list when the
- * window is narrow enough for it to be a drawer), Delete and the
+ * window is narrow enough for it to be a drawer), copy the scramble
+ * (Ctrl+C), Delete and the
  * penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
  * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T), and
@@ -61,6 +62,12 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     ['Start a solve (hold, then release)', 'space'],
     ['Stop a running solve', 'space'],
     ['Cancel the inspection countdown', 'Escape'],
+  ])
+  group('Scramble', [
+    // The scramble text is display-only (user call, 2026-10-02): not
+    // selectable, so this is how the text gets out — beside refresh in the
+    // header, or here.
+    ['Copy the scramble', '<Ctrl>C'],
   ])
   group('Solve list', [
     // M6: in a narrow window the list is a drawer over the content;
