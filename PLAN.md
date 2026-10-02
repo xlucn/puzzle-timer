@@ -57,7 +57,8 @@ src/
 │   ├── session.ts        Solve & Session models, CRUD, undo, penalties, comments
 │   ├── sessionLibrary.ts session index rules: names, ids, active, scramble type
 │   ├── scrambleTypes.ts  206-type catalogue + 44-group menu (data-driven)
-│   └── scrambleFeed.ts   prefetch state machine: type switch / advance / ready
+│   ├── scrambleFeed.ts   prefetch state machine: type switch / advance / ready
+│   └── preferences.ts    Preferences shape, defaults, per-field validation
 ├── scramble/
 │   ├── worker.ts         worker_threads host for cstimer_module
 │   ├── protocol.ts       typed request/response messages worker ↔ main
@@ -71,12 +72,14 @@ src/
 ├── ui/                   GTK widgets only; talks to core via callbacks
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors (category → type)
-│   ├── scramblePanel.ts  scramble text + Gtk.Picture (image in M5)
+│   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
 │   ├── statsPanel.ts     statistics (Adw.Dialog)
 │   ├── sessionMenu.ts    session radio-menu (Gtk.MenuButton + Gio.Menu)
-│   └── shortcuts.ts      Gtk.ShortcutsWindow (built lazily on app.shortcuts)
+│   ├── shortcuts.ts      Gtk.ShortcutsWindow (built lazily on app.shortcuts)
+│   ├── preferences.ts    Adw.PreferencesDialog: Timer / Appearance / Scramble
+│   └── stringExpression.ts  makeStringExpression() — ComboRow labels (decision 10)
 ```
 
 ### Why the boundary matters
@@ -484,22 +487,104 @@ Evidence:
 
 ---
 
+### M5 — landed 2026-10-02
+
+What makes the app yours: a preferences dialog that owns every setting, dark
+mode, the scramble diagram, and a shortcuts window that documents every
+binding. Three feature commits (`9f2f59d`, `02d6ae1`, `cf0963c`), then the
+shortcut sync and this record.
+
+**Preferences (stage 1, `9f2f59d`).** `core/preferences.ts` is the pure model
+— the `Preferences` shape (hold threshold, inspection, its sound cues, the
+scramble image, colour scheme), defaults, per-field validation: a bad value
+falls back, it never takes the file down. `prefs.json` lives beside the
+sessions, quarantined on damage like the index, saved immediately and
+atomically. `Timer.setHoldThreshold()` lands the dialog's value on the very
+next hold (clamped, NaN-safe). The dialog is an `Adw.PreferencesDialog` built
+fresh on open — Timer page first (`SpinRow`, seconds in, ms out, plus the
+inspection and sound-cue switches) — reachable from the app-functions ⋮ via
+the `app.preferences` action on `<Ctrl+comma>`. One `applyPreferences()` path
+merges + persists + pushes, so the header check item, the timer and the file
+cannot disagree; inspection is no longer memory-only.
+
+**Dark mode (stage 2, `02d6ae1`).** The `colorScheme` preference (`system` /
+`light` / `dark`) drives `Adw.StyleManager`, applied before the window is
+presented — first paint is already right — and on every change through the
+same `applyPreferences` path: `system` → `DEFAULT` (the default manager,
+follows the desktop, light fallback), `light`/`dark` → `FORCE_*`. The dialog
+gains its Appearance page: an `Adw.ComboRow` whose label factory is fed with
+`setExpression(makeStringExpression())` — the positional/setter path, since
+the expression *property* still aborts node-gtk (decision 10).
+
+**Scramble diagram (stage 3, `cf0963c`).** The image rides the same worker
+round trip as the text (`scrambleWithImage`), so both land in one frame; an
+image `Map` in `main.ts` (keyed `type\0scramble`, capped at 16) feeds the
+panel through a `getImage` getter that also covers the ghost. Images are
+always fetched (~1 ms in the worker) — `prefs.scrambleImage` only gates
+*display*, so the switch is instant and reflows nothing. The picture is
+handed to `main.ts` as an **overlay child of the whole view**: GTK4 does not
+count overlay children in the size request, so the diagram floats in the
+bottom-right corner (user call) without ever moving the text or the timer, at
+any window size. Transparent background (user call) — the SVGs arrive
+transparent from `cstimer_module`; the white card of the first draft read as
+a stray box. `Rsvg-2.0` joins the generated typelibs, and the dialog gains
+its Scramble page (the image switch) in this stage.
+
+**Shortcut sync (stage 4).** `src/ui/shortcuts.ts` now lists every binding,
+cross-checked against each `setAccelsForAction` and the key controller — the
+two that were missing are `<Ctrl+comma>` (preferences) and `Escape` (cancel
+the inspection countdown); the header comment was rewritten to match.
+
+**Parked out of M5 (user calls):** the golden-ratio timer position nudge — a
+later task; and the diagram's thin outlines read low-contrast on the dark
+theme (accepted for now, noted in a code comment).
+
+Findings worth carrying forward:
+
+- **Overlay children take no size-request space** (measured, stage 3) — the
+  right home for anything that must float without shifting layout; expect to
+  lean on it again in M6, where the timer and scramble finally use the space
+  they get.
+- **The probes need the whole runtime**: `prefs_probe` run under bare
+  `--import tsx` dies with `ERR_UNSUPPORTED_ESM_URL_SCHEME` on the `gi:`
+  protocol — always start it with `--import tsx --import node-gtk/register`.
+
+Evidence:
+
+- **180 Vitest tests green** — 164 (M4) → 180 with the preferences model,
+  `prefs.json` round-trips and the hold-threshold clamping; `npm run
+  typecheck` clean.
+- **`prefs_probe` ALL PASS** — 18 checks against the real dialog (every
+  row's read/write round-trip through `prefs.json`, including the ComboRow).
+- **`scramble_probe` 206/206** — every type generates; 177 with images, 29
+  without (`getImage` returns false, never throws).
+- **User-verified on the live app:** it runs dark; `<Ctrl+comma>` opens the
+  dialog and it is closed again; the diagram sits in the bottom-right corner
+  with a transparent background.
+- **Shortcuts window captured fresh** (stable double-shot, no stale-frame
+  doubt) with both new chips rendering — `Escape` and `Ctrl+,`, no empty-chip
+  parse failures.
+
+---
+
 ## 7. Session handoff
 
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **Next milestone: M5** — preferences dialog, full shortcut set, scramble
-  image (Rsvg), dark-mode theming, empty states/toasts, polish. (M0–M4 are
-  landed — see the dated blocks in §6.) M4 delivered the statistics port
-  (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), `+2`/`DNF` penalties with
-  comments and the edit dialog, WCA inspection with beeps, the per-session
-  scramble type, and the **app-functions menu** this handoff once flagged as
-  empty — it now holds Statistics (`<Ctrl+T>`) and the WCA Inspection toggle
-  (`<Ctrl+I>`). The stats rule stands: **per-session, always** (M3's scope),
-  `src/core/` owns the math, and csTimer's GPL source may be ported for the
-  *math*, not the DOM (AGENTS.md). Inspection's `app.inspection` toggle is
-  deliberately memory-only until M5's preferences give it a home.
+- **Next milestone: M6** — adaptive layout: `Adw.Breakpoint`-driven drawer
+  sidebar on narrow windows, a header that adapts instead of truncating,
+  sidebar width bounds that grow with large windows instead of pinning at
+  320, timer/scramble that use the space they get (M0–M5 are landed — see
+  the dated blocks in §6). M5 delivered the preferences dialog (`prefs.json`,
+  `<Ctrl+comma>`, all settings persistent — inspection is no longer
+  memory-only), dark-mode theming, the transparent scramble diagram in the
+  bottom-right corner, and the full shortcut set in the shortcuts window.
+  Two user calls to honour later: the golden-ratio timer position nudge
+  (parked out of M5), and the diagram's thin outlines being low-contrast on
+  the dark theme (accepted, noted in a code comment). The stats rule stands:
+  **per-session, always** (M3's scope), `src/core/` owns the math, and
+  csTimer's GPL source may be ported for the *math*, not the DOM (AGENTS.md).
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
   owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the

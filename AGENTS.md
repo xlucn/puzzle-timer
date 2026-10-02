@@ -68,11 +68,15 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (164 tests as of M4 complete — timer/time, session, sessionLibrary,
-  scramble, stats, store)
+  (180 tests as of M5 complete — timer/time, session, sessionLibrary,
+  scramble, stats, store, preferences)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
+- `node --import tsx --import node-gtk/register tools/prefs_probe.mjs` —
+  drives the real Preferences dialog headlessly (M5); expect `ALL PASS`.
+  Bare `--import tsx` dies with `ERR_UNSUPPORTED_ESM_URL_SCHEME` on `gi:` —
+  the `node-gtk/register` import is mandatory.
 
 ### Manual UI verification (not part of `npm test`)
 
