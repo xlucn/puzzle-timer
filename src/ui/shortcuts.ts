@@ -1,12 +1,13 @@
 /*
  * shortcuts.ts — the keyboard reference (M3, layout F).
  *
- * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer,
- * Delete and the penalty/comment keys on the solve list (Ctrl+1/2/3, Ctrl+E),
- * the session accelerators (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics
- * and inspection (Ctrl+T / Ctrl+I), and Ctrl+Q. It opens from the sidebar's
- * app menu ("Keyboard Shortcuts") — no accelerator of its own, the window
- * *is* the accelerator documentation.
+ * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer
+ * (and Escape to cancel an inspection), Delete and the penalty/comment keys
+ * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
+ * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics and inspection
+ * (Ctrl+T / Ctrl+I), and Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
+ * the sidebar's app menu ("Keyboard Shortcuts") — no accelerator of its own,
+ * the window *is* the accelerator documentation.
  *
  * Gtk.ShortcutsWindow is deprecated as of GTK 4.18 but still the only stock
  * widget for this (libadwaita ships no replacement); it renders fine on GTK
@@ -57,6 +58,7 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     // (an unparsable accelerator silently renders as an empty chip).
     ['Start a solve (hold, then release)', 'space'],
     ['Stop a running solve', 'space'],
+    ['Cancel the inspection countdown', 'Escape'],
   ])
   group('Solve list', [
     ['Delete the selected solves', 'Delete'],
@@ -76,6 +78,7 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     ['Toggle WCA inspection', '<Ctrl>I'],
   ])
   group('General', [
+    ['Open preferences', '<Ctrl>comma'],
     ['Quit', '<Ctrl>Q'],
   ])
 
