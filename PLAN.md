@@ -691,6 +691,17 @@ Evidence:
   sidebar app menu — unreachable while the sidebar is closed, which is why
   `<Ctrl+Q>` stays the quit path that always works (`<Ctrl+B>` reopens the
   list, and `Escape` closes the drawer).
+- **Solve list columns (user call, 2026-10-02)** — the sidebar reads
+  `# | Time | ao5 | ao12`; the `Solved` timestamp column is gone (the moment
+  is still spelled out year-to-second in the Edit dialog, which is where a
+  solve is read individually). The averages are **as of their own solve** —
+  the window *ending* there, not today's number repeated on every row — so
+  the column reads as the history of a run. `rebuild()` computes them in one
+  pass via `windowAtEach()` (src/core/stats.ts, 207 tests) and a row shows an
+  em dash until its window fills, the same rule as the strip under the timer.
+  Cross-check on the shipped session: the newest row reads 6.79 / 5.98 at the
+  same moment the strip does, and row 9's ao5 (2.18) is its own five with the
+  DNF trimmed away.
 - **Keyboard drives the session UI** (useful for testing, shipped as real
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`

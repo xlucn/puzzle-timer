@@ -17,6 +17,7 @@ import {
   pbTarget,
   sessionMean,
   sessionStats,
+  windowAtEach,
   windowSpec,
 } from './stats.js'
 
@@ -90,6 +91,51 @@ describe('currentWindow', () => {
   it('is the plain last time for a single', () => {
     expect(currentWindow([9_000, 11_000], 'single')).toBe(11_000)
     expect(currentWindow([], 'single')).toBeNaN()
+  })
+})
+
+describe('windowAtEach — the per-solve averages the list shows', () => {
+  it('is NaN until the window fills, then carries the window that ends there', () => {
+    const times = [10_000, 10_200, 10_400, 10_600, 10_800]
+    const ao5 = windowAtEach(times, 'ao5')
+    expect(ao5).toHaveLength(5)
+    expect(ao5.slice(0, 4).every(Number.isNaN)).toBe(true)
+    expect(ao5[4]).toBe((10_200 + 10_400 + 10_600) / 3)
+  })
+
+  it('agrees with currentWindow on every prefix — each row reads its own average', () => {
+    // The property that makes the columns trustworthy: the value beside a
+    // solve is exactly what the strip would have shown when that solve was
+    // the newest — including a DNF sitting inside the window.
+    const times = [10_000, 10_200, 10_400, 10_600, 10_800, INF, 11_200, 11_400, 11_600, 11_800]
+    for (const kind of ['ao5', 'ao12'] as const) {
+      const perSolve = windowAtEach(times, kind)
+      expect(perSolve).toHaveLength(times.length)
+      times.forEach((_, index) => {
+        const prefix = currentWindow(times.slice(0, index + 1), kind)
+        if (Number.isNaN(prefix)) expect(perSolve[index]).toBeNaN()
+        else expect(perSolve[index]).toBe(prefix)
+      })
+    }
+  })
+
+  it('needs twelve solves for ao12, and poisons only the rows inside the DNFs', () => {
+    const times = Array.from({ length: 13 }, (_, i) => 10_000 + i * 100)
+    const ao12 = windowAtEach(times, 'ao12')
+    expect(ao12.slice(0, 11).every(Number.isNaN)).toBe(true)
+    expect(ao12[12]).toBe(currentWindow(times, 'ao12'))
+
+    // Two DNFs in the last five: ∞ survives trimming, so *that* row's ao5 is
+    // a DNF — the rows before it are untouched (nothing else is in their window).
+    const dnfed = [10_000, 10_200, INF, INF, 10_400]
+    const ao5 = windowAtEach(dnfed, 'ao5')
+    expect(ao5[4]).toBe(INF)
+    expect(ao5[1]).toBeNaN() // only two solves in: no window yet
+  })
+
+  it('is empty for an empty session, and a single is the times themselves', () => {
+    expect(windowAtEach([], 'ao5')).toEqual([])
+    expect(windowAtEach([9_000, 11_000], 'single')).toEqual([9_000, 11_000])
   })
 })
 

@@ -90,6 +90,31 @@ export function currentWindow(times: readonly number[], kind: StatKind): number 
 }
 
 /**
+ * The value of `kind` **as of each solve**: `out[i]` is the window *ending*
+ * at `times[i]`, in session order (oldest → newest) — the number the solve
+ * list shows in its ao5/ao12 columns for that row, so every row reads the
+ * average it belonged to rather than today's.
+ *
+ * NaN until the window has filled, the same contract as `currentWindow`: the
+ * caller decides what an incomplete window looks like (the list and the strip
+ * both show an em dash), never a misleading partial average.
+ *
+ * `currentWindow(times, kind)` is the last element of this — kept separate
+ * because the strip asks for that one number and should not pay for a session
+ * scan to get it. This is O(n) windows of at most 12 numbers each, so a
+ * rebuild of a few thousand solves stays in microseconds.
+ */
+export function windowAtEach(times: readonly number[], kind: StatKind): number[] {
+  const { size, trimL, trimR } = SPECS[kind]
+  const out: number[] = new Array(times.length)
+  for (let end = 0; end < times.length; end += 1) {
+    out[end] =
+      end + 1 < size ? Number.NaN : meanWindow(times.slice(end + 1 - size, end + 1), trimL, trimR)
+  }
+  return out
+}
+
+/**
  * The best (smallest) completed window over the whole session, with the
  * index of its last solve (the list uses it to highlight the solves behind
  * a best average). DNF windows are ∞, so a finite window always wins; when

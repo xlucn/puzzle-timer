@@ -52,15 +52,19 @@ import { styles } from 'node-gtk/styles'
 
 import { MAX_COMMENT_LENGTH, type Session, type Solve } from '../core/session.js'
 import type { SessionLibrary } from '../core/sessionLibrary.js'
-import { type Penalty, formatFullTimestamp, formatSolve, formatTimestamp } from '../core/time.js'
+import { effectiveTimes, windowAtEach } from '../core/stats.js'
+import { type Penalty, formatAverage, formatFullTimestamp, formatSolve } from '../core/time.js'
 
 // Dimming goes through alpha(@window_fg_color): GTK3's @dim_label_color does
 // not exist in GTK4 and silently renders white (see the risk table in PLAN.md).
 styles.add(`
   .solve-index,
-  .solve-clock {
+  .solve-average {
     font-size: 13px;
     color: alpha(@window_fg_color, 0.55);
+    /* Tabular figures keep the averages on a fixed advance, so the columns
+       do not jitter as 9.99 becomes 1:02.34. */
+    font-feature-settings: "tnum" 1;
   }
   .solve-time {
     font-size: 14px;
@@ -174,22 +178,44 @@ export function createTimesList(options: TimesListOptions) {
     return column
   }
 
+  /**
+   * ao5/ao12 **as of** each solve, keyed by id — filled by `rebuild()`, which
+   * the session calls for every kind of change (append, penalty, comment,
+   * delete, switch), so a row is never painted against averages from before
+   * it. Computed there because it is a property of the whole run: one pass
+   * over the session, not one per cell (the ColumnView only builds the rows
+   * on screen, but a bind still runs for each of them on every repaint).
+   */
+  let trailing: Map<number, { ao5: number; ao12: number }> = new Map()
+
   const indexColumn = makeColumn('#', ['solve-index'], (solve) => String(current.indexOf(solve.id) + 1))
   // formatSolve, not formatTime: the raw centiseconds with the penalty
   // suffix ("14.34+") or a bare "DNF" — csTimer's `pretty()` parity, so the
   // list shows what the solve actually scored.
   const timeColumn = makeColumn('Time', ['solve-time'], (solve) => formatSolve(solve.timeMs, solve.penalty))
-  const solvedColumn = makeColumn('Solved', ['solve-clock'], (solve) => formatTimestamp(solve.createdAtMs))
-  // Time and Solved expand: GTK splits the *extra* width equally between
+  // The averages beside their own solve: the window *ending* there, so the
+  // column reads as the history of the run instead of repeating today's
+  // number on every row. Incomplete window (fewer solves than the average
+  // needs) is an em dash — the same rule as the strip under the timer, never
+  // a partial average (src/core/stats.ts: NaN means "not yet").
+  const average = (solve: Solve, kind: 'ao5' | 'ao12'): string => {
+    const value = trailing.get(solve.id)?.[kind]
+    return value === undefined || Number.isNaN(value) ? '—' : formatAverage(value)
+  }
+  const ao5Column = makeColumn('ao5', ['solve-average'], (solve) => average(solve, 'ao5'))
+  const ao12Column = makeColumn('ao12', ['solve-average'], (solve) => average(solve, 'ao12'))
+  // Time and the averages expand: GTK splits the *extra* width equally between
   // them, so the columns span the whole sidebar instead of clumping left.
   // `#` deliberately does not — it is a digit column and an equal share of
   // the slack (100+ px for one glyph) buys nothing; it keeps its
   // content-fit floor and grows on its own when the ids reach 2-3 digits.
   timeColumn.setExpand(true)
-  solvedColumn.setExpand(true)
+  ao5Column.setExpand(true)
+  ao12Column.setExpand(true)
   view.appendColumn(indexColumn)
   view.appendColumn(timeColumn)
-  view.appendColumn(solvedColumn)
+  view.appendColumn(ao5Column)
+  view.appendColumn(ao12Column)
 
   const scroller = new Gtk.ScrolledWindow({
     child: view,
@@ -523,6 +549,15 @@ export function createTimesList(options: TimesListOptions) {
   // ---- rendering ---------------------------------------------------------
   const rebuild = () => {
     const solves = current.solves
+    // The averages are a property of the whole run in order: session solves
+    // are oldest → newest, which is exactly the order windowAtEach wants, so
+    // solve i reads the ao5/ao12 that ended with it.
+    const scored = effectiveTimes(solves)
+    const ao5 = windowAtEach(scored, 'ao5')
+    const ao12 = windowAtEach(scored, 'ao12')
+    trailing = new Map(
+      solves.map((solve, index) => [solve.id, { ao5: ao5[index], ao12: ao12[index] }]),
+    )
     const ids: string[] = []
     for (let i = solves.length - 1; i >= 0; i -= 1) ids.push(String(solves[i].id))
     model.splice(0, model.nItems, ids)
