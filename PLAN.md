@@ -565,6 +565,90 @@ Evidence:
   doubt) with both new chips rendering — `Escape` and `Ctrl+,`, no empty-chip
   parse failures.
 
+### M6 — landed 2026-10-02
+
+Adaptive layout. Every threshold and both decisions live in
+`src/core/layout.ts` as pure functions (`layoutFor`, `timerMargins`,
+`BREAKPOINTS`); `src/main.ts` only measures and applies. Five **disjoint**
+width bands (S ≤480, C 481–600, B 601–800, M 1200–1599, L ≥1600) as
+`Adw.BreakpointCondition`s written from those same constants, plus
+`Gdk.Surface::layout` for what bands cannot see (height, in-between sizes)
+and `Gdk.FrameClock::after-paint` for the timer nudge.
+
+- **Drawer sidebar ≤800** — `Adw.OverlaySplitView.collapsed`, auto-hide on
+  collapse / auto-show on uncollapse, wired exactly as libadwaita's own
+  "Overlay Sidebar" demo: one bidirectional binding between `show-sidebar`
+  and the header toggle, so the property *is* the state. `<Ctrl+B>`
+  (`app.sidebar`) and `Escape` (drawer only) are the other two callers of
+  `setShowSidebar()`; both are in the shortcuts window.
+- **Selectors leave the header** for their own row at ≤600, **or when the
+  measured labels stop fitting**: `layoutFor` takes the header's natural
+  width, and the row takes over when it exceeds the room by more than
+  `headerSlack` (200). Measured: the header asks **724px** with a 3x3x3
+  session and **1186px** with the catalogue's worst pair (FTO category +
+  Diamond type) — the second one pushes the window controls off the edge of
+  a 900px window, so a fixed band alone cannot be the rule.
+- **Growing sidebar / scaling**: `maxSidebarWidth` 320 → 380 (≥1200) → 440
+  (≥1600); timer `s`/`m`/`l` (also `s` below 480 wide *or* 480 tall);
+  scramble slot 60/76/88 chars, 100/160/220 px tall; diagram cap 440×150 →
+  500×170 → 560×190 (the last two only when tall).
+- **The nudge** (user rule, 2026-10-02): the timer block sits half a
+  diagram's height *up* and half its width *left* of where it would
+  otherwise centre — and nowhere else moves it (the golden-section rule was
+  deleted). Both margins are clamped by `NUDGE_SLACK` (16) against the
+  **window**, never against the content's own allocation.
+
+Decisions worth carrying forward:
+
+- **No intent memory for the sidebar.** An earlier `sidebarWanted` +
+  `notify::show-sidebar` override fought libadwaita's auto-show and ping-
+  ponged (43 flips, two handler re-entries each, in one session). A closed
+  list reappearing when the window grows back is the accepted price of the
+  binding — and `Escape` still closes a drawer.
+- **Ground truth is the surface, not a widget allocation.** Mid-resize the
+  widgets answer with the *old* size (measured: surface 460, window 890,
+  split 762 — three true numbers from three different moments), and a
+  decision from any of them is a decision about a window that no longer
+  exists. `groundWindowSize()` reads the surface minus the CSD shadow
+  (measured 10×10) and feeds both `layoutFor` and the margin clamp.
+- **Never clamp against a box that GTK has already given its minimum.** The
+  content's allocation contains the margin being computed, so that clamp is
+  a tautology that settles *above* the window and clips (439px of content in
+  a 370px window, `libadwaita` then logging "snapshot … without a current
+  allocation"). It is also what made the app look frozen: four shrinking
+  passes in a row trip GDK's `layout continuously requested, giving up after
+  4 tries`, and the frame that never comes looks like a hung UI.
+- **A just-appeared widget reports 0.** The selector row is reparented into
+  existence at ≤800 and has no allocation when `updateNudge` measures it —
+  reading `getSize()` put the region 34px high and produced one frame of
+  overflow per descent; take the row *natural* when it is 0.
+
+Evidence:
+
+- **203 Vitest tests green** (180 at M5 → 199 for the layout/nudge core →
+  203 with the measured-header rule), `npm run typecheck` clean.
+- **`breakpoint_probe` answers all four questions**: apply/unapply fire with
+  current sizes, all five disjoint bands fire on every crossing up and down,
+  `Gdk.Surface::layout` reports each resize, and `set_default_size` does
+  *not* resize a presented window (so verification drives sizes with
+  `xdotool windowsize`, in surface px: widget = surface − 10).
+- **Full band walk, keyboard only, 0 warnings**: 900 → 700 → 550 → 460 →
+  `<Ctrl+B>` → `<Ctrl+B>` → `Escape` → 400×360 (the floor) → 1700 → 900,
+  with an aliveness check after every step. The log shows exactly one
+  `[sidebar]` line per state change (no ping-pong), `CSD shadow 10x10`, and
+  `[layout] 390x350 (win 350)` at the floor — content under the window, no
+  `AdwToastOverlay exceeds` line anywhere.
+- **Thresholds re-checked against measurement**: at 801 side-by-side the
+  header absorbs 163px (natural 724 in 560) with every control drawn, so
+  800 stands; the selectors' own row fits from 531 (its natural with the
+  longest labels is 521) so 600 stands; with those labels at 900 the
+  controls *were* clipped (absorption 536) and at 950 fine (486) — which is
+  what `headerSlack: 200` now decides, switching to the row early rather
+  than gambling on how much GTK will absorb.
+- **The nudge measures right**: at 900 the timer block's centre lands 2px
+  from `content centre − diagram width / 2` (469 measured vs 471 predicted,
+  screenshot pixel scan) and moves with the diagram at every tier.
+
 ---
 
 ## 7. Session handoff
@@ -572,19 +656,23 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **Next milestone: M6** — adaptive layout: `Adw.Breakpoint`-driven drawer
-  sidebar on narrow windows, a header that adapts instead of truncating,
-  sidebar width bounds that grow with large windows instead of pinning at
-  320, timer/scramble that use the space they get (M0–M5 are landed — see
-  the dated blocks in §6). M5 delivered the preferences dialog (`prefs.json`,
-  `<Ctrl+comma>`, all settings persistent — inspection is no longer
-  memory-only), dark-mode theming, the transparent scramble diagram in the
-  bottom-right corner, and the full shortcut set in the shortcuts window.
-  Two user calls to honour later: the golden-ratio timer position nudge
-  (parked out of M5), and the diagram's thin outlines being low-contrast on
-  the dark theme (accepted, noted in a code comment). The stats rule stands:
-  **per-session, always** (M3's scope), `src/core/` owns the math, and
-  csTimer's GPL source may be ported for the *math*, not the DOM (AGENTS.md).
+- **M6 landed 2026-10-02** — adaptive layout is in and verified (the dated
+  block in §6 has the decisions and the measurements). What a cold session
+  needs to know: `src/core/layout.ts` owns every threshold, the sidebar's
+  `show-sidebar` is a plain libadwaita binding (do not add intent memory
+  back), and sizes are read from the *surface* because widgets lag a pass
+  behind during a resize. `npm test` = **203 tests**; the manual band walk
+  (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
+  **Next milestone: none scheduled** — the agreed backlog is stackmat and
+  charts (§1), then packaging if ever; M7+ should be picked, not assumed.
+  Still open from earlier user calls: the diagram's thin outlines read
+  low-contrast on the dark theme (accepted for now, noted in a code
+  comment), and one startup-only `AdwToastOverlay exceeds` warning with the
+  catalogue's longest labels (the first frame measures the selectors in the
+  header before any tier has run; it corrects on the next pass). The stats
+  rule stands: **per-session, always** (M3's scope), `src/core/` owns the
+  math, and csTimer's GPL source may be ported for the *math*, not the DOM
+  (AGENTS.md).
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
   owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
@@ -595,13 +683,14 @@ Evidence:
   goes to the taskbar. This layout came out of the A–E mockup comparison
   (`mockups/`, GTK and HTML variants — deleted once F landed in the real
   app); the default window is back to **900×540**, since the header lost the
-  title and session pill (math in the `setDefaultSize` comment). Still M6's,
-  deliberately deferred: long category/type selections (`FTO (Face-Turning
-  Octahedron)`, `last slot + last layer (old)`) can outgrow the header when
-  the window is dragged narrow, the drawer breakpoint, and sidebar width
-  caps. About / Keyboard Shortcuts / Quit sit in the sidebar app menu —
-  unreachable while the sidebar is closed, which is why `<Ctrl+Q>` stays the
-  quit path that always works.
+  title and session pill (math in the `setDefaultSize` comment). All three
+  items deferred from here are **M6's and now landed**: the long
+  category/type selections that outgrow the header (they move to their own
+  row instead, §6 M6), the drawer breakpoint (≤800), and the sidebar width
+  caps (320 → 380 → 440). About / Keyboard Shortcuts / Quit sit in the
+  sidebar app menu — unreachable while the sidebar is closed, which is why
+  `<Ctrl+Q>` stays the quit path that always works (`<Ctrl+B>` reopens the
+  list, and `Escape` closes the drawer).
 - **Keyboard drives the session UI** (useful for testing, shipped as real
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`

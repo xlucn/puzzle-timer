@@ -68,8 +68,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (180 tests as of M5 complete — timer/time, session, sessionLibrary,
-  scramble, stats, store, preferences)
+  (203 tests as of M6 complete — timer/time, session, sessionLibrary,
+  scramble, stats, store, preferences, layout/timer nudge)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
@@ -77,6 +77,9 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   drives the real Preferences dialog headlessly (M5); expect `ALL PASS`.
   Bare `--import tsx` dies with `ERR_UNSUPPORTED_ESM_URL_SCHEME` on `gi:` —
   the `node-gtk/register` import is mandatory.
+- `node --import tsx --import node-gtk/register tools/breakpoint_probe.mjs`
+  — M6 plumbing on a nested display: breakpoints apply/unapply, all five
+  bands fire on every crossing, `Gdk.Surface::layout` reports each resize.
 
 ### Manual UI verification (not part of `npm test`)
 
@@ -94,6 +97,21 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `<Ctrl+S>` opens the session menu (focus starts on its **first** item, so
   `Down`+`Return` picks the second session), `<Ctrl+N>` new, `F2` rename,
   `<Ctrl>Delete` delete.
+- Adaptive-layout walk (M6, keyboard only — full recipe in `tools/README.md`
+  → Recipes): `xdotool windowsize --sync` takes **surface** px (the widget is
+  10 smaller, CSD shadow), and the app logs every decision to stderr —
+  `[layout] WxH … drawer/side-by-side, selectors …` plus `[sidebar]` on each
+  state change. `<Ctrl+B>` toggles the list, `Escape` closes the drawer
+  (only while one is up). Expected: one line per change, **zero**
+  `AdwToastOverlay exceeds …` warnings, and `[layout] 390x350 (win 350)` at
+  the 400×360 floor.
+- **If a run looks frozen or the frames look wrong, restart the app and
+  redo the measurement** (user, 2026-10-02): `pkill -f 'main[.]ts'`, start
+  it again, re-drive the step. A stale Xephyr session, a stale capture and a
+  genuinely wedged layout all look alike from outside; only a fresh run
+  separates them — and the log is what says which. Watch for the pkill
+  self-match trap: use a pattern like `main[.]ts` that cannot match your own
+  command line.
 - Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`

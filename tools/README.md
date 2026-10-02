@@ -13,6 +13,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (M2's sidebar plumbing) |
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
+| `breakpoint_probe.mjs` | M6 plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window |
 
 ## Requirements
 
@@ -244,6 +245,31 @@ python3 tools/xtest.py --window "csTimer GTK" \
 # feature — screenshots go stale (trap 2), so pair every switch with jq.
 jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
     ~/.local/share/cstimer-gtk/sessions/_index.json
+
+# M6 adaptive layout: the whole band walk is sizes and keys, and every step
+# announces the tier it applied. Ctrl+B is `app.sidebar` and Escape closes the
+# drawer (only while one is up), so neither needs the pointer.
+W=$(DISPLAY=:99 xdotool search --name csTimer | head -1)
+tail -f /tmp/m6.log | grep --line-buffered '\[layout\]\|\[sidebar\]' &
+DISPLAY=:99 xdotool windowsize --sync $W 700 540   # drawer, selectors still in the header
+DISPLAY=:99 xdotool windowsize --sync $W 550 480   # selectors leave for their own row
+DISPLAY=:99 xdotool key ctrl+b                     # drawer opens   (log: activate → true)
+DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-sidebar=false)
+DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
+DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar 440, timer l
+# `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
+# which is why the log prints `890x530 (win 530)` for a 900x540 window.
+
+# The *measured* half of the header: long labels, not a narrow window, move
+# the selectors out of it. With the catalogue's worst pair selected the
+# header asks 1186px (vs 724 for 3x3x3) and at 900 the minimize/maximize/
+# close buttons would be pushed off the edge — so the tier moves the
+# selectors to their own row instead, and `[layout] header asks` reports the
+# demand both ways (1186 → 320 once they are out).
+jq '(.sessions[] | select(.id == "default")).scrambleType = "dmdso"' \
+    ~/.local/share/cstimer-gtk/sessions/_index.json > /tmp/idx && \
+    cp /tmp/idx ~/.local/share/cstimer-gtk/sessions/_index.json
+# …restart, walk 900/1700/700, then restore with _index.json.bak.
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …
