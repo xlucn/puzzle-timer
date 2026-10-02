@@ -15,12 +15,12 @@ import { Worker } from 'node:worker_threads'
 
 import { randomSeed } from '../platform/random.js'
 
-import type { ScrambleRequest, ScrambleResponse } from './protocol.js'
+import type { ScramblePayload, ScrambleRequest, ScrambleResponse } from './protocol.js'
 
 /**
- * Longest we wait for a scramble. The slowest type measured is ~1.7 s
- * (ftocorn), so this is generous; it exists for the pathological case, and
- * Image generation (M5) can pass its own budget.
+ * Longest we wait for a scramble. The slowest type measured is ~1.8 s
+ * (444bld), and its image rides in the same round trip (~1 ms), so this is
+ * generous; it exists for the pathological case.
  */
 const DEFAULT_TIMEOUT_MS = 15_000
 
@@ -32,6 +32,14 @@ export interface ScrambleServiceOptions {
 export interface ScrambleService {
   /** Generate one scramble. Rejects if the worker fails, stalls or throws. */
   scramble(type: string, length: number): Promise<string>
+  /**
+   * Generate one scramble *and* its SVG image in a single round trip (M5):
+   * the panel needs both at the same instant, and a request that lands after
+   * the text would move the timer after it had settled.
+   */
+  scrambleWithImage(type: string, length: number): Promise<ScramblePayload>
+  /** SVG of an already-generated scramble; null when its type has none. */
+  image(scramble: string, type: string): Promise<string | null>
   /** Stop the worker and fail everything in flight. Idempotent. */
   dispose(): void
 }
@@ -128,12 +136,32 @@ export function createScrambleService(options: ScrambleServiceOptions = {}): Scr
 
   return {
     scramble(type: string, length: number): Promise<string> {
-      return request((id) => ({ id, cmd: 'scramble', type, length })).then((value) => {
-        if (typeof value !== 'string') {
-          throw new Error('scramble worker returned no scramble')
-        }
-        return value
-      })
+      return request((id) => ({ id, cmd: 'scramble', type, length, withImage: false })).then(
+        (value) => {
+          if (typeof value !== 'string') {
+            throw new Error('scramble worker returned no scramble')
+          }
+          return value
+        },
+      )
+    },
+
+    scrambleWithImage(type: string, length: number): Promise<ScramblePayload> {
+      return request((id) => ({ id, cmd: 'scramble', type, length, withImage: true })).then(
+        (value) => {
+          const payload = value as ScramblePayload | null
+          if (payload === null || typeof payload.scramble !== 'string') {
+            throw new Error('scramble worker returned no scramble')
+          }
+          return payload
+        },
+      )
+    },
+
+    image(scramble: string, type: string): Promise<string | null> {
+      return request((id) => ({ id, cmd: 'image', scramble, type })).then((value) =>
+        typeof value === 'string' && value.length > 0 ? value : null,
+      )
     },
 
     dispose(): void {

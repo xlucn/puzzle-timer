@@ -89,6 +89,14 @@ app.on('activate', () => {
       theme.selected = 2 // "Dark"
     }
 
+    // Scramble page: the image switch.
+    const image = findRow(dialog, 'Show the scramble image')
+    check(image !== null, 'found the scramble image SwitchRow')
+    if (image !== null) {
+      check(image.getActive() === true, 'images start ON (default)')
+      image.setActive(false)
+    }
+
     // Let the notify emissions settle, then read back the merged state.
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 100, () => {      check(
         patches.some((p) => p.holdThresholdMs === 550),
@@ -106,6 +114,7 @@ app.on('activate', () => {
         `the ComboRow reported the colour scheme (${JSON.stringify(patches)})`,
       )
       check(prefs.colorScheme === 'dark', 'the merged preference is dark')
+      check(prefs.scrambleImage === false, 'the image switch reported off')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
       app.quit()

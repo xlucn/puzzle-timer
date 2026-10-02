@@ -30,12 +30,17 @@ if (port === null) {
 function handle(request: ScrambleRequest): ScrambleResponse {
   try {
     switch (request.cmd) {
-      case 'scramble':
+      case 'scramble': {
+        const scramble = cstimer.getScramble(request.type, request.length)
+        if (!request.withImage) return { id: request.id, ok: true, value: scramble }
         return {
           id: request.id,
           ok: true,
-          value: cstimer.getScramble(request.type, request.length),
+          value: { scramble, image: imageOf(scramble, request.type) },
         }
+      }
+      case 'image':
+        return { id: request.id, ok: true, value: imageOf(request.scramble, request.type) }
       case 'seed':
         cstimer.setSeed(request.seed)
         return { id: request.id, ok: true, value: null }
@@ -48,6 +53,23 @@ function handle(request: ScrambleRequest): ScrambleResponse {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
     }
+  }
+}
+
+/**
+ * The scramble's SVG, or null when its type has no drawing rule.
+ * cstimer_module answers `false` (not a string, not an exception) for the 29
+ * of 206 types without an image — verified for all 206 by
+ * `tools/scramble_probe.ts`, which asserts this exact contract: an SVG string
+ * (starts with `<`) or a falsey answer. Anything else is treated as "no
+ * image": a missing picture must never fail the scramble that came with it.
+ */
+function imageOf(scramble: string, type: string): string | null {
+  try {
+    const image: unknown = cstimer.getImage(scramble, type)
+    return typeof image === 'string' && image.startsWith('<') ? image : null
+  } catch {
+    return null
   }
 }
 

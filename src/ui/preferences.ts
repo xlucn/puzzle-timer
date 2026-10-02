@@ -9,9 +9,10 @@
  * state, theming), so the dialog never becomes a second source of truth.
  *
  * Rows are the stock Adw ones — Adw.SpinRow for the hold threshold (a real
- * SpinButton inside an action row), Adw.SwitchRow for the flags. Every row
- * announces on `notify::…`; the dialog is modal, so nothing outside can move
- * a value under it and there is no echo to guard against.
+ * SpinButton inside an action row), Adw.SwitchRow for the flags, Adw.ComboRow
+ * for the theme. Every row announces on `notify::…`; the dialog is modal, so
+ * nothing outside can move a value under it and there is no echo to guard
+ * against.
  *
  * The label units: the hold threshold is stored in milliseconds (the timer's
  * unit) but shown in seconds, because "0.30 s" is how csTimer's own
@@ -143,6 +144,30 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     appearancePage.add(appearanceGroup)
     dialog.add(appearancePage)
+
+    // ---- page: scramble --------------------------------------------------
+    const scramblePage = new Adw.PreferencesPage({
+      title: 'Scramble',
+      iconName: 'image-x-generic-symbolic',
+    })
+    const scrambleGroup = new Adw.PreferencesGroup({
+      title: 'Diagram',
+      description:
+        'A picture of the scramble when its type has one — 177 of the 206 types do. ' +
+        'It is generated with the scramble, so switching this never changes the scramble itself.',
+    })
+
+    const imageRow = new Adw.SwitchRow({
+      title: 'Show the scramble image',
+      active: prefs.scrambleImage,
+    })
+    imageRow.on('notify::active', () => {
+      options.set({ scrambleImage: imageRow.active })
+    })
+    scrambleGroup.add(imageRow)
+
+    scramblePage.add(scrambleGroup)
+    dialog.add(scramblePage)
 
     dialog.present(options.window)
     return dialog

@@ -338,15 +338,45 @@ app.on('activate', () => {
   const statsStrip = createStatsStrip({ library, getSession: activeSession })
   const timerView = createTimerView({ statsStrip })
 
+  // ---- scramble images (M5) ---------------------------------------------
+  // The SVG rides in with its scramble (one worker round trip — see
+  // scrambleWithImage), so the panel can put text and diagram on screen in
+  // the same frame and the timer never moves twice. The cache lives here
+  // rather than in the feed because the feed stays pure string state; the
+  // panel reads through imageFor(), including for the ghost while the next
+  // scramble generates. Images are always fetched (a picture costs the
+  // worker ~1 ms); the preference only decides whether imageFor shows it,
+  // so the toggle is instant in both directions with nothing to refetch.
+  // Bounded: only the last few scrambles can ever be on screen.
+  const imageCache = new Map<string, string | null>()
+  const imageKey = (type: string, scramble: string): string => `${type}\u0000${scramble}`
+  const rememberImage = (type: string, scramble: string, image: string | null): void => {
+    imageCache.set(imageKey(type, scramble), image)
+    while (imageCache.size > 16) {
+      const oldest = imageCache.keys().next().value
+      if (oldest === undefined) break
+      imageCache.delete(oldest)
+    }
+  }
+  const imageFor = (type: string, scramble: string): string | null =>
+    prefs.scrambleImage ? (imageCache.get(imageKey(type, scramble)) ?? null) : null
+
   // The type dropdown and the refresh button live in the header; the text
   // itself sits above the timer (see createScramblePanel).
   const scrambleService = createScrambleService()
   const feed = new ScrambleFeed({
     type: SCRAMBLE_DEFAULT_TYPE,
-    generate: (type) => scrambleService.scramble(type, scrambleLength(type)),
+    generate: async (type) => {
+      const { scramble, image } = await scrambleService.scrambleWithImage(
+        type,
+        scrambleLength(type),
+      )
+      rememberImage(type, scramble, image)
+      return scramble
+    },
   })
 
-  const scramblePanel = createScramblePanel()
+  const scramblePanel = createScramblePanel({ getImage: imageFor })
   feed.subscribe(() => scramblePanel.render(feed.state))
 
   const typeSelect = createScrambleTypeSelect({
@@ -416,13 +446,21 @@ app.on('activate', () => {
   content.append(scramblePanel.widget)
   content.append(timerView.widget)
 
+  // The diagram floats in the view's bottom-right corner (user call,
+  // 2026-10-02). GTK4 does not count overlay children in the parent's size
+  // request — the same rule the spinner slot relies on — so the picture
+  // takes no layout space at any window size: the text and timer sit
+  // exactly as they do without it, and switching it off reflows nothing.
+  const viewOverlay = new Gtk.Overlay({ child: content })
+  viewOverlay.addOverlay(scramblePanel.image)
+
   // The solve list is a sidebar over the left-hand edge: it can be closed,
   // and closing it hands the full width back to the timer. `collapsed` stays
   // false — the list is a persistent pane, not a drawer (a breakpoint that
   // turns it into a drawer on narrow windows is M6). START puts it
   // left; nothing else claims that side (PLAN §7).
   const split = new Adw.OverlaySplitView({
-    content,
+    content: viewOverlay,
     sidebar: timesList.widget,
     sidebarPosition: Gtk.PackType.START,
     minSidebarWidth: 240,
@@ -589,6 +627,9 @@ app.on('activate', () => {
 
     if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
     if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
+    // imageFor reads `prefs`, so a plain re-render shows or drops the
+    // diagram — the SVG is already in the cache (images are always fetched).
+    if ('scrambleImage' in patch) scramblePanel.render(feed.state)
     if ('inspection' in patch) {
       // setState does not re-activate the action, so this cannot loop back
       // into the handler above.

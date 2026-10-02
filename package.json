@@ -13,7 +13,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate-types": "node-gtk generate-types Gtk-4.0 Adw-1",
+    "generate-types": "node-gtk generate-types Gtk-4.0 Adw-1 Rsvg-2.0",
     "postinstall": "npm run generate-types"
   },
   "dependencies": {
