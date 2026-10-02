@@ -1,75 +1,75 @@
 /*
- * shortcuts.ts — the keyboard reference (M3, layout F).
+ * shortcuts.ts — the keyboard reference (M3, layout F; Adw.ShortcutsDialog
+ * since 2026-10-02).
  *
- * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer
+ * An Adw.ShortcutsDialog listing the app's key bindings: Space on the timer
  * (and Escape to cancel an inspection, or to close the solve list when the
  * window is narrow enough for it to be a drawer), copy the scramble
- * (Ctrl+C), Delete and the
- * penalty/comment keys
+ * (Ctrl+C), Delete and the penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
  * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T), and
  * Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
  * the sidebar's app menu ("Keyboard Shortcuts") — no accelerator of its own,
- * the window *is* the accelerator documentation.
+ * the dialog *is* the accelerator documentation.
  *
- * Gtk.ShortcutsWindow is deprecated as of GTK 4.18 but still the only stock
- * widget for this (libadwaita ships no replacement); it renders fine on GTK
- * 4.22. If node-gtk misbehaves on it (open segfaults around widget
- * construction are the usual failure mode here), fall back to listing the
- * keys in the About dialog's body — see AGENTS.md.
+ * This replaces Gtk.ShortcutsWindow, deprecated since GTK 4.18 — libadwaita
+ * gained the same idea in AdwShortcutsDialog (1.9, what this box ships):
+ * sections of items, an item being a title plus an accelerator. The mapping
+ * from the old structure is one to one: a Gtk.ShortcutsGroup (Timer, Solve
+ * list, …) is a titled AdwShortcutsSection, a Gtk.ShortcutsShortcut is an
+ * AdwShortcutsItem, and the old single-section-with-groups layout becomes a
+ * list of sections — no tabs, since a dialog scrolls instead.
  *
- * Structure: window → section → group → shortcut. Sections become tabs when
- * there is more than one; we use a single section with one group per area.
+ * Built fresh on every open, like Preferences: an AdwDialog is gone when it
+ * closes, so there is nothing to keep hold of. If node-gtk ever fails around
+ * it, only this menu item is lost, not the startup path — construction stays
+ * inside the action.
  *
  * Keep this in sync with the accelerators in src/main.ts (setAccelsForAction)
  * and the timer/delete key handling in the same file.
  */
-import Gtk from 'gi:Gtk-4.0'
-
-type AppWindow = InstanceType<typeof Gtk.ApplicationWindow>
-export type ShortcutsWindow = InstanceType<typeof Gtk.ShortcutsWindow>
+import Adw from 'gi:Adw-1'
 
 /**
- * Build (but do not present) the shortcuts window. One group per area of the
- * app; accelerator strings are GTK's parseable form and are displayed by the
- * widget itself (e.g. `<Ctrl>S` renders as "Ctrl+S").
+ * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
+ * types come from InstanceType.
  */
-export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow {
-  const win = new Gtk.ShortcutsWindow({
-    transientFor,
-    modal: true,
-    destroyWithParent: true,
-    hideOnClose: true,
-    title: 'Keyboard Shortcuts',
-  })
+export type ShortcutsDialog = InstanceType<typeof Adw.ShortcutsDialog>
 
-  const section = new Gtk.ShortcutsSection({
-    title: 'General',
-    name: 'general',
-  })
+/**
+ * Build (but do not present) the keyboard reference. One section per area of
+ * the app; accelerator strings are GTK's parseable form and are displayed by
+ * Adw.ShortcutLabel itself (e.g. `<Ctrl>S` renders as "Ctrl+S").
+ *
+ * A typo in one is still silent: the chip renders *empty*, so the
+ * case-sensitive gdk_keyval rule below matters here as much as it did in the
+ * window this replaced ("space", never "Space").
+ */
+export function createShortcutsDialog(): ShortcutsDialog {
+  const dialog = new Adw.ShortcutsDialog({ title: 'Keyboard Shortcuts' })
 
-  const group = (title: string, entries: Array<[string, string]>): void => {
-    const g = new Gtk.ShortcutsGroup({ title })
+  const section = (title: string, entries: Array<[string, string]>): void => {
+    const group = Adw.ShortcutsSection.new(title)
     for (const [desc, accel] of entries) {
-      g.append(new Gtk.ShortcutsShortcut({ title: desc, accelerator: accel }))
+      group.add(new Adw.ShortcutsItem({ title: desc, accelerator: accel }))
     }
-    section.addGroup(g)
+    dialog.add(group)
   }
 
-  group('Timer', [
+  section('Timer', [
     // Key names are case-sensitive gdk_keyval names: "space", not "Space"
     // (an unparsable accelerator silently renders as an empty chip).
     ['Start a solve (hold, then release)', 'space'],
     ['Stop a running solve', 'space'],
     ['Cancel the inspection countdown', 'Escape'],
   ])
-  group('Scramble', [
+  section('Scramble', [
     // The scramble text is display-only (user call, 2026-10-02): not
     // selectable, so this is how the text gets out — beside refresh in the
     // header, or here.
     ['Copy the scramble', '<Ctrl>C'],
   ])
-  group('Solve list', [
+  section('Solve list', [
     // M6: in a narrow window the list is a drawer over the content;
     // Ctrl+B is the way in and out at any size (the split view's own
     // toggle button has no accelerator of its own), and Escape is the
@@ -83,20 +83,19 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     ['Mark the newest solve DNF', '<Ctrl>3'],
     ['Edit the selected (or newest) solve — penalty, comment', '<Ctrl>E'],
   ])
-  group('Sessions', [
+  section('Sessions', [
     ['Open the session menu', '<Ctrl>S'],
     ['New session', '<Ctrl>N'],
     ['Rename the active session', 'F2'],
     ['Delete the active session', '<Ctrl>Delete'],
   ])
-  group('Statistics', [
+  section('Statistics', [
     ['Open the statistics dialog', '<Ctrl>T'],
   ])
-  group('General', [
+  section('General', [
     ['Open preferences', '<Ctrl>comma'],
     ['Quit', '<Ctrl>Q'],
   ])
 
-  win.addSection(section)
-  return win
+  return dialog
 }

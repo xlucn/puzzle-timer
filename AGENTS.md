@@ -44,7 +44,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   (`scramblePanel.ts`), never stack it underneath.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently in the UI: the chip renders empty in
-  `Gtk.ShortcutsWindow` (plus a `Failed to parse` Gtk-WARNING in the log).
+  `Adw.ShortcutsDialog` and nothing says why — check a new entry with
+  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02).
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
   Attribute csTimer and `cstimer_module` in the About dialog.
@@ -121,9 +122,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   app-functions ⋮, copy, refresh, type, category) — `Return` closes the
   sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
-  path in `src/ui/sessionMenu.ts`). The shortcuts window is a separate
-  toplevel: find its id with `xwininfo -root -tree | grep "Keyboard
-  Shortcuts"` and `maim -i 0x<id>` to capture it (unmapped ⇒ black).
+  path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
+  separate toplevel — `Adw.ShortcutsDialog` draws inside the app's own
+  surface (the `Gtk.ShortcutsWindow` it replaced was a toplevel, so the old
+  recipe of `xwininfo -root -tree | grep "Keyboard Shortcuts"` now finds
+  nothing): capture it with `maim -i 0x<app window id>` and close it with
+  `Escape`.
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
 - Transient frames and focus chains: confirm where a `Shift+Tab` chain
@@ -143,8 +147,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   tests trigger it with keys. Clicks need GNOME's RemoteDesktop portal
   approval, fight the physical mouse, and menus/popups photograph black
   anyway (tools/README traps 4–5). If an action has no key yet, add one —
-  `app.setAccelsForAction(...)` in `src/main.ts` plus a
-  `Gtk.ShortcutsWindow` entry in `src/ui/shortcuts.ts` — before testing it.
+  `app.setAccelsForAction(...)` in `src/main.ts` plus an
+  `Adw.ShortcutsDialog` entry in `src/ui/shortcuts.ts` — before testing it.
 - Details and traps: `tools/README.md`.
 
 ### Fresh install

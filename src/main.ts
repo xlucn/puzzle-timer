@@ -58,7 +58,7 @@ import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
-import { createShortcutsWindow, type ShortcutsWindow } from './ui/shortcuts.js'
+import { createShortcutsDialog } from './ui/shortcuts.js'
 import { createStatsPanel } from './ui/statsPanel.js'
 import { createStatsStrip } from './ui/statsStrip.js'
 import { createTimerView } from './ui/timerLabel.js'
@@ -1026,16 +1026,13 @@ app.on('activate', () => {
   app.addAction(aboutAction)
 
   // The keyboard reference (src/ui/shortcuts.ts), opened from the sidebar's
-  // app menu. Built lazily and kept: hide-on-close means one window per run,
-  // and a node-gtk failure around Gtk.ShortcutsWindow (if there is one) then
-  // only costs this menu item, not the whole startup path. No accelerator of
-  // its own — the window *is* the accelerator documentation.
-  let shortcutsWindow: ShortcutsWindow | null = null
+  // app menu. Built fresh on open, like Preferences: an AdwDialog is gone
+  // when it closes, so there is nothing to cache — and construction stays
+  // inside the action, so a node-gtk failure around it costs this menu item
+  // rather than the startup path. No accelerator of its own — the dialog
+  // *is* the accelerator documentation.
   const shortcutsAction = Gio.SimpleAction.new('shortcuts', null)
-  shortcutsAction.on('activate', () => {
-    if (shortcutsWindow === null) shortcutsWindow = createShortcutsWindow(window)
-    shortcutsWindow.present()
-  })
+  shortcutsAction.on('activate', () => createShortcutsDialog().present(window))
   app.addAction(shortcutsAction)
 
   // The Statistics dialog (src/ui/statsPanel.ts): the full current/best/

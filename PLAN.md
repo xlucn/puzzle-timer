@@ -77,7 +77,7 @@ src/
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
 │   ├── statsPanel.ts     statistics (Adw.Dialog)
 │   ├── sessionMenu.ts    session radio-menu (Gtk.MenuButton + Gio.Menu)
-│   ├── shortcuts.ts      Gtk.ShortcutsWindow (built lazily on app.shortcuts)
+│   ├── shortcuts.ts      Adw.ShortcutsDialog (built fresh on app.shortcuts)
 │   ├── preferences.ts    Adw.PreferencesDialog: Timer / Appearance / Scramble
 │   └── stringExpression.ts  makeStringExpression() — ComboRow labels (decision 10)
 ```
@@ -724,12 +724,16 @@ Evidence:
   accelerators): `<Ctrl+S>` opens the session menu, `<Ctrl+N>` new, `F2`
   rename, `<Ctrl>Delete` delete — after opening the menu, `Down` + `Return`
   selects a session (the menu focuses its *first* item, not the checked one).
-  The keyboard reference is a stock `Gtk.ShortcutsWindow`
-  (`src/ui/shortcuts.ts`, built lazily on `app.shortcuts`, `hideOnClose`, no
-  accelerator of its own) — it constructs and renders fine under node-gtk, so
-  the planned fallback of putting the keys in the About dialog body is not
-  needed. Watch the key names: gdk_keyval names are case-sensitive
-  (`space`, not `Space`), or the chip renders empty.
+  The keyboard reference is a stock **`Adw.ShortcutsDialog`**
+  (`src/ui/shortcuts.ts`, built fresh on `app.shortcuts`, no accelerator of
+  its own) — it replaced `Gtk.ShortcutsWindow` (deprecated since GTK 4.18)
+  on 2026-10-02: same sections/items shape, but it renders as a libadwaita
+  dialog *inside the app's window* rather than as a toplevel, it brings its
+  own search field, and it constructs and renders fine under node-gtk — so
+  the planned fallback of putting the keys in the About dialog body was
+  never needed and is now moot. Watch the key names: gdk_keyval names are
+  case-sensitive (`space`, not `Space`), or the chip renders empty (checked
+  with `Gtk.acceleratorParse`: all 18 entries parse).
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
   `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost
