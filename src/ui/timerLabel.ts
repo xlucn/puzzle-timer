@@ -9,6 +9,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import type { TimerSize } from '../core/layout.js'
 import { INSPECTION_DNF_MS, type TimerSnapshot, type TimerState } from '../core/timer.js'
 import { formatInspection, formatSolve, formatTime } from '../core/time.js'
 import type { createStatsStrip } from './statsStrip.js'
@@ -31,6 +32,11 @@ styles.add(`
     /* Tabular figures keep the digits from shifting as the time changes. */
     font-feature-settings: "tnum" 1;
   }
+  /* M6: the readout steps with the window's tier. Small covers both narrow
+     and short windows — the digits are the one thing that must never clip —
+     and large is what a window over 1200 logical does with the room. */
+  .timer-display.size-s { font-size: 72px; }
+  .timer-display.size-l { font-size: 128px; }
   .timer-display.state-idle     { color: alpha(@window_fg_color, 0.55); }
   .timer-display.state-holding  { color: @error_color; }
   .timer-display.state-ready    { color: @success_color; }
@@ -69,8 +75,23 @@ const HINTS: Record<TimerState, string> = {
 export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   const label = new Gtk.Label({
     label: '0.00',
-    cssClasses: ['timer-display', 'state-idle'],
+    cssClasses: ['timer-display', 'size-m', 'state-idle'],
   })
+
+  /**
+   * The class list is assembled from three independent facts — the size tier
+   * (M6, changes with the window), the timer state, and whether an inspection
+   * has already blown its DNF limit — so both entry points below go through
+   * one function rather than one of them overwriting the other's classes.
+   */
+  let size: TimerSize = 'm'
+  let state: TimerState = 'idle'
+  let expired = false
+  const applyClasses = (): void => {
+    const classes = ['timer-display', `size-${size}`, `state-${state}`]
+    if (expired) classes.push('expired')
+    label.setCssClasses(classes)
+  }
 
   const hint = new Gtk.Label({
     label: HINTS.idle,
@@ -91,6 +112,16 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   return {
     /** Container to place in the window. */
     widget,
+    /**
+     * M6: the readout's size class follows the window's tier
+     * (src/core/layout.ts). The state classes on screen are reapplied, so a
+     * resize never repaints a running timer in the idle colour.
+     */
+    setSize(next: TimerSize): void {
+      if (next === size) return
+      size = next
+      applyClasses()
+    },
     /** Redraw for a new snapshot. */
     render(snapshot: TimerSnapshot) {
       // Inspection counts down (then +2 / DNF); a stopped solve shows its
@@ -102,12 +133,10 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
           : snapshot.state === 'stopped' && snapshot.penalty !== undefined
             ? formatSolve(snapshot.elapsedMs, snapshot.penalty)
             : formatTime(snapshot.elapsedMs)
-      const classes = ['timer-display', `state-${snapshot.state}`]
-      if (snapshot.state === 'inspecting' && snapshot.inspectionMs >= INSPECTION_DNF_MS) {
-        classes.push('expired')
-      }
+      state = snapshot.state
+      expired = snapshot.state === 'inspecting' && snapshot.inspectionMs >= INSPECTION_DNF_MS
       label.setLabel(text)
-      label.setCssClasses(classes)
+      applyClasses()
       hint.setLabel(HINTS[snapshot.state])
     },
   }

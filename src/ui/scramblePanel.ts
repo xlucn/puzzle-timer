@@ -59,19 +59,42 @@ const GENERATING = 'Generating scramble…'
 const FAILED = (reason: string) => `Scramble failed: ${reason}`
 
 /**
- * Diagram size cap (logical px). The natural sizes run from ~375×180 (clock)
- * to ~526×393 (4x4) — a 396×296 3x3 image would eat half the window, so the
- * pixbuf is scaled down to fit, keeping its aspect. Within one type the size
- * is constant, which is what keeps the timer from moving between solves.
+ * Default diagram size cap (logical px), i.e. the cap of the normal window
+ * tier — M6's applyLayout() pushes larger caps into the panel on a wide
+ * window (see setDiagramMax). The natural sizes run from ~375×180 (clock) to
+ * ~526×393 (4x4) — a 396×296 3x3 image would eat half the window, so the
+ * pixbuf is scaled down to fit, keeping its aspect. Within one type and one
+ * window size the result is constant, which is what keeps the timer from
+ * moving between solves.
  */
 const IMAGE_MAX_WIDTH = 440
 const IMAGE_MAX_HEIGHT = 150
+
+/** The scramble text's default cap (normal tier), in characters. */
+const TEXT_MAX_CHARS = 60
+
+/** The scramble slot's default cap (normal tier), in px. */
+const TEXT_MAX_HEIGHT = 160
+
+/**
+ * The panel's own vertical margins (see `widget` below). They are *outside*
+ * the panel's height — GTK allots a child its margins plus its size, and the
+ * next child starts after the lot — so the timer's region begins this much
+ * below the panel's measured bottom edge (M6's nudge maths need that edge
+ * exactly; see slotBottom()).
+ */
+const PANEL_MARGIN_TOP = 14
+const PANEL_MARGIN_BOTTOM = 4
 
 /**
  * SVG → scaled Gdk.Texture, or null when it cannot be rendered (never throws:
  * a broken picture must not cost the scramble that came with it).
  */
-function svgToTexture(svg: string): InstanceType<typeof Gdk.Texture> | null {
+function svgToTexture(
+  svg: string,
+  maxWidth: number,
+  maxHeight: number,
+): InstanceType<typeof Gdk.Texture> | null {
   try {
     const handle = Rsvg.Handle.newFromData(Array.from(new TextEncoder().encode(svg)))
     if (handle === null) return null
@@ -80,7 +103,7 @@ function svgToTexture(svg: string): InstanceType<typeof Gdk.Texture> | null {
 
     const width = original.getWidth()
     const height = original.getHeight()
-    const scale = Math.min(IMAGE_MAX_WIDTH / width, IMAGE_MAX_HEIGHT / height, 1)
+    const scale = Math.min(maxWidth / width, maxHeight / height, 1)
     const pixbuf =
       scale < 1 && width > 0 && height > 0
         ? original.scaleSimple(
@@ -121,7 +144,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // scramble (r234567 is ~3000 characters) would otherwise drag the window
     // wider than the screen. Cap the request; the label still fills the
     // window when there is room and wraps there.
-    maxWidthChars: 60,
+    maxWidthChars: TEXT_MAX_CHARS,
   })
 
   // Long scrambles would otherwise grow the window without bound — a
@@ -132,7 +155,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     hscrollbarPolicy: Gtk.PolicyType.NEVER, // the text wraps, it never scrolls sideways
     vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
     propagateNaturalHeight: true,
-    maxContentHeight: 160,
+    maxContentHeight: TEXT_MAX_HEIGHT,
   })
 
   const spinner = new Gtk.Spinner()
@@ -196,8 +219,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     spacing: 6,
     // GTK4's CSS box model has no margin-start/margin-end (only left/right),
     // so the panel's breathing room comes from widget properties instead.
-    marginTop: 14,
-    marginBottom: 4,
+    marginTop: PANEL_MARGIN_TOP,
+    marginBottom: PANEL_MARGIN_BOTTOM,
     marginStart: 18,
     marginEnd: 18,
   })
@@ -223,6 +246,16 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   let lastType: string | null = null
   /** The SVG currently rendered, so re-renders only pay for a real change. */
   let currentSvg: string | null = null
+  /** The feed state last drawn — what a tier change redraws without waiting. */
+  let lastState: ScrambleFeedState | null = null
+
+  // The caps in force (M6): they start at the normal tier's defaults and
+  // applyLayout() pushes the tier's numbers in. Within one window size they
+  // are constant, which is what keeps the timer from moving between solves.
+  let textMaxChars = TEXT_MAX_CHARS
+  let textMaxHeight = TEXT_MAX_HEIGHT
+  let diagramMaxWidth = IMAGE_MAX_WIDTH
+  let diagramMaxHeight = IMAGE_MAX_HEIGHT
 
   let spinning = false
   const setSpinning = (on: boolean) => {
@@ -230,6 +263,56 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     spinning = on
     if (on) spinner.start()
     else spinner.stop()
+  }
+
+  /** Redraw for a new feed state. */
+  const render = (state: ScrambleFeedState): void => {
+    lastState = state
+    const hasScramble = state.scramble !== null
+    const generating = !hasScramble && state.error === null
+
+    // A new scramble replaces the ghost; while there is none, the last
+    // one stays on screen dimmed — the slot keeps *its* height, so the
+    // timer holds still for the whole update. First load has no ghost:
+    // the bare slot shows the spinner.
+    if (state.scramble !== null) {
+      lastText = state.scramble
+      lastType = state.type
+      text.setLabel(lastText)
+      text.setCssClasses(['scramble-text'])
+    } else if (lastText !== null) {
+      text.setCssClasses(['scramble-text', 'pending'])
+    }
+    text.setVisible(lastText !== null)
+
+    // No scramble on screen (updating or failed): the row *is* the
+    // slot's content, overlaid — it can never add height to the panel.
+    statusRow.setVisible(state.scramble === null)
+    setSpinning(generating)
+    if (state.scramble === null) {
+      status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
+      status.setCssClasses(generating ? ['scramble-status'] : ['scramble-status', 'error'])
+    }
+
+    // A warm failure reports under the scramble still on screen.
+    const warmFailure = hasScramble ? state.error : null
+    warmError.setVisible(warmFailure !== null)
+    if (warmFailure !== null) warmError.setLabel(FAILED(warmFailure))
+
+    // The diagram follows the scramble on screen *or its ghost* — same
+    // lookup, same frame as the text, and it stays up while the next one
+    // generates. Null means "no picture for this one" (type without an
+    // image, or images switched off): the overlay child just hides, and
+    // since overlay children cost no height, the timer cannot move.
+    const svg =
+      lastText !== null && lastType !== null ? options.getImage(lastType, lastText) : null
+    if (svg !== currentSvg) {
+      currentSvg = svg
+      const texture =
+        svg === null ? null : svgToTexture(svg, diagramMaxWidth, diagramMaxHeight)
+      picture.setPaintable(texture)
+      picture.setVisible(texture !== null)
+    }
   }
 
   return {
@@ -240,52 +323,59 @@ export function createScramblePanel(options: ScramblePanelOptions) {
      * corner of the view) — the panel renders it, the view owns its position.
      */
     image: picture,
-    /** Redraw for a new feed state. */
-    render(state: ScrambleFeedState) {
-      const hasScramble = state.scramble !== null
-      const generating = !hasScramble && state.error === null
-
-      // A new scramble replaces the ghost; while there is none, the last
-      // one stays on screen dimmed — the slot keeps *its* height, so the
-      // timer holds still for the whole update. First load has no ghost:
-      // the bare slot shows the spinner.
-      if (state.scramble !== null) {
-        lastText = state.scramble
-        lastType = state.type
-        text.setLabel(lastText)
-        text.setCssClasses(['scramble-text'])
-      } else if (lastText !== null) {
-        text.setCssClasses(['scramble-text', 'pending'])
+    render,
+    /**
+     * M6: how wide the scramble text may ask to be, and how tall the slot may
+     * grow — both from the window's tier. The label's own `maxWidthChars`
+     * caps its natural width (the minimum is the longest word, so the window
+     * can still shrink past it) and `maxContentHeight` caps a tall scramble.
+     */
+    setLimits(maxWidthChars: number, maxContentHeight: number): void {
+      if (maxWidthChars !== textMaxChars) {
+        textMaxChars = maxWidthChars
+        text.setMaxWidthChars(textMaxChars)
       }
-      text.setVisible(lastText !== null)
-
-      // No scramble on screen (updating or failed): the row *is* the
-      // slot's content, overlaid — it can never add height to the panel.
-      statusRow.setVisible(state.scramble === null)
-      setSpinning(generating)
-      if (state.scramble === null) {
-        status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
-        status.setCssClasses(generating ? ['scramble-status'] : ['scramble-status', 'error'])
-      }
-
-      // A warm failure reports under the scramble still on screen.
-      const warmFailure = hasScramble ? state.error : null
-      warmError.setVisible(warmFailure !== null)
-      if (warmFailure !== null) warmError.setLabel(FAILED(warmFailure))
-
-      // The diagram follows the scramble on screen *or its ghost* — same
-      // lookup, same frame as the text, and it stays up while the next one
-      // generates. Null means "no picture for this one" (type without an
-      // image, or images switched off): the overlay child just hides, and
-      // since overlay children cost no height, the timer cannot move.
-      const svg =
-        lastText !== null && lastType !== null ? options.getImage(lastType, lastText) : null
-      if (svg !== currentSvg) {
-        currentSvg = svg
-        const texture = svg === null ? null : svgToTexture(svg)
-        picture.setPaintable(texture)
-        picture.setVisible(texture !== null)
+      if (maxContentHeight !== textMaxHeight) {
+        textMaxHeight = maxContentHeight
+        scroll.maxContentHeight = textMaxHeight
       }
     },
+    /**
+     * M6: the diagram cap for this tier. The texture is already scaled to the
+     * old cap, so the cache is dropped and the last state redrawn — the
+     * picture changes size, never its position, and the text and timer are
+     * untouched (overlay children take no layout space).
+     */
+    setDiagramMax(width: number, height: number): void {
+      if (width === diagramMaxWidth && height === diagramMaxHeight) return
+      diagramMaxWidth = width
+      diagramMaxHeight = height
+      currentSvg = null
+      if (lastState !== null) render(lastState)
+    },
+    /** Is a diagram on screen right now? The nudge's gate. */
+    hasImage: (): boolean => picture.visible,
+    /**
+     * The diagram's size *as drawn* (M6): the nudge is measured from it — the
+     * timer steps half of it up and half of it left. The picture is an overlay
+     * child, so its allocation is its own natural size (the scaled texture)
+     * or, in a cramped window, whatever room the overlay has — either way it
+     * is where the image actually is, and never a size the timer's margins
+     * could influence (overlay children take no layout space). Zero before the
+     * first allocation, which the caller reads as "not yet" and the frame
+     * clock's after-paint corrects on the next frame.
+     */
+    diagramSize: (): { width: number; height: number } => ({
+      width: picture.getSize(Gtk.Orientation.HORIZONTAL),
+      height: picture.getSize(Gtk.Orientation.VERTICAL),
+    }),
+    /**
+     * Where the panel's slot ends — the top of the timer's own region (M6).
+     * The measured height is the panel's *content*; the slot that pushed it
+     * down includes the margins above and below, and that is what the next
+     * child starts after.
+     */
+    slotBottom: (): number =>
+      PANEL_MARGIN_TOP + widget.getSize(Gtk.Orientation.VERTICAL) + PANEL_MARGIN_BOTTOM,
   }
 }
