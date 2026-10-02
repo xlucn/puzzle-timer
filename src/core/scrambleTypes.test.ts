@@ -6,6 +6,7 @@ import {
   SCRAMBLE_TYPES,
   groupOfScrambleType,
   scrambleLength,
+  scrambleTypeLabel,
 } from './scrambleTypes.js'
 
 /**
@@ -94,5 +95,26 @@ describe('scrambleTypes', () => {
     expect(groupOfScrambleType('sq1pll')).toBe('Square-1')
     expect(groupOfScrambleType('333')).toBe('WCA')
     expect(groupOfScrambleType('no-such-type')).toBeUndefined()
+  })
+})
+
+describe('scrambleTypeLabel — both levels on one line', () => {
+  it('prefixes the group, because a name is only unique inside its group', () => {
+    expect(scrambleTypeLabel('333')).toBe('WCA - 3x3x3')
+    // The two "PLL"s: the same level-2 name in different categories, which is
+    // exactly what the prefix exists to separate.
+    expect(scrambleTypeLabel('pll')).toBe('3x3x3 CFOP - PLL')
+    expect(scrambleTypeLabel('sq1pll')).toBe('Square-1 - PLL')
+  })
+
+  it('is the catalogue, one label per type', () => {
+    expect(SCRAMBLE_TYPES).toHaveLength(206)
+    for (const type of SCRAMBLE_TYPES) {
+      expect(scrambleTypeLabel(type.id), type.id).toBe(`${type.group} - ${type.name}`)
+    }
+  })
+
+  it('shows an unknown id verbatim instead of substituting one', () => {
+    expect(scrambleTypeLabel('no-such-type')).toBe('no-such-type')
   })
 })

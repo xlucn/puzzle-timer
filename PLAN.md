@@ -72,6 +72,7 @@ src/
 ├── ui/                   GTK widgets only; talks to core via callbacks
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors (category → type)
+│   ├── scrambleTypePicker.ts  narrow layout: Adw.ButtonRow → Adw.Dialog chooser
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
@@ -734,6 +735,27 @@ Evidence:
   never needed and is now moot. Watch the key names: gdk_keyval names are
   case-sensitive (`space`, not `Space`), or the chip renders empty (checked
   with `Gtk.acceleratorParse`: all 18 entries parse).
+- **Narrow selector: one row at the bottom (user calls, 2026-10-03)** — below
+  ~600 the two dropdowns give way to an **`Adw.ButtonRow`** reading
+  `Category - type`, pinned to the **bottom of the main area** (it used to sit
+  under the header). Pressing it opens an `Adw.Dialog`: the current
+  category's types in a boxed list (✓ on the live one), an **up** button that
+  swaps in all 44 categories — landing on *the category you came from*, not
+  on WCA (it used to select the first every time; fixed) — and a search entry
+  over all 206 types, labelled `Category - type` because "PLL" exists twice.
+  What the measurements forced: a plain `AdwDialog` does **not** close on
+  Escape (three Escapes with the search entry focused left it up), so Escape
+  is bound in capture phase — first clears the query, second closes; GTK4's
+  `GtkListBox` activates and moves **nothing** from the keyboard (Down and
+  Return reach the controller, no `row-activated` ever follows), so arrows and
+  Return are bound explicitly; `AdwActionRow` titles are parsed as *markup*,
+  so `useMarkup: false` (else `3x3x3 Roux - LSE <M, U>` logs a parse
+  warning). Layout consequences: the row's slot is subtracted from the timer's
+  region in `updateNudge`, and the diagram — anchored to the same bottom edge
+  — is lifted by exactly that slot, or the picture would be drawn over the
+  row. Also: the first frame now takes its tier from the *asked-for* size
+  before `present()`, because with `lsll` selected the old order asked **928px
+  in an 890px window** on frame one (0 warnings since).
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
   `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost

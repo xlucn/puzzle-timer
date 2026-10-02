@@ -317,6 +317,27 @@ export function groupOfScrambleType(id: string): string | undefined {
   return GROUP_BY_TYPE.get(id)
 }
 
+const TYPE_BY_ID = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type]))
+
+/**
+ * Both levels of the menu on one line: `Category - type`.
+ *
+ * For the places where there is room for exactly one label — the selector
+ * row's button and the picker dialog's search results (where a match from
+ * another category has to say where it lives). A name is only unique inside
+ * its group, so the group is not decoration.
+ *
+ * An unknown id (a hand-edited session index) comes back verbatim: the UI
+ * shows what it was handed rather than quietly substituting something else —
+ * `groupOfScrambleType`/`scrambleTypeLabel` stay total either way.
+ */
+export function scrambleTypeLabel(id: string): string {
+  const type = TYPE_BY_ID.get(id)
+  if (type === undefined) return id
+  const group = GROUP_BY_TYPE.get(id)
+  return group === undefined ? type.name : `${group} - ${type.name}`
+}
+
 const LENGTH_BY_ID = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type.defaultLength]))
 
 /** Length to pass to getScramble() for `id`; 0 for an id we don't know. */

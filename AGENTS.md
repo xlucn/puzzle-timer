@@ -106,6 +106,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   (only while one is up). Expected: one line per change, **zero**
   `AdwToastOverlay exceeds …` warnings, and `[layout] 390x350 (win 350)` at
   the 400×360 floor.
+- Narrow type chooser (same keyboard-only rule): in row mode the selectors are
+  one `Adw.ButtonRow` **at the bottom of the main area** — walk `Shift+Tab`
+  until the focus ring is on it (≈5 stops with the drawer closed) and press
+  `Return`. Inside the dialog `Shift+Tab` cycles list → search entry → up
+  button; arrows and `Return` pick (bound by the dialog, not by GTK — see
+  PLAN §7); `Escape` clears the query first and closes second.
 - **If a run looks frozen or the frames look wrong, restart the app and
   redo the measurement** (user, 2026-10-02): `pkill -f 'main[.]ts'`, start
   it again, re-drive the step. A stale Xephyr session, a stale capture and a
@@ -113,6 +119,16 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   separates them — and the log is what says which. Watch for the pkill
   self-match trap: use a pattern like `main[.]ts` that cannot match your own
   command line.
+- **Start the app detached from the tool call** (measured 2026-10-03): a
+  `(npm start … &)` inside a shell command stays in that command's process
+  group, and the group is reaped when the call returns — node then dies with
+  **no log line, no core and no journal entry**, which reads exactly like a
+  crash. Running the identical command by hand left the app alive (user's
+  control), and a `setsid` start survived across calls:
+  `setsid bash -c 'DISPLAY=:99 GDK_BACKEND=x11 npm start > LOG 2>&1' &`.
+  If a death has no `[exit]`/stack of its own, suspect this first — and only
+  trust a death *inside* a call (aliveness checks after each step) as an app
+  bug.
 - Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`

@@ -56,6 +56,7 @@ import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
+import { createScrambleTypePicker } from './ui/scrambleTypePicker.js'
 import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsDialog } from './ui/shortcuts.js'
@@ -399,17 +400,37 @@ app.on('activate', () => {
     updateNudge()
   })
 
+  /**
+   * Where a scramble type lands, whichever control chose it: the feed
+   * regenerates, and the choice is written to the active session — it belongs
+   * to the session (a switch restores it, below). The *other* selector is
+   * moved onto the same id at the same time: selectType is silent by
+   * contract, so the broadcast cannot feed the value back, and one handler is
+   * what keeps the two controls from ever showing different types.
+   */
+  const chooseType = (type: string): void => {
+    feed.setType(type)
+    // `retyped` rides the index subscription at the top of this function,
+    // which is what writes the file.
+    library.setScrambleType(library.activeId, type)
+    typeSelect.selectType(type)
+    typePicker.selectType(type)
+  }
+
   const typeSelect = createScrambleTypeSelect({
     initialType: SCRAMBLE_DEFAULT_TYPE,
-    onChange: (type) => {
-      feed.setType(type)
-      // The choice belongs to the active session — a switch restores it
-      // (below); setScrambleType's `retyped` event rides the index
-      // subscription from the top of this function.
-      library.setScrambleType(library.activeId, type)
-    },
+    onChange: chooseType,
   })
   header.packStart(typeSelect.widget)
+
+  // The selector row's control (narrow layout — placeSelectors decides which
+  // one is on screen). Built alongside the dropdowns and kept in step with
+  // them, so switching tiers mid-session shows the type actually in force.
+  const typePicker = createScrambleTypePicker({
+    initialType: SCRAMBLE_DEFAULT_TYPE,
+    onChange: chooseType,
+    window,
+  })
 
   /**
    * Scramble type is per session: switching applies the new active
@@ -419,7 +440,13 @@ app.on('activate', () => {
    */
   const applySessionType = (id: string): void => {
     const type = library.find(id)?.scrambleType ?? SCRAMBLE_DEFAULT_TYPE
-    if (type !== feed.state.type && typeSelect.selectType(type)) feed.setType(type)
+    if (type === feed.state.type) return
+    // Both selectors, both silent: whichever one is on screen has to show the
+    // session's type after a switch, and neither may announce it — re-reporting
+    // would write the session's value back onto the session it came from.
+    // Unknown ids from a hand-edited index make selectType return false and
+    // the feed is left alone too.
+    if (typeSelect.selectType(type) && typePicker.selectType(type)) feed.setType(type)
   }
   library.subscribe((change) => {
     if (change.kind === 'switched') applySessionType(change.id)
@@ -494,29 +521,50 @@ app.on('activate', () => {
     if (prefs.inspectionSound) playInspectionCue(cue)
   })
 
-  // ---- content: header, scramble, centered timer -------------------------
+  // ---- content: header, scramble, centered timer, chooser row -------------
   // The narrow-window home of the scramble selectors (M6, tier C): below ~600
   // the header has less room than its own ~560 of natural demand, so the two
-  // dropdowns move *out* of it rather than being clipped. The row sits between
-  // the header and the scramble, and the layout counts its slot (height plus
-  // this gap) as part of the header block when it measures where the timer's
-  // centre should be.
+  // dropdowns move *out* of it rather than being clipped. The chooser sits at
+  // the **bottom of the main area** (user call, 2026-10-03) — a boxed list
+  // holding one Adw.ButtonRow (scrambleTypePicker.ts) rather than the
+  // dropdowns themselves. updateNudge subtracts its slot from the timer's
+  // region (it is below the timer now, not above it) and lifts the diagram
+  // clear of it, since the diagram is anchored to the same bottom edge.
   const SELECTOR_ROW_GAP = 4
-  const selectorRow = new Gtk.Box({
-    orientation: Gtk.Orientation.HORIZONTAL,
-    spacing: 6,
-    halign: Gtk.Align.CENTER,
+  const selectorRow = new Gtk.ListBox({
+    // A boxed list, so the row reads as the list it opens. NONE: the row is
+    // the only child and there is nothing to select *in* it — it is pressed.
+    selectionMode: Gtk.SelectionMode.NONE,
+    activateOnSingleClick: true,
+    cssClasses: ['boxed-list'],
     visible: false,
     marginBottom: SELECTOR_ROW_GAP,
     marginStart: 12,
     marginEnd: 12,
   })
+  /** The diagram's own bottom margin, so rowSpace can be added and removed. */
+  const DIAGRAM_EDGE_MARGIN = scramblePanel.image.marginBottom
+
+  // One way in for the row: a press (row-activated) or the keyboard
+  // (Return/Space — GTK4's GtkListBox does not activate rows itself, measured
+  // in the dialog: the key arrives and nothing happens). The picker exposes
+  // `open` precisely so both paths end in one place and cannot double-fire.
+  selectorRow.on('row-activated', () => typePicker.open())
+  const rowKeys = new Gtk.EventControllerKey()
+  selectorRow.addController(rowKeys)
+  rowKeys.on('key-pressed', (keyval) => {
+    if (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter || keyval === Gdk.KEY_space) {
+      typePicker.open()
+      return true
+    }
+    return false
+  })
 
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   content.append(header)
-  content.append(selectorRow)
   content.append(scramblePanel.widget)
   content.append(timerView.widget)
+  content.append(selectorRow) // bottom of the main area (user call, 2026-10-03)
 
   // The diagram floats in the view's bottom-right corner (user call,
   // 2026-10-02). GTK4 does not count overlay children in the parent's size
@@ -616,20 +664,24 @@ app.on('activate', () => {
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
-    const box = typeSelect.widget
     if (inRow) {
-      header.remove(box)
-      selectorRow.append(box)
+      // Narrow: the two dropdowns give up their place to the row's single
+      // button chooser (user call, 2026-10-03 — see scrambleTypePicker.ts).
+      // The dropdowns stay *built* (and in step via chooseType) so growing
+      // back shows the type that is actually in force, not the one that was
+      // selected when the window was last wide.
+      header.remove(typeSelect.widget)
+      selectorRow.append(typePicker.widget)
       selectorRow.setVisible(true)
     } else {
-      selectorRow.remove(box)
+      selectorRow.remove(typePicker.widget)
       selectorRow.setVisible(false)
       // The header is now [toggle, refresh, copy], and the selectors belong
       // before those two — so they go out and come back after them, in order
       // (the copy button must not end up between the dropdowns and refresh).
       header.remove(copyScramble)
       header.remove(refreshScramble)
-      header.packStart(box)
+      header.packStart(typeSelect.widget)
       header.packStart(refreshScramble)
       header.packStart(copyScramble)
     }
@@ -729,11 +781,22 @@ app.on('activate', () => {
     // while the window is 450 — a tier from *that* keeps the selectors packed
     // into a header that cannot fit, which is the whole of the "requested 522,
     // 450 available" frame on the way down to 460.
-    const { width, height } = groundWindowSize()
-    // Not allocated yet (the call made right after present(), before the first
-    // layout pass): nothing to decide from, and applying a tier from a 0×0
-    // measurement would reparent the selectors for no reason. The surface's
-    // first `layout` signal brings the real numbers.
+    // Before the first allocation both numbers are 0 — and that is exactly the
+    // pass that has to get it right: the first frame measures the whole tree
+    // *during* present(), and with long labels still packed in the header that
+    // measurement overflows the window before any tier has run (measured with
+    // `lsll`: "requested 928, 890 available"). The size we *asked* for is the
+    // size that first frame is given, so it stands in until the surface
+    // answers — applyLayout() runs once before present() for exactly this.
+    let { width, height } = groundWindowSize()
+    if (width <= 0 || height <= 0) {
+      const [askedWidth, askedHeight] = window.getDefaultSize()
+      width = askedWidth
+      height = askedHeight
+    }
+    // Still nothing to decide from: applying a tier from a 0×0 measurement
+    // would reparent the selectors for no reason. The surface's first `layout`
+    // signal brings the real numbers.
     if (width <= 0 || height <= 0) return
     // The header's demand decides one thing the bands cannot (layoutFor): with
     // the selectors *in* the header this is a live measurement, and with them
@@ -815,14 +878,15 @@ app.on('activate', () => {
       0,
       measuredHeight - timerView.widget.marginTop - timerView.widget.marginBottom,
     )
-    // The header block is everything above the scramble: the header bar plus
-    // the selectors row's whole slot (height + gap) whenever that row carries
-    // the dropdowns. The timer's region then starts at the bottom of the
-    // panel's slot — panel height plus the margins around it.
-    // …and the row itself is taken *natural* when it has no allocation yet:
-    // applyLayout reparents it into existence at ≤800 and GTK has not sized it
-    // by the time this runs, so `getSize()` says 0. Reading 0 puts the region
-    // 34px too high and the margin 34px too big — one frame of overflow, i.e.
+    // The header block is just the header bar: the chooser row sits at the
+    // *bottom* of the main area now (user call, 2026-10-03), so it no longer
+    // contributes to where the timer's region *starts* — its slot comes off
+    // the other end (rowSpace → viewHeight below). The region starts at the
+    // bottom of the panel's slot: panel height plus the margins around it.
+    // …and the row is taken *natural* when it has no allocation yet:
+    // applyLayout shows it at ≤800 and GTK has not sized it by the time this
+    // runs, so `getSize()` says 0. Reading 0 would hand the timer a region
+    // the row is about to eat into — one frame of margin that is too big, i.e.
     // the "requested 388, 370 available" warning on the way down to 460.
     const rowHeight = selectorRow.visible
       ? Math.max(
@@ -830,8 +894,8 @@ app.on('activate', () => {
           selectorRow.measure(Gtk.Orientation.VERTICAL, -1)[1],
         )
       : 0
-    const headerHeight =
-      header.getSize(Gtk.Orientation.VERTICAL) + rowHeight + (rowHeight > 0 ? SELECTOR_ROW_GAP : 0)
+    const rowSpace = rowHeight > 0 ? rowHeight + SELECTOR_ROW_GAP : 0
+    const headerHeight = header.getSize(Gtk.Orientation.VERTICAL)
 
     const diagram = scramblePanel.diagramSize()
     // One line whenever the picture's on-screen size changes: it is both what
@@ -866,7 +930,11 @@ app.on('activate', () => {
       diagramWidth: diagram.width,
       diagramHeight: diagram.height,
       viewWidth: Math.min(content.getSize(Gtk.Orientation.HORIZONTAL), groundWidth - sidebarWidth),
-      viewHeight: Math.min(content.getSize(Gtk.Orientation.VERTICAL), groundHeight),
+      // …minus the chooser row's slot: the timer's region ends at that row
+      // (it is a sibling below the timer, and the row takes its height out of
+      // the window), so the margin clamp has to be measured against what is
+      // left after it — otherwise the nudge claims room the row already holds.
+      viewHeight: Math.min(content.getSize(Gtk.Orientation.VERTICAL), groundHeight - rowSpace),
       regionTop: headerHeight + scramblePanel.slotBottom(),
       naturalWidth,
       naturalHeight,
@@ -876,6 +944,17 @@ app.on('activate', () => {
     }
     if (timerView.widget.marginBottom !== margins.marginBottom) {
       timerView.widget.marginBottom = margins.marginBottom
+    }
+
+    // The diagram is anchored to the *view's* bottom edge (valign END, 16px),
+    // and the chooser row now owns that edge too — overlay children paint
+    // above the content, so without this the picture would be drawn over the
+    // row. Lift it by exactly the row's slot. The picture's own size does not
+    // move (a margin sits outside the allocation), so every number the nudge
+    // measured is still the number it measured.
+    const diagramBottom = DIAGRAM_EDGE_MARGIN + rowSpace
+    if (scramblePanel.image.marginBottom !== diagramBottom) {
+      scramblePanel.image.marginBottom = diagramBottom
     }
   }
 
@@ -1134,6 +1213,12 @@ app.on('activate', () => {
   render() // paint the initial state before anything happens
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   layoutReady = true // the adaptive layout may now measure and write (M6)
+  // Before the first frame, with the size we asked for: the first measurement
+  // of the tree happens during present(), and it must already be the right
+  // tier — otherwise a long label in the header overflows that first frame
+  // (measured with `lsll`: "requested 928, 890 available"), and only the log
+  // ever knows.
+  applyLayout()
   window.present()
   applyLayout() // the tier for the size we were actually given
 
