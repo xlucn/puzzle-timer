@@ -41,7 +41,7 @@ window restyles instantly, no restart. To also restart the app when you edit
   timing and key-repeat safe (the state machine lives in pure TypeScript).
 - **WCA inspection** — the first release starts the 15 s countdown (8 s / 12 s
   beeps), the second starts the solve, graded `+2` ≥ 15 s and `DNF` ≥ 17 s;
-  Esc cancels. Toggle with `Ctrl+I`.
+  Esc cancels. Toggled in Preferences → Timer.
 - **Scrambles** — 206 types from `cstimer_module`, always generated off the
   main thread (`worker_threads`) with the next scramble prefetched.
 - **Sessions** — create/rename/switch/delete (`Ctrl+S` menu, `Ctrl+N`, `F2`,

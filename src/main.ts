@@ -31,8 +31,8 @@
  * the app name and the app menu (About / Keyboard Shortcuts / Quit), the
  * session switch sits under it, and the solve list under that. The content
  * header keeps only the timer's controls: sidebar toggle, category/type
- * switchers, refresh, the app-functions menu (Statistics / WCA Inspection,
- * M4), and the window controls.
+ * switchers, refresh, the app-functions menu (Statistics, M4; Preferences,
+ * M5), and the window controls.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -136,18 +136,14 @@ app.on('activate', () => {
   const header = new Adw.HeaderBar({ showTitle: false })
 
   // App functions, packed at the end before the window controls: the
-  // Preferences and Statistics dialogs and the WCA inspection toggle (M5
-  // added Preferences; the dialog itself is src/ui/preferences.ts). About /
-  // Keyboard Shortcuts / Quit are application-level, so they live in the
-  // sidebar's app menu instead (user call, layout F). The toggle is a
-  // stateful boolean action, so GTK draws the checkmark against the
-  // action's state itself.
+  // Preferences and Statistics dialogs (M5 added Preferences; the dialog
+  // itself is src/ui/preferences.ts — it owns every setting, the WCA
+  // inspection toggle included, user call 2026-10-02). About / Keyboard
+  // Shortcuts / Quit are application-level, so they live in the sidebar's
+  // app menu instead (user call, layout F).
   const appFunctions = new Gio.Menu()
   appFunctions.append('Preferences', 'app.preferences')
   appFunctions.append('Statistics', 'app.statistics')
-  const appToggles = new Gio.Menu()
-  appToggles.append('WCA Inspection', 'app.inspection')
-  appFunctions.appendSection(null, appToggles)
   header.packEnd(
     new Gtk.MenuButton({
       iconName: 'open-menu-symbolic',
@@ -584,42 +580,15 @@ app.on('activate', () => {
   // Keybindings for the app-functions menu (user call, 2026-10-01): every
   // menu action must be reachable from the keyboard, so tests never need a
   // synthetic click (tools/README traps 4–5). Ctrl+T: Statistics (Ctrl+S is
-  // the session menu); Ctrl+I: Inspection.
+  // the session menu).
   app.setAccelsForAction('app.statistics', ['<Control>t'])
-
-  // WCA inspection toggle (M4): the menu check item's state lives here —
-  // seeded from (and written back to) the M5 preferences — activate hands
-  // the new value straight to applyPreferences below, which pushes it into
-  // the timer (which cancels a running inspection if the toggle goes off
-  // mid-countdown).
-  //
-  // The parameter type MUST be null: this is a plain toggle, activated by
-  // Ctrl+I and the menu check item with no argument. Declaring 'b' instead
-  // makes GTK refuse those no-argument activations outright — warning
-  // "Trying to invoke action without arguments, but action expects
-  // parameter with type 'b'" and a silently dead toggle (user-caught,
-  // 2026-10-02). Parameterized actions are fine with a type — see
-  // sessionSwitch in sessionMenu.ts, whose items carry their target.
-  const inspectionAction = Gio.SimpleAction.newStateful(
-    'inspection',
-    null,
-    GLib.Variant.newBoolean(prefs.inspection),
-  )
-  inspectionAction.on('activate', () => {
-    // getState() is typed nullable (GSimpleAction can have no state); ours
-    // always has one, and "no state" would read as off anyway.
-    const next = !(inspectionAction.getState()?.getBoolean() ?? false)
-    applyPreferences({ inspection: next })
-  })
-  app.addAction(inspectionAction)
-  app.setAccelsForAction('app.inspection', ['<Control>i'])
 
   /**
    * The single path for a settings change (M5): merge the patch into this
    * run's Preferences, persist it, then push the new values into everything
-   * they drive. The preferences dialog and the inspection menu check item
-   * both come through here, so the checkmark, the timer and prefs.json can
-   * never disagree.
+   * they drive. The preferences dialog is the only writer (the app-functions
+   * menu's inspection check item was retired, user call 2026-10-02), so the
+   * timer and prefs.json can never disagree.
    */
   const applyPreferences = (patch: Partial<Preferences>): void => {
     prefs = { ...prefs, ...patch }
@@ -630,12 +599,7 @@ app.on('activate', () => {
     // imageFor reads `prefs`, so a plain re-render shows or drops the
     // diagram — the SVG is already in the cache (images are always fetched).
     if ('scrambleImage' in patch) scramblePanel.render(feed.state)
-    if ('inspection' in patch) {
-      // setState does not re-activate the action, so this cannot loop back
-      // into the handler above.
-      inspectionAction.setState(GLib.Variant.newBoolean(prefs.inspection))
-      timer.setInspection(prefs.inspection, nowMs())
-    }
+    if ('inspection' in patch) timer.setInspection(prefs.inspection, nowMs())
   }
 
   // The Preferences dialog (src/ui/preferences.ts): built fresh on open, one

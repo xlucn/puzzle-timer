@@ -4,8 +4,8 @@
  * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer
  * (and Escape to cancel an inspection), Delete and the penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
- * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics and inspection
- * (Ctrl+T / Ctrl+I), and Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
+ * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T), and
+ * Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
  * the sidebar's app menu ("Keyboard Shortcuts") — no accelerator of its own,
  * the window *is* the accelerator documentation.
  *
@@ -75,7 +75,6 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
   ])
   group('Statistics', [
     ['Open the statistics dialog', '<Ctrl>T'],
-    ['Toggle WCA inspection', '<Ctrl>I'],
   ])
   group('General', [
     ['Open preferences', '<Ctrl>comma'],
