@@ -2,7 +2,9 @@
  * shortcuts.ts — the keyboard reference (M3, layout F).
  *
  * A Gtk.ShortcutsWindow listing the app's key bindings: Space on the timer
- * (and Escape to cancel an inspection), Delete and the penalty/comment keys
+ * (and Escape to cancel an inspection, or to close the solve list when the
+ * window is narrow enough for it to be a drawer), Delete and the
+ * penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
  * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T), and
  * Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
@@ -61,6 +63,13 @@ export function createShortcutsWindow(transientFor: AppWindow): ShortcutsWindow 
     ['Cancel the inspection countdown', 'Escape'],
   ])
   group('Solve list', [
+    // M6: in a narrow window the list is a drawer over the content;
+    // Ctrl+B is the way in and out at any size (the split view's own
+    // toggle button has no accelerator of its own), and Escape is the
+    // drawer's way out — after anything else that wanted the key (the
+    // inspection cancel above, an open popover) has had it.
+    ['Show or hide the solve list', '<Ctrl>b'],
+    ['Hide the solve list (when it is a drawer)', 'Escape'],
     ['Delete the selected solves', 'Delete'],
     ['Clear the penalty of the newest solve', '<Ctrl>1'],
     ['Give the newest solve +2', '<Ctrl>2'],

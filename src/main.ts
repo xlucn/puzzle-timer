@@ -38,10 +38,12 @@ import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
 import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
+import GObject from 'gi:GObject-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import { BREAKPOINTS, layoutFor, timerMargins } from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
@@ -124,9 +126,18 @@ app.on('activate', () => {
   // ~560 (start: toggle + category/type + refresh; end: app-functions +
   // window controls). At 900 the sidebar takes its 240 floor (0.25W = 225
   // clamps up), so the header gets 660 ≥ ~560 — verified uncut after the
-  // change. M6 is what keeps this right when the window is dragged smaller;
-  // for now this is the startup size (user call, 2026-10-01).
+  // change. This is only the startup size: M6's breakpoints decide what the
+  // layout does when the window is dragged smaller or grown (see applyLayout
+  // at the bottom of this function).
   window.setDefaultSize(900, 540)
+  // M6: the window stops here, and it is a floor rather than a suggestion.
+  // AdwWindow's own default minimum is 360×200, which libadwaita's breakpoint
+  // docs explicitly tell you to override ("the minimum size must be larger
+  // than the smallest UI state"): at 400 the selectors row (~282) plus the
+  // header's own buttons are already the whole window, and below that no tier
+  // in src/core/layout.ts could keep the layout deliberate.
+  window.widthRequest = BREAKPOINTS.minWidth
+  window.heightRequest = BREAKPOINTS.minHeight
 
   // ---- content header: the timer's controls ------------------------------
   // No title here (layout F, 2026-10-01): the app name is the *sidebar's*
@@ -373,7 +384,20 @@ app.on('activate', () => {
   })
 
   const scramblePanel = createScramblePanel({ getImage: imageFor })
-  feed.subscribe(() => scramblePanel.render(feed.state))
+  /**
+   * M6: flips to true once the widgets the adaptive layout drives all exist.
+   * The feed can announce before then — a session with a stored scramble type
+   * retypes at startup — so the layout functions (declared below, hoisted)
+   * have to no-op rather than read a half-built tree.
+   */
+  let layoutReady = false
+  feed.subscribe(() => {
+    scramblePanel.render(feed.state)
+    // The scramble's own height is the top of the timer's region: a text that
+    // wraps differently moves where the centred position sits, and a new
+    // diagram changes the offset measured from it.
+    updateNudge()
+  })
 
   const typeSelect = createScrambleTypeSelect({
     initialType: SCRAMBLE_DEFAULT_TYPE,
@@ -437,8 +461,26 @@ app.on('activate', () => {
   })
 
   // ---- content: header, scramble, centered timer -------------------------
+  // The narrow-window home of the scramble selectors (M6, tier C): below ~600
+  // the header has less room than its own ~560 of natural demand, so the two
+  // dropdowns move *out* of it rather than being clipped. The row sits between
+  // the header and the scramble, and the layout counts its slot (height plus
+  // this gap) as part of the header block when it measures where the timer's
+  // centre should be.
+  const SELECTOR_ROW_GAP = 4
+  const selectorRow = new Gtk.Box({
+    orientation: Gtk.Orientation.HORIZONTAL,
+    spacing: 6,
+    halign: Gtk.Align.CENTER,
+    visible: false,
+    marginBottom: SELECTOR_ROW_GAP,
+    marginStart: 12,
+    marginEnd: 12,
+  })
+
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   content.append(header)
+  content.append(selectorRow)
   content.append(scramblePanel.widget)
   content.append(timerView.widget)
 
@@ -451,25 +493,389 @@ app.on('activate', () => {
   viewOverlay.addOverlay(scramblePanel.image)
 
   // The solve list is a sidebar over the left-hand edge: it can be closed,
-  // and closing it hands the full width back to the timer. `collapsed` stays
-  // false — the list is a persistent pane, not a drawer (a breakpoint that
-  // turns it into a drawer on narrow windows is M6). START puts it
-  // left; nothing else claims that side (PLAN §7).
+  // and closing it hands the full width back to the timer. START puts it
+  // left; nothing else claims that side (PLAN §7). `collapsed` is *not* set
+  // here — applyLayout() below decides, per window width: side by side while
+  // there is room for both, an overlay drawer when there is not (M6). With
+  // `pinSidebar` at its default, collapsing hides the list and uncollapsing
+  // shows it again, so a resize out and back restores what you had.
   const split = new Adw.OverlaySplitView({
     content: viewOverlay,
     sidebar: timesList.widget,
     sidebarPosition: Gtk.PackType.START,
-    minSidebarWidth: 240,
+    minSidebarWidth: BREAKPOINTS.sidebarMin,
     maxSidebarWidth: 320,
     sidebarWidthUnit: Adw.LengthUnit.PX,
     showSidebar: sidebarToggle.active,
   })
 
-  sidebarToggle.on('toggled', () => split.setShowSidebar(sidebarToggle.active))
-  split.on('notify::show-sidebar', () => sidebarToggle.setActive(split.getShowSidebar()))
+  // The list is a drawer below 800px (M6). Adw.OverlaySplitView with its
+  // default `pin-sidebar=false` already has an opinion about that: collapsing
+  // auto-hides the sidebar, uncollapsing auto-shows it — the contract
+  // libadwaita's own "Overlay Sidebar" demo (adaptive-layouts.html) builds on.
+  // We take it as-is and wire it the way the demo does, with one bidirectional
+  // binding, instead of keeping a second copy of "should the list be up?" in
+  // our own code. Earlier M6 code had exactly that (`sidebarWanted` + handlers
+  // around `notify::show-sidebar`) and it fought libadwaita: every crossing of
+  // the 800px threshold became an override the property immediately re-reported
+  // — 43 flips in one session, two handler re-entries each — i.e. a state
+  // machine whose only reachable output was the one it had started from. One
+  // binding, one direction of truth: the property is the state, the toggle is
+  // a view of it, and Ctrl+B/Escape below are just other callers of
+  // setShowSidebar().
+  split.bindProperty(
+    'show-sidebar',
+    sidebarToggle,
+    'active',
+    GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+  )
+  split.on('notify::show-sidebar', () => {
+    console.error(
+      `[sidebar] show-sidebar=${split.getShowSidebar()} collapsed=${split.collapsed}`,
+    )
+    // The sidebar's width is the content's width (side by side, not in drawer
+    // mode), so opening or closing it moves where the timer's centre belongs.
+    updateNudge()
+  })
+
+  /**
+   * Show/hide the list — the only control for it that works at every window
+   * size, and the reason Escape is worth having as a way out of the drawer
+   * (below). A plain Gtk.ToggleButton has no accelerator of its own (AGENTS:
+   * every action a test drives must have one), so it goes through an app
+   * action: Ctrl+B, the usual convention, listed in src/ui/shortcuts.ts.
+   */
+  const sidebarAction = Gio.SimpleAction.new('sidebar', null)
+  sidebarAction.on('activate', () => {
+    const shown = !split.getShowSidebar()
+    console.error(`[sidebar] activate → ${shown} collapsed=${split.collapsed}`)
+    split.setShowSidebar(shown)
+  })
+  app.addAction(sidebarAction)
+  app.setAccelsForAction('app.sidebar', ['<Control>b'])
 
   toastOverlay.setChild(split)
   window.setContent(toastOverlay)
+
+  // ---- adaptive layout (M6) ---------------------------------------------
+  // Every threshold lives in src/core/layout.ts — pure and unit tested — so
+  // this block only *measures* the window and pushes the decisions out. Three
+  // things call in, and each is needed:
+  //
+  //   • the Adw.Breakpoints registered below: five mutually exclusive *width*
+  //     bands. libadwaita keeps a single current breakpoint ("if multiple
+  //     breakpoints can be used for the current size, the last one is always
+  //     picked", AdwBreakpointBin — which AdwWindow defers to), so overlapping
+  //     conditions would starve each other and a resize could leave a tier
+  //     unapplied. Disjoint bands mean every boundary crossing changes the
+  //     current breakpoint and therefore fires apply/unapply.
+  //   • Gdk.Surface::layout — every resize, including a height-only one that
+  //     no width band can see; that is what carries the short-window tier.
+  //   • the frame clock's after-paint — the nudge follows a diagram that
+  //     changes size or appears, not just a resize.
+  //
+  // All three end in the same idempotent functions: measure, compare, write
+  // only what changed.
+
+  /** Moves the two dropdowns between the header and their own row (tier C). */
+  let selectorsInRow = false
+  function placeSelectors(inRow: boolean): void {
+    if (inRow === selectorsInRow) return
+    selectorsInRow = inRow
+    const box = typeSelect.widget
+    if (inRow) {
+      header.remove(box)
+      selectorRow.append(box)
+      selectorRow.setVisible(true)
+    } else {
+      selectorRow.remove(box)
+      selectorRow.setVisible(false)
+      // The header is now [toggle, refresh], and the selectors belong before
+      // the refresh button — so that one goes out and comes back after them.
+      header.remove(refreshScramble)
+      header.packStart(box)
+      header.packStart(refreshScramble)
+    }
+  }
+
+  /** The last tier reported, so applyLayout's log speaks only on a change. */
+  let lastTier = ''
+  /** The last diagram size reported (see updateNudge). */
+  let lastDiagram = ''
+  /**
+   * Surface − window-widget, i.e. the CSD shadow, in each axis; 0 until
+   * updateNudge has seen a settled paint to measure it on (see there).
+   */
+  let csdShadowWidth = 0
+  let csdShadowHeight = 0
+  /** The window widget's size on the previous paint, for the test above. */
+  let lastWindowWidth = -1
+  let lastWindowHeight = -1
+  /** The surface's size on the previous paint, likewise. */
+  let lastSurfaceWidth = -1
+  let lastSurfaceHeight = -1
+  /** So the shadow is reported once, not on every paint. */
+  let reportedShadow = false
+  /** The evidence line is printed when the demand changes (see applyLayout). */
+  let lastReportedHeaderNatural = -1
+  /** Last header natural measured with the selectors packed in (see applyLayout). */
+  let rememberedHeaderNatural = 0
+
+  /**
+   * The window's size, read from the *surface* where possible.
+   *
+   * The `layout` signal that drives applyLayout is the surface announcing its
+   * new size; GTK only catches the widget allocations up afterwards. So on the
+   * one pass where a tier or a margin must be decided for the new size, every
+   * widget answers with the *old* one — measured on the 900→460 jump: surface
+   * 460, window widget 890, split 762 (the split having been allocated the
+   * overflow it asked for). All three are true numbers from three different
+   * moments, and a decision taken from any of the widget ones is a decision
+   * about a window that no longer exists.
+   *
+   * The gap between surface and widget is just the CSD shadow, and it is read
+   * only while both numbers stand still between two calls. A positive gap is
+   * either exactly the shadow (settled) or larger than it (widget lagging low
+   * during a growth) — never smaller — so this can under-credit the room by a
+   * frame, never over-credit it, which is the direction that overflows. Until
+   * the first settled pair the widget is used, and that is correct too: at
+   * startup nothing has been resized yet.
+   */
+  function groundWindowSize(): { width: number; height: number } {
+    const windowWidth = window.getSize(Gtk.Orientation.HORIZONTAL)
+    const windowHeight = window.getSize(Gtk.Orientation.VERTICAL)
+    const surface = window.getSurface()
+    const surfaceWidth = surface !== null ? surface.getWidth() : 0
+    const surfaceHeight = surface !== null ? surface.getHeight() : 0
+    if (
+      windowWidth === lastWindowWidth &&
+      windowHeight === lastWindowHeight &&
+      surfaceWidth === lastSurfaceWidth &&
+      surfaceHeight === lastSurfaceHeight
+    ) {
+      if (surfaceWidth > windowWidth && surfaceWidth - windowWidth < 32)
+        csdShadowWidth = surfaceWidth - windowWidth
+      if (surfaceHeight > windowHeight && surfaceHeight - windowHeight < 32)
+        csdShadowHeight = surfaceHeight - windowHeight
+      if (csdShadowWidth > 0 && !reportedShadow) {
+        reportedShadow = true
+        console.error(`[layout] CSD shadow ${csdShadowWidth}x${csdShadowHeight}`)
+      }
+    }
+    lastWindowWidth = windowWidth
+    lastWindowHeight = windowHeight
+    lastSurfaceWidth = surfaceWidth
+    lastSurfaceHeight = surfaceHeight
+    return {
+      width:
+        csdShadowWidth > 0 && surfaceWidth > csdShadowWidth
+          ? surfaceWidth - csdShadowWidth
+          : windowWidth,
+      height:
+        csdShadowHeight > 0 && surfaceHeight > csdShadowHeight
+          ? surfaceHeight - csdShadowHeight
+          : windowHeight,
+    }
+  }
+
+  /** Apply the tier for the window's current size. Safe to call any time. */
+  function applyLayout(): void {
+    if (!layoutReady) return
+    // Measure the *window*, as the surface reports it (see groundWindowSize
+    // below) — the same number the breakpoints' conditions are checked
+    // against. Deliberately not `content`: in side-by-side mode that is what
+    // is left *after* the sidebar, so a tier decided from it would feed on its
+    // own result (open the drawer → content grows → the window looks wide
+    // enough for a sidebar → close it → content shrinks → …). And deliberately
+    // not the split view's allocation either: that is what GTK handed out when
+    // the split asked for more than the window had, so mid-shrink it reads 762
+    // while the window is 450 — a tier from *that* keeps the selectors packed
+    // into a header that cannot fit, which is the whole of the "requested 522,
+    // 450 available" frame on the way down to 460.
+    const { width, height } = groundWindowSize()
+    // Not allocated yet (the call made right after present(), before the first
+    // layout pass): nothing to decide from, and applying a tier from a 0×0
+    // measurement would reparent the selectors for no reason. The surface's
+    // first `layout` signal brings the real numbers.
+    if (width <= 0 || height <= 0) return
+    // The header's demand decides one thing the bands cannot (layoutFor): with
+    // the selectors *in* the header this is a live measurement, and with them
+    // in their own row the header has already given them up — measuring 320px
+    // then would say "fits" and reparent them straight back, at which point it
+    // would measure 1186px and move them out again. So the number is only
+    // refreshed while the selectors are where the demand comes from, and
+    // remembered otherwise: one direction of truth, same as show-sidebar.
+    const [, measuredHeaderNatural] = header.measure(Gtk.Orientation.HORIZONTAL, -1)
+    if (!selectorRow.visible) rememberedHeaderNatural = measuredHeaderNatural
+    const headerNatural = selectorRow.visible ? rememberedHeaderNatural : measuredHeaderNatural
+    const tier = layoutFor(width, height, headerNatural)
+
+    if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
+    if (split.maxSidebarWidth !== tier.sidebarMax) split.maxSidebarWidth = tier.sidebarMax
+    placeSelectors(tier.selectorRow)
+    timerView.setSize(tier.timerSize)
+    scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
+    scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
+    updateNudge()
+
+    // One line per *change* — the M6 evidence trail when the window is walked
+    // through its bands (and a cheap way to spot a tier decided from a stale
+    // measurement, which is the one thing a breakpoint could get wrong).
+    const signature =
+      `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}): ` +
+      `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
+      `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
+      `timer ${tier.timerSize}, sidebar max ${tier.sidebarMax}`
+    if (signature !== lastTier) {
+      lastTier = signature
+      console.error(`[layout] ${signature}`)
+    }
+
+    // Evidence for M6's thresholds: what the header asks for, the window it
+    // got, and what is left for the content. Printed on every *change* of the
+    // demand rather than once, because the demand is a property of the labels
+    // the user has selected, not of the window — 724px for a 3x3x3 session,
+    // 1186px with the FTO category — and it is those numbers the 800/600 bands
+    // and `headerSlack` are checked against (PLAN §7). Note the dropdowns size
+    // to their *current* item: this is the case on screen, and the catalogue's
+    // worst case is measured separately by the same line.
+    if (measuredHeaderNatural !== lastReportedHeaderNatural) {
+      lastReportedHeaderNatural = measuredHeaderNatural
+      const [, timerW] = timerView.widget.measure(Gtk.Orientation.HORIZONTAL, -1)
+      const [, timerH] = timerView.widget.measure(Gtk.Orientation.VERTICAL, -1)
+      console.error(
+        `[layout] header asks ${measuredHeaderNatural}px | ${width}x${height} window → ` +
+          `${content.getSize(Gtk.Orientation.HORIZONTAL)} for the content | ` +
+          `timer block ${timerW}x${timerH}`,
+      )
+    }
+  }
+
+  /**
+   * Step the timer block aside for the diagram — offset from where it would
+   * otherwise sit (centred in its region) by half the picture's height up and
+   * half its width left — but only while the diagram is on screen, and never
+   * at the cost of the block's natural size (see src/core/layout.ts). Writing
+   * the same margins twice is skipped, which is what stops the frame-clock
+   * hook below from feeding itself: these numbers do not depend on the
+   * margins.
+   */
+  function updateNudge(): void {
+    if (!layoutReady) return
+    // `measure()` reports the box *plus its own margins* (measured: a label
+    // asking 18 goes to 118 with margin-bottom 100). Left in, the clamp below
+    // would read back the margin it just wrote — in a cramped window that
+    // flip-flops: settle on one, and the next measurement shrinks the room.
+    // So the naturals are the box's *content*: what the region has to clear.
+    const [, measuredWidth] = timerView.widget.measure(Gtk.Orientation.HORIZONTAL, -1)
+    const [, measuredHeight] = timerView.widget.measure(Gtk.Orientation.VERTICAL, -1)
+    const naturalWidth = Math.max(
+      0,
+      measuredWidth - timerView.widget.marginStart - timerView.widget.marginEnd,
+    )
+    const naturalHeight = Math.max(
+      0,
+      measuredHeight - timerView.widget.marginTop - timerView.widget.marginBottom,
+    )
+    // The header block is everything above the scramble: the header bar plus
+    // the selectors row's whole slot (height + gap) whenever that row carries
+    // the dropdowns. The timer's region then starts at the bottom of the
+    // panel's slot — panel height plus the margins around it.
+    // …and the row itself is taken *natural* when it has no allocation yet:
+    // applyLayout reparents it into existence at ≤800 and GTK has not sized it
+    // by the time this runs, so `getSize()` says 0. Reading 0 puts the region
+    // 34px too high and the margin 34px too big — one frame of overflow, i.e.
+    // the "requested 388, 370 available" warning on the way down to 460.
+    const rowHeight = selectorRow.visible
+      ? Math.max(
+          selectorRow.getSize(Gtk.Orientation.VERTICAL),
+          selectorRow.measure(Gtk.Orientation.VERTICAL, -1)[1],
+        )
+      : 0
+    const headerHeight =
+      header.getSize(Gtk.Orientation.VERTICAL) + rowHeight + (rowHeight > 0 ? SELECTOR_ROW_GAP : 0)
+
+    const diagram = scramblePanel.diagramSize()
+    // One line whenever the picture's on-screen size changes: it is both what
+    // the nudge is measured from and the thing most likely to be clipped
+    // (overlay children are allocated, not requested — see tools/README.md).
+    const diagramSignature = `${diagram.width}x${diagram.height}`
+    if (diagramSignature !== lastDiagram) {
+      lastDiagram = diagramSignature
+      if (diagram.width > 0 || diagram.height > 0) {
+        console.error(`[layout] diagram ${diagramSignature}`)
+      }
+    }
+    // The room available comes from the *window* (surface-backed, see
+    // groundWindowSize), never from `content`'s own allocation: when the
+    // window is too small for what the content asks, GTK hands the box its
+    // minimum instead — and that minimum contains the very margin being
+    // computed here, so clamping against it is a tautology that settles
+    // *above* the window and clips (measured at the 400x360 floor: content
+    // asked 359, got 359, window had 350 → clipped, and libadwaita then
+    // logged "snapshot … without a current allocation"). The window's size is
+    // the one number a margin cannot inflate. Same story sideways: `content`
+    // is only the window minus the sidebar in side-by-side mode, so that share
+    // is subtracted here rather than trusted from the box.
+    const { width: groundWidth, height: groundHeight } = groundWindowSize()
+    if (groundWidth <= 0 || groundHeight <= 0) return // not allocated yet
+    const sidebarInFlow = !split.collapsed && split.getShowSidebar()
+    const sidebarWidth = sidebarInFlow
+      ? timesList.widget.getSize(Gtk.Orientation.HORIZONTAL)
+      : 0
+    const margins = timerMargins({
+      diagramVisible: scramblePanel.hasImage(),
+      diagramWidth: diagram.width,
+      diagramHeight: diagram.height,
+      viewWidth: Math.min(content.getSize(Gtk.Orientation.HORIZONTAL), groundWidth - sidebarWidth),
+      viewHeight: Math.min(content.getSize(Gtk.Orientation.VERTICAL), groundHeight),
+      regionTop: headerHeight + scramblePanel.slotBottom(),
+      naturalWidth,
+      naturalHeight,
+    })
+    if (timerView.widget.marginEnd !== margins.marginEnd) {
+      timerView.widget.marginEnd = margins.marginEnd
+    }
+    if (timerView.widget.marginBottom !== margins.marginBottom) {
+      timerView.widget.marginBottom = margins.marginBottom
+    }
+  }
+
+  /**
+   * The width bands, as breakpoint conditions — written from the same
+   * constants layoutFor() reads, so the two cannot drift. Added largest first
+   * for tidiness (only one can match anyway). The normal band, 801–1199,
+   * deliberately has no breakpoint of its own: arriving and leaving it is
+   * covered by the bands either side of it.
+   */
+  const heldBreakpoints: Array<InstanceType<typeof Adw.Breakpoint>> = []
+  const widthBands: Array<[string, string]> = [
+    ['L', `min-width: ${BREAKPOINTS.largeMin}px`],
+    [
+      'M',
+      `min-width: ${BREAKPOINTS.mediumMin}px and max-width: ${BREAKPOINTS.largeMin - 1}px`,
+    ],
+    [
+      'B',
+      `min-width: ${BREAKPOINTS.selectorRowMax + 1}px and max-width: ${BREAKPOINTS.drawerMax}px`,
+    ],
+    [
+      'C',
+      `min-width: ${BREAKPOINTS.smallMax + 1}px and max-width: ${BREAKPOINTS.selectorRowMax}px`,
+    ],
+    ['S', `max-width: ${BREAKPOINTS.smallMax}px`],
+  ]
+  for (const [band, condition] of widthBands) {
+    const breakpoint = Adw.Breakpoint.new(Adw.BreakpointCondition.parse(condition))
+    breakpoint.on('apply', () => applyLayout())
+    breakpoint.on('unapply', () => applyLayout())
+    window.addBreakpoint(breakpoint)
+    heldBreakpoints.push(breakpoint) // keep the wrapper with its closures
+  }
+  console.error(
+    `[layout] ${heldBreakpoints.length} width bands ` +
+      `(S ≤${BREAKPOINTS.smallMax} … L ≥${BREAKPOINTS.largeMin})`,
+  )
 
   // ---- rendering --------------------------------------------------------
   const render = () => timerView.render(timer.snapshot(nowMs()))
@@ -534,6 +940,27 @@ app.on('activate', () => {
   keyController.on('key-released', (keyval) => {
     const key = keyId(keyval)
     if (key !== null) timer.keyUp(key, nowMs())
+  })
+
+  // M6: Escape also closes an open drawer — in the *bubble* phase, which runs
+  // last. Anything that wanted the key first has already had it by then (an
+  // open dialog or popover, or the capture controller above stopping a run),
+  // so the drawer only gives way when Escape had nothing better to do. The
+  // timer's own Escape job — cancelling an inspection — happened in capture
+  // and is unaffected: both can fire, which is what M6 specified.
+  const drawerKeyController = new Gtk.EventControllerKey()
+  drawerKeyController.setPropagationPhase(Gtk.PropagationPhase.BUBBLE)
+  window.addController(drawerKeyController)
+  drawerKeyController.on('key-pressed', (keyval) => {
+    if (keyval !== Gdk.KEY_Escape) return false
+    if (window.getVisibleDialog() !== null) return false
+    if (!split.collapsed || !split.showSidebar) return false
+    // Escape closes the drawer, and that is the whole of it: the next uncollapse
+    // re-shows the list (libadwaita's own pin-sidebar=FALSE contract, adopted
+    // deliberately — see the binding above), rather than our code remembering a
+    // decision the property no longer holds.
+    split.setShowSidebar(false)
+    return true
   })
 
   // ---- app actions (wired to the menu above) ---------------------------
@@ -671,7 +1098,26 @@ app.on('activate', () => {
   styles.install() // flush queued styles and start the dev hot-reload watcher
   render() // paint the initial state before anything happens
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
+  layoutReady = true // the adaptive layout may now measure and write (M6)
   window.present()
+  applyLayout() // the tier for the size we were actually given
+
+  // The two continuous sources (M6), both only available once realized: a
+  // resize the breakpoints cannot see (height-only — no width band changes,
+  // but the short-window tier does), and any repaint that moved the bottom
+  // edge of the scramble, which is where the timer's region starts.
+  const surface = window.getSurface()
+  if (surface === null) {
+    console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the tier')
+  } else {
+    surface.on('layout', () => applyLayout())
+  }
+  const frameClock = window.getFrameClock()
+  if (frameClock === null) {
+    console.error('[layout] no frame clock — the timer keeps its first position')
+  } else {
+    frameClock.on('after-paint', () => updateNudge())
+  }
 
   // Surface the load notices (details already went to stderr).
   if (index.notice !== null) {
