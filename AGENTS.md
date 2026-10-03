@@ -104,8 +104,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `[layout] WxH … drawer/side-by-side, selectors …` plus `[sidebar]` on each
   state change. `<Ctrl+B>` toggles the list, `Escape` closes the drawer
   (only while one is up). Expected: one line per change, **zero**
-  `AdwToastOverlay exceeds …` warnings, and `[layout] 390x350 (win 350)` at
-  the 400×360 floor.
+  `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
+  the 360×360 floor (360×640 gives `350x630`).
 - Narrow type chooser (same keyboard-only rule): in row mode the selectors are
   one `Adw.ButtonRow` **at the bottom of the main area** — walk `Shift+Tab`
   until the focus ring is on it (≈5 stops with the drawer closed) and press

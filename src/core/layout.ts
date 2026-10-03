@@ -84,12 +84,23 @@ export const BREAKPOINTS = {
   headerSlack: 200,
   /**
    * The window refuses to be dragged narrower than this (and shorter than
-   * `minHeight`): below it no tier could keep the layout deliberate — the
-   * selectors row alone wants ~282. AdwWindow's own default minimum is
-   * 360×200, which the docs tell you to override when breakpoints are in use
-   * ("the minimum size must be larger than the smallest UI state").
+   * `minHeight`): below it no tier could keep the layout deliberate.
+   *
+   * **360 is the GNOME HIG's minimum for the phone form factor** — see
+   * developer.gnome.org/hig/guidelines/adaptive.html (user call, 2026-10-03;
+   * it was 400 before, which was this project's own number). Height stays
+   * 360, so the floor is square, and the width now equals libadwaita's own
+   * `AdwWindow` default (360×200) — the value the breakpoint docs tell you to
+   * override when breakpoints are in use ("the minimum size must be larger
+   * than the smallest UI state"), which is what `minHeight` still does.
+   *
+   * What used to hold this number up is gone: the selector row was two
+   * Gtk.DropDowns wanting ~282px between them, and is now one ButtonRow whose
+   * title ellipsizes (user-verified), while at ≤600 the header carries no
+   * labels at all. The floor is therefore the header's fixed chrome and the
+   * tier-S timer, both comfortably inside 350 (measured — see PLAN §7).
    */
-  minWidth: 400,
+  minWidth: 360,
   minHeight: 360,
 } as const
 

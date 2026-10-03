@@ -4,7 +4,7 @@
  * Two layouts, two controls (user call, 2026-10-03): the wide window keeps
  * the two Gtk.DropDowns of scrambleTypeSelect.ts, while the selector row —
  * ≤600px, or a header whose labels no longer fit — gets ONE button reading
- * `Category - type`. Two dropdowns at the 400px floor is how you end up with
+ * `Category - type`. Two dropdowns at the 360px floor is how you end up with
  * neither of them readable; one ellipsised line is the whole selection
  * surface, and the choosing happens where there is room for it.
  *

@@ -913,8 +913,8 @@ app.on('activate', () => {
     // window is too small for what the content asks, GTK hands the box its
     // minimum instead — and that minimum contains the very margin being
     // computed here, so clamping against it is a tautology that settles
-    // *above* the window and clips (measured at the 400x360 floor: content
-    // asked 359, got 359, window had 350 → clipped, and libadwaita then
+    // *above* the window and clips (measured when the floor was 400x360:
+    // content asked 359, got 359, window had 350 → clipped, and libadwaita then
     // logged "snapshot … without a current allocation"). The window's size is
     // the one number a margin cannot inflate. Same story sideways: `content`
     // is only the window minus the sidebar in side-by-side mode, so that share

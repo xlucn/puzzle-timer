@@ -166,9 +166,10 @@ describe('timerMargins — the nudge for the diagram', () => {
   })
 
   it('clamps horizontally rather than pushing the window wider than it is', () => {
-    // The rule asks for a 120px end margin (240/2); a 400px floor window with
-    // a 350px readout has 34px spare, so the nudge gives up ground instead of
-    // growing the content's minimum width.
+    // The rule asks for a 120px end margin (240/2); a 400px-wide view with a
+    // 350px readout has 34px spare, so the nudge gives up ground instead of
+    // growing the content's minimum width. (A view width, not the window's
+    // floor — that is 360, see BREAKPOINTS.minWidth.)
     const narrow = { ...balanced, viewWidth: 400, naturalWidth: 350 }
     const { marginEnd } = timerMargins(narrow)
     expect(marginEnd).toBe(400 - 350 - 16)

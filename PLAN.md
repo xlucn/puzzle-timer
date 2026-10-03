@@ -636,11 +636,13 @@ Evidence:
   *not* resize a presented window (so verification drives sizes with
   `xdotool windowsize`, in surface px: widget = surface − 10).
 - **Full band walk, keyboard only, 0 warnings**: 900 → 700 → 550 → 460 →
-  `<Ctrl+B>` → `<Ctrl+B>` → `Escape` → 400×360 (the floor) → 1700 → 900,
+  `<Ctrl+B>` → `<Ctrl+B>` → `Escape` → 400×360 (the floor *then*; it is
+  360×360 since the HIG change in §7) → 1700 → 900,
   with an aliveness check after every step. The log shows exactly one
   `[sidebar]` line per state change (no ping-pong), `CSD shadow 10x10`, and
-  `[layout] 390x350 (win 350)` at the floor — content under the window, no
-  `AdwToastOverlay exceeds` line anywhere.
+  `[layout] 390x350 (win 350)` at that floor — content under the window, no
+  `AdwToastOverlay exceeds` line anywhere. Re-verified at the new floor:
+  `350x350` (360×360) and `350x630` (360×640), still zero warnings — §7.
 - **Thresholds re-checked against measurement**: at 801 side-by-side the
   header absorbs 163px (natural 724 in 560) with every control drawn, so
   800 stands; the selectors' own row fits from 531 (its natural with the
@@ -756,6 +758,23 @@ Evidence:
   row. Also: the first frame now takes its tier from the *asked-for* size
   before `present()`, because with `lsll` selected the old order asked **928px
   in an 890px window** on frame one (0 warnings since).
+- **Window floor: 360 wide (user call, 2026-10-03)** — the GNOME HIG's
+  minimum for the phone form factor (developer.gnome.org/hig/guidelines/
+  adaptive.html); 400 was this project's own number, and the comment that
+  justified it (the two dropdowns wanting ~282px) died with them. Height
+  stays 360, so the floor is square, and the width now equals libadwaita's
+  own `AdwWindow` default (360×200) — `minHeight` still performs the
+  override the breakpoint docs ask for. Measured on the new floor:
+  **360×360 → `[layout] 350x350 (win 350): drawer, selectors in their own
+  row, timer s`**, all seven header glyphs present, **0 warnings**; phone
+  shape **360×640 → `350x630`** (height clears `shortMax`, so the scramble
+  slot keeps its 160), timer at y277–386 and the diagram at y419–564 —
+  clear of each other and of the bottom row — with the chooser's sheet
+  growing to eight visible rows; and with the longest label in the
+  catalogue (`FTO (Face-Turning Octahedron) - Diamond random state`) the
+  ButtonRow ellipsizes to `… - D…` **and the window still reaches 350
+  wide**, i.e. the label never raises the floor. The `390x350` above is
+  the old floor's number, kept for what it proved.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
   `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost
