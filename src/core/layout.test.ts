@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BREAKPOINTS, layoutFor, timerMargins } from './layout.js'
+import { BREAKPOINTS, layoutFor, phoneFormFor, timerMargins } from './layout.js'
 
 const { smallMax, selectorRowMax, drawerMax, mediumMin, largeMin, shortMax } = BREAKPOINTS
 
@@ -109,6 +109,7 @@ const balanced = {
   diagramVisible: true,
   diagramWidth: 240,
   diagramHeight: 120,
+  phoneForm: false,
   viewWidth: 660,
   viewHeight: 540,
   regionTop: 111,
@@ -227,6 +228,7 @@ describe('timerMargins — the nudge for the diagram', () => {
       diagramVisible: true,
       diagramWidth: Number.NaN,
       diagramHeight: Number.NaN,
+      phoneForm: false,
       viewWidth: Number.NaN,
       viewHeight: Number.NaN,
       regionTop: Number.NaN,
@@ -235,5 +237,78 @@ describe('timerMargins — the nudge for the diagram', () => {
     })
     expect(Number.isFinite(m.marginEnd)).toBe(true)
     expect(Number.isFinite(m.marginBottom)).toBe(true)
+  })
+})
+
+describe('phoneFormFor — the tiers C/S condition', () => {
+  it('holds up to and including the selector-row band, and not one pixel more', () => {
+    expect(phoneFormFor(smallMax)).toBe(true)
+    expect(phoneFormFor(selectorRowMax)).toBe(true)
+    expect(phoneFormFor(selectorRowMax + 1)).toBe(false)
+    expect(phoneFormFor(900)).toBe(false) // the default window
+  })
+
+  it('is total: a measurement that makes no sense is a phone, not a crash', () => {
+    expect(phoneFormFor(Number.NaN)).toBe(true)
+    expect(phoneFormFor(-50)).toBe(true)
+  })
+})
+
+describe('timerMargins — the phone form (≤600)', () => {
+  const phone = { ...balanced, phoneForm: true, viewWidth: 350, naturalWidth: 300 }
+
+  it('leaves the timer dead centre horizontally', () => {
+    expect(timerMargins(phone).marginEnd).toBe(0)
+  })
+
+  it('still steps aside when there is no diagram to step aside for', () => {
+    expect(timerMargins({ ...phone, diagramVisible: false })).toEqual({
+      marginEnd: 0,
+      marginBottom: 0,
+    })
+  })
+
+  it('lifts the centre up by half the diagram, not a quarter (user call, 2026-10-03)', () => {
+    const m = timerMargins(phone)
+    const before = centred(phone)
+    const after = nudged(phone, m)
+    // margin = diagramHeight moves the centre by half of it → diagramHeight/2
+    expect(before.y - after.y).toBeCloseTo(phone.diagramHeight / 2, 5)
+    expect(before.x).toBeCloseTo(after.x, 5) // …and not one pixel sideways
+  })
+
+  it('still clamps to the room that exists — the invariant outranks the rule', () => {
+    // A region with only 44px to spare wants 120 and gets 44, same as wide.
+    const cramped = { ...phone, regionTop: 300 }
+    expect(timerMargins(cramped).marginBottom).toBe(
+      cramped.viewHeight - cramped.regionTop - cramped.naturalHeight - 16,
+    )
+  })
+
+  it('never squeezes the block below its natural size', () => {
+    // Where the region can hold the block at all, the clamp must leave it the
+    // whole natural height — the tighter the region, the more it matters.
+    for (const regionTop of [111, 200, 300, 344]) {
+      const p = { ...phone, regionTop }
+      const { marginBottom } = timerMargins(p)
+      if (p.viewHeight - regionTop < p.naturalHeight) continue // region can't hold it
+      expect(p.viewHeight - regionTop - marginBottom).toBeGreaterThanOrEqual(p.naturalHeight)
+    }
+  })
+
+  it('gives more lift than the wide rule, never less', () => {
+    expect(timerMargins(phone).marginBottom).toBeGreaterThan(
+      timerMargins({ ...phone, phoneForm: false }).marginBottom,
+    )
+  })
+
+  it('only ever moves the timer up — never down or right', () => {
+    for (const viewWidth of [350, 400, 599, 600]) {
+      for (const viewHeight of [360, 540, 1080]) {
+        const m = timerMargins({ ...phone, viewWidth, viewHeight })
+        expect(m.marginEnd).toBe(0)
+        expect(m.marginBottom).toBeGreaterThanOrEqual(0)
+      }
+    }
   })
 })

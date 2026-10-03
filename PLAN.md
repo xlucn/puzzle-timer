@@ -600,6 +600,12 @@ and `Gdk.FrameClock::after-paint` for the timer nudge.
   nowhere else moves it (the golden-section rule was deleted). Both margins
   are clamped by `NUDGE_SLACK` (16) against the **window**, never against
   the content's own allocation.
+  **Phone form factor (user call, 2026-10-03)**: at ≤600 (tiers C and S, the
+  same `selectorRowMax` band that moves the selectors out) the sideways nudge
+  is **dropped** — the timer stays horizontally centred — and the lift
+  **doubles to half a diagram-height** (`phoneFormFor()` → `phoneForm`, read
+  from the surface width like every other layout number). Clamping is
+  unchanged, so the invariant still outranks the rule.
 
 Decisions worth carrying forward:
 
@@ -669,7 +675,7 @@ Evidence:
   needs to know: `src/core/layout.ts` owns every threshold, the sidebar's
   `show-sidebar` is a plain libadwaita binding (do not add intent memory
   back), and sizes are read from the *surface* because widgets lag a pass
-  behind during a resize. `npm test` = **203 tests**; the manual band walk
+  behind during a resize. `npm test` = **219 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
   **Next milestone: none scheduled** — the agreed backlog is stackmat and
   charts (§1), then packaging if ever; M7+ should be picked, not assumed.

@@ -196,6 +196,21 @@ export function layoutFor(width: number, height: number, headerNatural = 0): Lay
   return tier
 }
 
+/**
+ * Whether the window is in the phone form factor — tiers C and S, i.e. width
+ * at or below `selectorRowMax` (user call, 2026-10-03).
+ *
+ * A predicate of its own rather than a field of `LayoutTier`, because the
+ * nudge needs it on every frame (frame clock and sidebar toggles, which do not
+ * go through `applyLayout`) and it must not drag the rest of a tier along.
+ * The threshold itself is `selectorRowMax`, so the band that moves the
+ * selectors out of the header and the band that changes how the timer sits are
+ * the same band by construction.
+ */
+export function phoneFormFor(width: number): boolean {
+  return sane(width) <= BREAKPOINTS.selectorRowMax
+}
+
 /** Where the timer block should sit, as the window measures it. */
 export interface TimerPlacement {
   /**
@@ -220,6 +235,12 @@ export interface TimerPlacement {
    * a measurement, not a constant.
    */
   regionTop: number
+  /**
+   * Phone form factor (tiers C and S — `phoneFormFor`): the timer stays
+   * centred horizontally and lifts by half the diagram instead of a quarter.
+   * Off on a normal window, where the quarter-diagram nudge applies.
+   */
+  phoneForm: boolean
   /** Natural size of the timer block — what the region has to keep clear. */
   naturalWidth: number
   naturalHeight: number
@@ -244,11 +265,21 @@ const NUDGE_SLACK = 16
  * window, and a diagram that grows at tier L pushes the timer further out of
  * its way.
  *
+ * On a phone-form-factor window (≤600, tiers C and S — user call,
+ * 2026-10-03) the sideways move is dropped entirely and the lift doubles: the
+ * block stays **horizontally centred** and its centre sits **half a
+ * diagram-height** up instead of a quarter. A window that narrow is barely
+ * wider than the picture, so sliding left buys nothing, while the extra lift
+ * is what keeps the readout clear of it. `phoneForm` on the placement is
+ * that condition, decided by `phoneFormFor` from the same
+ * `BREAKPOINTS.selectorRowMax` the selectors' row uses.
+ *
  * GTK's box model gives the block the whole region below the scramble and
  * centres its natural height inside it; a margin shrinks the region the block
  * centres in, so the centre moves by *half* the margin. Hence the 2×: to move
  * the centre by `d`, set a margin of `2d` — offsetting up by `diagramHeight/4`
- * is a bottom margin of `diagramHeight/2`, likewise on the end side.
+ * is a bottom margin of `diagramHeight/2` (and up by `diagramHeight/2` on a
+ * phone is a bottom margin of `diagramHeight`), likewise on the end side.
  *
  * Both margins are clamped to the space that is actually spare — the timer
  * never gets squeezed below its natural size, which is the PLAN invariant that
@@ -275,20 +306,31 @@ export function timerMargins(placement: TimerPlacement): {
   const regionTop = Math.min(sane(placement.regionTop), height)
   const naturalWidth = sane(placement.naturalWidth)
   const naturalHeight = sane(placement.naturalHeight)
+  const diagramWidth = sane(placement.diagramWidth)
+  const diagramHeight = sane(placement.diagramHeight)
 
-  // Horizontal: the centre moves left by a quarter of the diagram's width, and
-  // a margin moves the centre by half of itself → end margin of
+  // Horizontal: normally the centre moves left by a quarter of the diagram's
+  // width, and a margin moves the centre by half of itself → end margin of
   // diagramWidth/2, capped so the block keeps its slack from the view's edge.
+  // In the phone form factor (≤600, tiers C and S) there is no sideways move
+  // at all: the window is barely wider than the picture, so stepping left buys
+  // nothing and costs the centring the narrow layout is built around.
   const roomEnd = Math.max(0, width - naturalWidth - NUDGE_SLACK)
-  const marginEnd = Math.min(sane(placement.diagramWidth) / 2, roomEnd)
+  const marginEnd = placement.phoneForm
+    ? 0
+    : Math.min(diagramWidth / 2, roomEnd)
 
-  // Vertical: centre up by a quarter of the diagram's height → bottom margin
-  // of diagramHeight/2, capped so the block stays inside its region *and*
-  // leaves the headroom that keeps the region's minimum below its current
-  // height.
+  // Vertical: normally the centre goes up by a quarter of the diagram's
+  // height (bottom margin of diagramHeight/2). In the phone form factor the
+  // centre goes up by *half* the diagram's height → bottom margin of
+  // diagramHeight, so the readout clears the picture and sits high in the
+  // remaining space. Both are capped so the block stays inside its region
+  // *and* leaves the headroom that keeps the region's minimum below its
+  // current height.
+  const lift = placement.phoneForm ? diagramHeight : diagramHeight / 2
   const regionHeight = Math.max(0, height - regionTop)
   const marginBottom = Math.min(
-    sane(placement.diagramHeight) / 2,
+    lift,
     Math.max(0, regionHeight - naturalHeight - NUDGE_SLACK),
   )
 

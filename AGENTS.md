@@ -69,8 +69,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (207 tests — M6's layout/timer-nudge rules plus the per-solve ao5/ao12
-  columns; older counts: 180 at M5, 203 at M6)
+  (219 tests — M6's layout/timer-nudge rules, the ≤600 phone-form nudge, plus
+  the per-solve ao5/ao12 columns; older counts: 180 at M5, 207 before 2026-10-03)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`

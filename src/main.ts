@@ -43,7 +43,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
-import { BREAKPOINTS, layoutFor, timerMargins } from './core/layout.js'
+import { BREAKPOINTS, layoutFor, phoneFormFor, timerMargins } from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
@@ -929,6 +929,9 @@ app.on('activate', () => {
       diagramVisible: scramblePanel.hasImage(),
       diagramWidth: diagram.width,
       diagramHeight: diagram.height,
+      // Phone form factor (≤600): no sideways nudge, double the lift. Read
+      // from the *window* width, not the content's — see groundWindowSize.
+      phoneForm: phoneFormFor(groundWidth),
       viewWidth: Math.min(content.getSize(Gtk.Orientation.HORIZONTAL), groundWidth - sidebarWidth),
       // …minus the chooser row's slot: the timer's region ends at that row
       // (it is a sibling below the timer, and the row takes its height out of
