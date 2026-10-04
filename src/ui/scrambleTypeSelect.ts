@@ -1,6 +1,15 @@
 /*
  * scrambleTypeSelect.ts — the header's scramble-type selectors.
  *
+ * **UNHOOKED (2026-10-04): nothing imports this any more.** The header uses
+ * one ellipsizing button instead — src/ui/scrambleTypeButton.ts, user call
+ * 2026-10-04 — which also let layoutFor drop its label-driven escape hatch
+ * (headerSlack), because these two dropdowns could not shrink: see the note
+ * there. Kept because the two-level Gtk.DropDown approach is still a
+ * reference for anyone revisiting it, and because decision 10 (below, and in
+ * PLAN §4) is about the *search* gotcha that bites any Gtk.DropDown holding
+ * strings — which the Preferences ComboRow still does.
+ *
  * All 206 types cstimer_module offers sit behind two Gtk.DropDown widgets,
  * mirroring csTimer's own menu: csTimer's `scrdata` is a two-level table of
  * `[category, [[name, id, len]…]]`, so we offer level 1 (category: "WCA",

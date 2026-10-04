@@ -69,8 +69,9 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (219 tests — M6's layout/timer-nudge rules, the ≤600 phone-form nudge, plus
-  the per-solve ao5/ao12 columns; older counts: 180 at M5, 207 before 2026-10-03)
+  (216 tests — M6's layout/timer-nudge rules, the ≤600 phone-form nudge, the
+  removal of `headerSlack`, plus the per-solve ao5/ao12 columns; older counts:
+  180 at M5, 207 before 2026-10-03, 219 before 2026-10-04)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
@@ -106,8 +107,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   (only while one is up). Expected: one line per change, **zero**
   `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
   the 360×360 floor (360×640 gives `350x630`).
-- Narrow type chooser (same keyboard-only rule): in row mode the selectors are
-  one `Adw.ButtonRow` **at the bottom of the main area** — walk `Shift+Tab`
+- Type chooser (same keyboard-only rule): **both layouts open the same
+  dialog** (2026-10-04). Above 600 the control is one button in the header,
+  after the sidebar toggle — walk `Tab` until the focus ring is on it (focus
+  is sticky, so there is no fixed stop count) and press `Return`. In row mode
+  the selector is one `Adw.ButtonRow` **at the bottom of the main area** —
+  walk `Shift+Tab`
   until the focus ring is on it (≈5 stops with the drawer closed) and press
   `Return`. Inside the dialog `Shift+Tab` cycles list → search entry → up
   button; arrows and `Return` pick (bound by the dialog, not by GTK — see

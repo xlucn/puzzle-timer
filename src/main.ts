@@ -57,7 +57,7 @@ import { createScrambleService } from './scramble/service.js'
 import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypePicker } from './ui/scrambleTypePicker.js'
-import { createScrambleTypeSelect } from './ui/scrambleTypeSelect.js'
+import { createScrambleTypeButton } from './ui/scrambleTypeButton.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsDialog } from './ui/shortcuts.js'
 import { createStatsPanel } from './ui/statsPanel.js'
@@ -403,50 +403,55 @@ app.on('activate', () => {
   /**
    * Where a scramble type lands, whichever control chose it: the feed
    * regenerates, and the choice is written to the active session — it belongs
-   * to the session (a switch restores it, below). The *other* selector is
+   * to the session (a switch restores it, below). The *other* control is
    * moved onto the same id at the same time: selectType is silent by
    * contract, so the broadcast cannot feed the value back, and one handler is
-   * what keeps the two controls from ever showing different types.
+   * what keeps the header button and the row's chooser from ever showing
+   * different types.
    */
   const chooseType = (type: string): void => {
     feed.setType(type)
     // `retyped` rides the index subscription at the top of this function,
     // which is what writes the file.
     library.setScrambleType(library.activeId, type)
-    typeSelect.selectType(type)
+    typeButton.selectType(type)
     typePicker.selectType(type)
   }
 
-  const typeSelect = createScrambleTypeSelect({
-    initialType: SCRAMBLE_DEFAULT_TYPE,
-    onChange: chooseType,
-  })
-  header.packStart(typeSelect.widget)
-
   // The selector row's control (narrow layout — placeSelectors decides which
-  // one is on screen). Built alongside the dropdowns and kept in step with
-  // them, so switching tiers mid-session shows the type actually in force.
+  // one is on screen), built first because the header button opens its dialog.
+  // One dialog for both controls: they are two views of the same decision.
   const typePicker = createScrambleTypePicker({
     initialType: SCRAMBLE_DEFAULT_TYPE,
     onChange: chooseType,
     window,
   })
 
+  // The header's control (user call, 2026-10-04): one button whose label
+  // ellipsizes, replacing the two dropdowns. Kept in step with the picker via
+  // chooseType, so switching tiers mid-session shows the type in force.
+  const typeButton = createScrambleTypeButton({
+    initialType: SCRAMBLE_DEFAULT_TYPE,
+    onActivate: () => typePicker.open(),
+  })
+  header.packStart(typeButton.widget)
+
   /**
    * Scramble type is per session: switching applies the new active
-   * session's type to the dropdowns and the feed (absent = the default
-   * type, which the feed is already on — nothing moves, no regeneration).
-   * Unknown ids from a hand-edited index are ignored by selectType.
+   * session's type to the header button, the row's chooser and the feed
+   * (absent = the default type, which the feed is already on — nothing moves,
+   * no regeneration). Unknown ids from a hand-edited index are ignored by
+   * selectType.
    */
   const applySessionType = (id: string): void => {
     const type = library.find(id)?.scrambleType ?? SCRAMBLE_DEFAULT_TYPE
     if (type === feed.state.type) return
-    // Both selectors, both silent: whichever one is on screen has to show the
+    // Both controls, both silent: whichever one is on screen has to show the
     // session's type after a switch, and neither may announce it — re-reporting
     // would write the session's value back onto the session it came from.
     // Unknown ids from a hand-edited index make selectType return false and
     // the feed is left alone too.
-    if (typeSelect.selectType(type) && typePicker.selectType(type)) feed.setType(type)
+    if (typeButton.selectType(type) && typePicker.selectType(type)) feed.setType(type)
   }
   library.subscribe((change) => {
     if (change.kind === 'switched') applySessionType(change.id)
@@ -659,29 +664,29 @@ app.on('activate', () => {
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
 
-  /** Moves the two dropdowns between the header and their own row (tier C). */
+  /** Moves the header's type button and the row's chooser between them. */
   let selectorsInRow = false
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
     if (inRow) {
-      // Narrow: the two dropdowns give up their place to the row's single
-      // button chooser (user call, 2026-10-03 — see scrambleTypePicker.ts).
-      // The dropdowns stay *built* (and in step via chooseType) so growing
-      // back shows the type that is actually in force, not the one that was
-      // selected when the window was last wide.
-      header.remove(typeSelect.widget)
+      // Narrow: the header button gives up its place to the row's chooser
+      // (user call, 2026-10-03 — see scrambleTypePicker.ts). The button stays
+      // *built* (and in step via chooseType) so growing back shows the type
+      // that is actually in force, not the one selected when the window was
+      // last wide.
+      header.remove(typeButton.widget)
       selectorRow.append(typePicker.widget)
       selectorRow.setVisible(true)
     } else {
       selectorRow.remove(typePicker.widget)
       selectorRow.setVisible(false)
-      // The header is now [toggle, refresh, copy], and the selectors belong
-      // before those two — so they go out and come back after them, in order
-      // (the copy button must not end up between the dropdowns and refresh).
+      // The header is now [toggle, refresh, copy], and the button belongs
+      // before those two — so it goes out and comes back after them, in order
+      // (the copy button must not end up between the button and refresh).
       header.remove(copyScramble)
       header.remove(refreshScramble)
-      header.packStart(typeSelect.widget)
+      header.packStart(typeButton.widget)
       header.packStart(refreshScramble)
       header.packStart(copyScramble)
     }
@@ -705,10 +710,6 @@ app.on('activate', () => {
   let lastSurfaceHeight = -1
   /** So the shadow is reported once, not on every paint. */
   let reportedShadow = false
-  /** The evidence line is printed when the demand changes (see applyLayout). */
-  let lastReportedHeaderNatural = -1
-  /** Last header natural measured with the selectors packed in (see applyLayout). */
-  let rememberedHeaderNatural = 0
 
   /**
    * The window's size, read from the *surface* where possible.
@@ -798,17 +799,7 @@ app.on('activate', () => {
     // would reparent the selectors for no reason. The surface's first `layout`
     // signal brings the real numbers.
     if (width <= 0 || height <= 0) return
-    // The header's demand decides one thing the bands cannot (layoutFor): with
-    // the selectors *in* the header this is a live measurement, and with them
-    // in their own row the header has already given them up — measuring 320px
-    // then would say "fits" and reparent them straight back, at which point it
-    // would measure 1186px and move them out again. So the number is only
-    // refreshed while the selectors are where the demand comes from, and
-    // remembered otherwise: one direction of truth, same as show-sidebar.
-    const [, measuredHeaderNatural] = header.measure(Gtk.Orientation.HORIZONTAL, -1)
-    if (!selectorRow.visible) rememberedHeaderNatural = measuredHeaderNatural
-    const headerNatural = selectorRow.visible ? rememberedHeaderNatural : measuredHeaderNatural
-    const tier = layoutFor(width, height, headerNatural)
+    const tier = layoutFor(width, height)
 
     if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
     if (split.maxSidebarWidth !== tier.sidebarMax) split.maxSidebarWidth = tier.sidebarMax
@@ -829,25 +820,6 @@ app.on('activate', () => {
     if (signature !== lastTier) {
       lastTier = signature
       console.error(`[layout] ${signature}`)
-    }
-
-    // Evidence for M6's thresholds: what the header asks for, the window it
-    // got, and what is left for the content. Printed on every *change* of the
-    // demand rather than once, because the demand is a property of the labels
-    // the user has selected, not of the window — 724px for a 3x3x3 session,
-    // 1186px with the FTO category — and it is those numbers the 800/600 bands
-    // and `headerSlack` are checked against (PLAN §7). Note the dropdowns size
-    // to their *current* item: this is the case on screen, and the catalogue's
-    // worst case is measured separately by the same line.
-    if (measuredHeaderNatural !== lastReportedHeaderNatural) {
-      lastReportedHeaderNatural = measuredHeaderNatural
-      const [, timerW] = timerView.widget.measure(Gtk.Orientation.HORIZONTAL, -1)
-      const [, timerH] = timerView.widget.measure(Gtk.Orientation.VERTICAL, -1)
-      console.error(
-        `[layout] header asks ${measuredHeaderNatural}px | ${width}x${height} window → ` +
-          `${content.getSize(Gtk.Orientation.HORIZONTAL)} for the content | ` +
-          `timer block ${timerW}x${timerH}`,
-      )
     }
   }
 

@@ -2,10 +2,12 @@
  * stringExpression.ts — the GtkExpression that makes GTK's string widgets
  * read a GtkStringList's labels.
  *
- * Both level-2 selectors (Gtk.DropDown in scrambleTypeSelect.ts) and the
- * preferences ComboRow hold a Gtk.StringList, whose items are GtkStringObject.
- * GTK only binds a default label factory when the widget has an expression
- * pointing at `GtkStringObject:string`:
+ * The preferences ComboRow holds a Gtk.StringList whose items are
+ * GtkStringObject. (The header's type *button* needs no expression — it draws
+ * one label itself — but scrambleTypeSelect.ts, now unhooked, was a Gtk.DropDown
+ * and hit the first gotcha below; it is still worth knowing for any DropDown
+ * holding strings.) GTK only binds a default label factory when the widget has
+ * an expression pointing at `GtkStringObject:string`:
  *
  *   - DropDown: without it, `setEnableSearch(true)` is a silent no-op
  *     (gtk/gtkdropdown.c installs GtkEveryFilter instead of GtkStringFilter);

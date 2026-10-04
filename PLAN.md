@@ -71,8 +71,9 @@ src/
 │                         fire-and-forget: pw-play → paplay → gst → aplay
 ├── ui/                   GTK widgets only; talks to core via callbacks
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
-│   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors (category → type)
-│   ├── scrambleTypePicker.ts  narrow layout: Adw.ButtonRow → Adw.Dialog chooser
+│   ├── scrambleTypeButton.ts  header: one flat button, label ellipsizes (J)
+│   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors — UNHOOKED 2026-10-04
+│   ├── scrambleTypePicker.ts  Adw.ButtonRow → Adw.Dialog chooser (both layouts)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
@@ -115,7 +116,8 @@ src/
    - Two headers (layout F, 2026-10-01): the **sidebar's** header carries
      the app name and the app menu (About / Keyboard Shortcuts / Quit),
      with the session switch as a row under it; the **content** header
-     carries the sidebar toggle, scramble category + type dropdowns,
+     carries the sidebar toggle, the scramble type button (two dropdowns
+     until 2026-10-04),
      refresh and an app-functions menu (empty until M4+ fills it).
    - Statistics in an `Adw.Dialog`; settings in `Adw.PreferencesDialog`.
    - `Adw.ToastOverlay` for undo ("Solve deleted [Undo]"), `Adw.StatusPage`
@@ -144,7 +146,11 @@ src/
    is focused (same as csTimer in a browser tab). GlobalShortcuts portal is a
    possible later addition, not in MVP.
 
-10. **Scramble-type selector — two dropdowns, not one searchable list.** Mirrors
+10. **Scramble-type selector — two dropdowns, not one searchable list.**
+    *Superseded for the header on 2026-10-04* — the header now shows one
+    ellipsizing button (`scrambleTypeButton.ts`) — but the reasoning and the
+    search gotcha still stand for any `Gtk.DropDown` holding strings, and the
+    Preferences `ComboRow` is one. Mirrors
     csTimer's own two-level menu: 44 categories → plain type names (names are
     unique *within* a group, verified — 0 intra-group duplicates, so no
     `group · name` prefixes needed). GTK search gotcha: `Gtk.DropDown`'s search
@@ -259,7 +265,9 @@ hands it over the instant a solve finishes (also regenerates on type switch and
 on refresh). UI: `src/ui/scramblePanel.ts` (scramble text, "Generating…"
 spinner) and the two-dropdown selector `src/ui/scrambleTypeSelect.ts` —
 category → type, both searchable (see decision 10 in §4 for the GTK
-`expression` pitfall that made search silently do nothing).
+`expression` pitfall that made search silently do nothing). *Both dropdowns
+were unhooked 2026-10-04 in favour of one ellipsizing header button; the
+module is kept and the pitfall still applies to the ComboRow.*
 
 Evidence:
 
@@ -444,10 +452,11 @@ wins, fire-and-forget (§5's mitigation — no GI audio). `app.inspection`
 starts ON and stays memory-only until M5's preferences.
 
 **Per-session scramble type (feature, `8b30797`)** — queued by the user: the
-dropdown's choice belongs to the active session. `SessionEntry.scrambleType?`
+type choice belongs to the active session. `SessionEntry.scrambleType?`
 (absent = default `333`), `setScrambleType()` emits `retyped` into the
 existing index-save subscription; `applySessionType` runs on every switch and
-at startup, moving both dropdown levels through `selectType()` **without**
+at startup, moving both controls (the header button and the row's chooser)
+through `selectType()` **without**
 re-announcing `onChange` (which would write the session's own value back onto
 itself), and regenerating the feed only when the type actually differs.
 `create()` inherits the active session's type; `loadIndex` shape-checks the
@@ -484,8 +493,9 @@ Evidence:
 - **Tooling lessons recorded in [`tools/README.md`](./tools/README.md):**
   `XGetImage` staleness is not XWayland-only — `shot` *and* `rootshot` on
   `:99` replayed minutes-old frames, so state claims were checked against
-  the store or a human, not pixels; and the type dropdown is driven with
-  search → `Down` → `Return` (Tab leaves the popup).
+  the store or a human, not pixels; and the type chooser is driven through
+  its dialog rather than a popup — see the recipe in
+  [`tools/README.md`](./tools/README.md).
 
 ---
 
@@ -583,13 +593,17 @@ and `Gdk.FrameClock::after-paint` for the timer nudge.
   and the header toggle, so the property *is* the state. `<Ctrl+B>`
   (`app.sidebar`) and `Escape` (drawer only) are the other two callers of
   `setShowSidebar()`; both are in the shortcuts window.
-- **Selectors leave the header** for their own row at ≤600, **or when the
-  measured labels stop fitting**: `layoutFor` takes the header's natural
-  width, and the row takes over when it exceeds the room by more than
-  `headerSlack` (200). Measured: the header asks **724px** with a 3x3x3
-  session and **1186px** with the catalogue's worst pair (FTO category +
-  Diamond type) — the second one pushes the window controls off the edge of
-  a 900px window, so a fixed band alone cannot be the rule.
+- **Selectors leave the header** for their own row at ≤600 — that width band
+  is the whole rule (user call, 2026-10-04). It was previously two conditions:
+  the band, **or when the measured labels stopped fitting** — `layoutFor` took
+  the header's natural width and handed the row over when it exceeded the room
+  by more than `headerSlack` (200). Measured then: the header asks **724px**
+  with a 3x3x3 session and **1186px** with the catalogue's worst pair (FTO
+  category + Diamond type), the second pushing the window controls off the edge
+  of a 900px window, so the band alone could not be the rule. That second
+  condition existed only because the two Gtk.DropDowns could *not* shrink; the
+  header's selector is now one button whose label ellipsizes, so
+  `headerSlack` and the demand measurement went with it.
 - **Growing sidebar / scaling**: `maxSidebarWidth` 320 → 380 (≥1200) → 440
   (≥1600); timer `s`/`m`/`l` (also `s` below 480 wide *or* 480 tall);
   scramble slot 60/76/88 chars, 100/160/220 px tall; diagram cap 440×150 →
@@ -654,8 +668,11 @@ Evidence:
   800 stands; the selectors' own row fits from 531 (its natural with the
   longest labels is 521) so 600 stands; with those labels at 900 the
   controls *were* clipped (absorption 536) and at 950 fine (486) — which is
-  what `headerSlack: 200` now decides, switching to the row early rather
-  than gambling on how much GTK will absorb.
+  what `headerSlack: 200` decided, switching to the row early rather
+  than gambling on how much GTK will absorb. **The clipping above is the
+  reason `headerSlack` existed, and it was removed 2026-10-04** along with
+  the demand measurement, once the selector could ellipsize instead; the
+  724/561/521 numbers remain the record of why 800 and 600 were chosen.
 - **The nudge measures right**: at 900 the timer block's centre lands 1.5px
   from `content centre − diagram width / 4` (519 measured vs 520.5
   predicted, screenshot pixel scan), and the halving from /2 was visible in
@@ -682,8 +699,10 @@ Evidence:
   Still open from earlier user calls: the diagram's thin outlines read
   low-contrast on the dark theme (accepted for now, noted in a code
   comment), and one startup-only `AdwToastOverlay exceeds` warning with the
-  catalogue's longest labels (the first frame measures the selectors in the
-  header before any tier has run; it corrects on the next pass). The stats
+  catalogue's longest labels (its stated cause was the first frame measuring
+  the selectors in the header before any tier had run — that measurement went
+  with `headerSlack` on 2026-10-04, so re-check whether it still reproduces).
+  The stats
   rule stands: **per-session, always** (M3's scope), `src/core/` owns the
   math, and csTimer's GPL source may be ported for the *math*, not the DOM
   (AGENTS.md).
@@ -744,9 +763,12 @@ Evidence:
   case-sensitive (`space`, not `Space`), or the chip renders empty (checked
   with `Gtk.acceleratorParse`: all 18 entries parse).
 - **Narrow selector: one row at the bottom (user calls, 2026-10-03)** — below
-  ~600 the two dropdowns give way to an **`Adw.ButtonRow`** reading
+  ~600 the header's type control gives way to an **`Adw.ButtonRow`** reading
   `Category - type`, pinned to the **bottom of the main area** (it used to sit
-  under the header). Pressing it opens an `Adw.Dialog`: the current
+  under the header). **From 2026-10-04 both open the same `Adw.Dialog`**: the
+  header holds one button (`scrambleTypeButton.ts`) rather than two
+  dropdowns, so there is one list, one search and one `onChange` path for
+  every layout. The dialog has the current
   category's types in a boxed list (✓ on the live one), an **up** button that
   swaps in all 44 categories — landing on *the category you came from*, not
   on WCA (it used to select the first every time; fixed) — and a search entry

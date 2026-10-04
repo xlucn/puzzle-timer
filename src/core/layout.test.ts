@@ -55,40 +55,20 @@ describe('layoutFor — width tiers', () => {
   })
 })
 
-describe('layoutFor — the measured header', () => {
-  it('keeps this app’s own labels in the header at every band edge', () => {
-    // 724px is what the header asks for with a 3x3x3 session (measured, and
-    // reported by the `[layout] header asks` line at runtime).
-    expect(layoutFor(900, 540, 724).selectorRow).toBe(false) // the default window
-    expect(layoutFor(drawerMax + 1, 540, 724).selectorRow).toBe(false) // 801 → 561 for the header
-    expect(layoutFor(drawerMax, 540, 724).selectorRow).toBe(false) // 800 → drawer, full width
-  })
-
-  it('moves the selectors out when the labels outgrow the header', () => {
-    // 1186px is the catalogue's worst case (FTO category + Diamond type).
-    expect(layoutFor(900, 540, 1186).selectorRow).toBe(true)
-    // …and back in as soon as the window can carry them again: at 1600 the
-    // header gets 1360 once the sidebar's share is taken out.
-    expect(layoutFor(largeMin, 540, 1186).selectorRow).toBe(false)
-  })
-
-  it('charges a side-by-side header for the sidebar’s share, a drawer for nothing', () => {
-    const slack = BREAKPOINTS.headerSlack
-    // Side by side at 900: room = 900 − 240 = 660, so demand is tolerated up
-    // to room + slack and not one pixel more.
-    expect(layoutFor(900, 540, 660 + slack).selectorRow).toBe(false)
-    expect(layoutFor(900, 540, 661 + slack).selectorRow).toBe(true)
-    // Drawer at 700: the header has the whole window, sidebar or no sidebar.
-    expect(layoutFor(700, 540, 700 + slack).selectorRow).toBe(false)
-    expect(layoutFor(700, 540, 701 + slack).selectorRow).toBe(true)
-  })
-
-  it('falls back to the width bands when nothing has been measured', () => {
-    expect(layoutFor(900, 540).selectorRow).toBe(false)
-    expect(layoutFor(900, 540, 0).selectorRow).toBe(false)
-    // A demand that makes no sense decides nothing — the bands still do.
-    expect(layoutFor(900, 540, Number.NaN).selectorRow).toBe(false)
-    expect(layoutFor(selectorRowMax, 540, Number.NaN).selectorRow).toBe(true)
+describe('layoutFor — the selectors leave only at ≤600', () => {
+  it('follows the width band alone, at every band edge', () => {
+    // The label-driven escape hatch (headerSlack) is gone as of 2026-10-04:
+    // it existed only because the two Gtk.DropDowns could not shrink, so long
+    // labels had to be moved out before they pushed the window controls off
+    // the edge. The header's selector is now one button whose label
+    // ellipsizes, so the header absorbs what it is given and only the window's
+    // width decides — hence no third argument to layoutFor.
+    expect(layoutFor(selectorRowMax, 540).selectorRow).toBe(true) // 600 → row
+    expect(layoutFor(selectorRowMax + 1, 540).selectorRow).toBe(false) // 601 → header
+    expect(layoutFor(drawerMax, 540).selectorRow).toBe(false) // 800 → drawer, still header
+    expect(layoutFor(drawerMax + 1, 540).selectorRow).toBe(false) // 801 → side by side, header
+    expect(layoutFor(largeMin, 540).selectorRow).toBe(false) // tier L → header
+    expect(layoutFor(900, 540).selectorRow).toBe(false) // the default window
   })
 })
 

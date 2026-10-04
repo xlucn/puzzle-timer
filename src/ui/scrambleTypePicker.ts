@@ -1,28 +1,33 @@
 /*
- * scrambleTypePicker.ts — the selector row's scramble-type chooser (narrow).
+ * scrambleTypePicker.ts — the scramble-type chooser: one dialog, two doors.
  *
- * Two layouts, two controls (user call, 2026-10-03): the wide window keeps
- * the two Gtk.DropDowns of scrambleTypeSelect.ts, while the selector row —
- * ≤600px, or a header whose labels no longer fit — gets ONE button reading
- * `Category - type`. Two dropdowns at the 360px floor is how you end up with
- * neither of them readable; one ellipsised line is the whole selection
+ * As of 2026-10-04 the dialog is the only place a type is *chosen*. Both
+ * layouts open it: the header's button (src/ui/scrambleTypeButton.ts) while
+ * the window is wide, and this widget — an `Adw.ButtonRow` pinned to the
+ * bottom of the main area — at ≤600px, where the selectorRow band takes the
+ * selectors out of the header entirely. Two views of one decision, so one
+ * list, one search and one `onChange` path cover every layout.
+ *
+ * Before that, the wide window carried its own two Gtk.DropDowns
+ * (scrambleTypeSelect.ts, now unhooked): the button + row pair below ≤600 was
+ * introduced 2026-10-03 precisely because two dropdowns at the 360px floor
+ * leave neither of them readable. One ellipsised line is the whole selection
  * surface, and the choosing happens where there is room for it.
  *
- * Clicking it opens an Adw.Dialog with a boxed list, in the shape asked for:
+ * The dialog opens with the shape asked for:
  *
  *   types      what opens — the current category's types (✓ on the live one),
  *              because that is the list you are most likely to pick from;
  *   categories the up button swaps the same list for the categories, and
  *              picking one drills back into its types.
  *
- * Search keeps the capability the dropdowns had (a box of 206 types, found by
- * typing): while it has text it overrides both levels and lists matches from
- * *every* category, labelled `scrambleTypeLabel()` so a hit says where it
- * lives — "PLL" on its own would be ambiguous, there are two.
+ * Search covers all 206 types: while it has text it overrides both levels and
+ * lists matches from *every* category, labelled `scrambleTypeLabel()` so a hit
+ * says where it lives — "PLL" on its own would be ambiguous, there are two.
  *
- * The widget answers the same contract as the dropdowns — `{ widget,
- * selectType }`, silent and idempotent — so main.ts builds both, broadcasts a
- * choice to the other one, and does not care which control the user used.
+ * The widget answers `{ widget, open, selectType }` — silent and idempotent,
+ * so main.ts broadcasts a choice to the header button as well and does not
+ * care which control the user used.
  *
  * The dialog is built fresh on every open (house pattern: Preferences,
  * Shortcuts) — an AdwDialog is gone when it closes.

@@ -238,15 +238,20 @@ python3 tools/xtest.py --window "csTimer GTK" \
 # …then click the toast's Undo (bottom-centre, window-relative) in the same
 # invocation and screenshot again to prove the batch came back.
 
-# The scramble-type dropdown (header type button, window-relative ≈495,31):
-# open it, clear any remembered search with ctrl+a, filter, then Down +
-# Return. Tab *leaves* the popup (focus jumps back into the header) and
-# Return in the search entry alone commits nothing — Down is what moves
-# focus onto the filtered row.
+# The scramble-type chooser: a header *button* opening an Adw.Dialog — not a
+# popup (2026-10-04). The button sits after the sidebar toggle; walk Tab until
+# the focus ring is on it (focus is sticky, so there is no fixed stop count)
+# and press Return. The dialog focuses its own list, so Down + Return picks
+# straight away; to filter, Shift+Tab to the search entry (list → search is
+# the documented cycle, AGENTS "Narrow type chooser"), type, Tab back to the
+# list, then Return. Escape clears the query first and closes second.
+# Pointer equivalent, which is what this recipe uses (search entry is
+# window-relative ≈440,106 at 900px, sidebar closed):
 python3 tools/xtest.py --window "csTimer GTK" \
-    click 495 31 sleep 0.5 \
-    press ctrl+a release ctrl+a sleep 0.2 \
-    type 4x4 sleep 0.4 press Down release Down sleep 0.2 \
+    click 260 28 sleep 0.6 \
+    click 440 106 sleep 0.4 \
+    type 4x4 sleep 0.6 \
+    click 450 136 sleep 0.4 \
     press Return release Return sleep 1.5 shot type444.png
 
 # Per-session scramble type (M4): the index file is ground truth for this
@@ -268,16 +273,22 @@ DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar 440, timer 
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
 # which is why the log prints `890x530 (win 530)` for a 900x540 window.
 
-# The *measured* half of the header: long labels, not a narrow window, move
-# the selectors out of it. With the catalogue's worst pair selected the
-# header asks 1186px (vs 724 for 3x3x3) and at 900 the minimize/maximize/
-# close buttons would be pushed off the edge — so the tier moves the
-# selectors to their own row instead, and `[layout] header asks` reports the
-# demand both ways (1186 → 320 once they are out).
+# Long labels no longer move the selectors out: the label-driven rule
+# (headerSlack) was removed 2026-10-04, because the header's control is now
+# one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to
+# keep its natural width. Select the catalogue's worst pair (FTO category +
+# Diamond type, 52 chars) and check three things:
+#   • `[layout] … selectors in the header` at 900/700/610 and `in their own
+#     row` only at ≤600 — the labels are not part of that decision any more;
+#   • the minimize/maximize/close buttons stay on screen at every width,
+#     including side-by-side with the sidebar open (header ≈ w − 240);
+#   • the label reads `…` under that squeeze rather than shoving the
+#     window controls over the edge.
+# `[layout] header asks` is gone with the rule — there is no demand to report.
 jq '(.sessions[] | select(.id == "default")).scrambleType = "dmdso"' \
     ~/.local/share/cstimer-gtk/sessions/_index.json > /tmp/idx && \
     cp /tmp/idx ~/.local/share/cstimer-gtk/sessions/_index.json
-# …restart, walk 900/1700/700, then restore with _index.json.bak.
+# …restart, walk 1700/900/700/610/600, then restore with _index.json.bak.
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …

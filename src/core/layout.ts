@@ -61,28 +61,6 @@ export const BREAKPOINTS = {
    */
   sidebarMin: 240,
   /**
-   * How much header demand may exceed the room it has before the selectors are
-   * moved out to their own row.
-   *
-   * The width bands alone cannot decide this: the header's demand is as long
-   * as the labels the user happens to have selected, and it grows without
-   * bound (measured 2026-10-02: 724px with a 3x3x3 session, 1186px with the
-   * FTO category selected — 462px of extra dropdown text). Gtk.HeaderBar puts
-   * its start widgets at their natural width, so past a point the window
-   * controls are pushed off the right edge of the window: at 900 the
-   * minimize/maximize/close buttons are *gone* with the long labels, and fine
-   * with the short ones.
-   *
-   * 200px is headroom over the point where anything is actually lost. The
-   * header absorbed 163px without complaint in the measurement above
-   * (natural 724 in a 560px content, every control still drawn), so 200
-   * keeps every label set this app ships in the header — and switches to the
-   * row *early* for anything longer, because the row always fits and shows
-   * the labels in full. A too-small value costs an unnecessary row; a
-   * too-large one risks the controls. Prefer the row.
-   */
-  headerSlack: 200,
-  /**
    * The window refuses to be dragged narrower than this (and shorter than
    * `minHeight`): below it no tier could keep the layout deliberate.
    *
@@ -111,7 +89,8 @@ export type TimerSize = 's' | 'm' | 'l'
 export interface LayoutTier {
   /** Sidebar overlays the content instead of sharing the width with it. */
   drawer: boolean
-  /** The scramble selectors are packed into a second row under the header. */
+  /** The scramble selectors are packed into a second row under the header —
+   *  at `selectorRowMax` and below, and for no other reason. */
   selectorRow: boolean
   /** Size class for the timer's digits. */
   timerSize: TimerSize
@@ -134,29 +113,28 @@ const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, va
  * from every breakpoint handler, so it must stay cheap and total: same inputs,
  * same output, no matter which one asked.
  *
- * `headerNatural` is optional and only sharpens one decision (see
- * `BREAKPOINTS.headerSlack`): the natural width the *header* asks for with the
- * selectors packed into it, measured by main.ts. Left out, the selectors
- * follow the fixed width bands alone — which is all a caller that has not
- * measured can be trusted to know.
+ * Width bands alone decide everything, selectors included — the row takes them
+ * over at `selectorRowMax` and nowhere else. It used to have a second,
+ * label-driven escape hatch (`headerSlack`: move them out early when the
+ * header's natural width exceeded its room), but that only existed because the
+ * two Gtk.DropDowns could not shrink: Gtk.HeaderBar packs start widgets at
+ * natural width, so long labels pushed the window controls off the edge. The
+ * header's selector is now one button whose label ellipsizes (see
+ * src/ui/scrambleTypeButton.ts), so its *min* stays small, the header absorbs
+ * whatever it is given, and the labels have a place to go (user call,
+ * 2026-10-04).
  */
-export function layoutFor(width: number, height: number, headerNatural = 0): LayoutTier {
+export function layoutFor(width: number, height: number): LayoutTier {
   const w = sane(width)
   const h = sane(height)
-  const demand = sane(headerNatural)
 
   const drawer = w <= BREAKPOINTS.drawerMax
-  // What the header has to fill: the whole window in drawer mode, the window
-  // minus the sidebar's share side by side.
-  const headerRoom = drawer ? w : w - BREAKPOINTS.sidebarMin
-  const headerOverflows = demand > 0 && demand > headerRoom + BREAKPOINTS.headerSlack
 
   const tier: LayoutTier = {
     drawer,
-    // Out of the header either because the window is narrow, or because the
-    // labels are: a fixed band cannot defend against a category name the user
-    // is free to select, and the row both fits and shows the full text.
-    selectorRow: w <= BREAKPOINTS.selectorRowMax || headerOverflows,
+    // The width band is the whole rule: at ≤600 the window is too narrow for
+    // two controls side by side, and the row gives the labels their own space.
+    selectorRow: w <= BREAKPOINTS.selectorRowMax,
     // Narrow *or* short: the digits are the one thing that must never clip.
     timerSize:
       w <= BREAKPOINTS.smallMax || h <= BREAKPOINTS.timerSmallMaxHeight
