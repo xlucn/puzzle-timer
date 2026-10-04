@@ -100,6 +100,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 
 ### Manual UI verification (not part of `npm test`)
 
+- **No visual checks unless explicitly told** (user call, 2026-10-05): do not
+  take screenshots or judge pixels yourself — they cost many tokens and are
+  slow, and a screenshot of this app proves little (see the XGetImage trap
+  below). Verify structure and state instead (typecheck, `npm test`,
+  widget-tree/`stderr` dumps), write short **checkpoints for the user** to
+  confirm visually, and leave the seeing to them. Only run a visual check when
+  asked for one.
 - **Drive the app on a nested display**: `Xephyr :99 -screen 1280x800 -ac -br`
   then prefix the app start and every `xtest.py`/`maim` command with
   `DISPLAY=:99`. Synthetic XTEST on the live Wayland session summons GNOME's
