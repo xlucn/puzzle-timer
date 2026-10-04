@@ -235,8 +235,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
       browse = index
       applyTypeFilter()
       // Collapsed: push to the content page. Expanded: both panes already show.
+      // No grabFocus() here: GTK reassigns focus when the sidebar hides, and a
+      // programmatic grab paints a focus ring without any keyboard intent.
       split.showContent = true
-      typeList.grabFocus()
     }
 
     typeList.on('row-activated', activateType)
@@ -251,12 +252,13 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     })
 
     applyTypeFilter()
-    // Preselect the browsed category and the live type.
+    // Preselect the browsed category and the live type. Focus is left to the
+    // dialog itself — no explicit focusWidget, so no focus ring is painted on
+    // open without keyboard intent.
     const browsedRow =
       Array.from(categoryGroup.entries()).find(([, i]) => i === browse)?.[0] ?? null
     if (browsedRow !== undefined) categoryList.selectRow(browsedRow)
     if (currentRow !== null) typeList.selectRow(currentRow)
-    dialog.focusWidget = split.collapsed ? typeList : categoryList
     dialog.present(options.window)
   }
 
