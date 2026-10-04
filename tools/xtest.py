@@ -187,7 +187,18 @@ def _walk(x11, d, window, title):
             child = children[i]
             name = ctypes.c_char_p()
             if x11.XFetchName(d, child, ctypes.byref(name)) and name.value:
-                if title in name.value.decode(errors="replace"):
+                # WM_NAME comes back in the encoding the app set it in: GTK
+                # writes latin-1 (U+00B7 MIDDLE DOT → single 0xb7), while
+                # _NET_WM_NAME — which xdotool reads — is UTF-8 (0xc2 0xb7).
+                # Decoding as UTF-8 alone therefore mangles any non-ASCII
+                # title and the search reports "window not found" for a
+                # window that is plainly there (measured: a title containing
+                # '·' matched only after both encodings were tried).
+                if any(
+                    title in raw
+                    for raw in (name.value.decode("utf-8", "replace"),
+                                name.value.decode("latin-1"))
+                ):
                     return child
             found = _walk(x11, d, child, title)
             if found:
