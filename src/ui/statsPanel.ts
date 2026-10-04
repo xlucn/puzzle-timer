@@ -176,7 +176,47 @@ export function createStatsPanel(options: StatsPanelOptions) {
     )
     box.append(content)
 
-    const dialog = new Adw.Dialog({ child: box, followsContentSize: true })
+    // Adaptive width (option 2, 2026-10-05): a fixed dialog width, not
+    // followsContentSize — with followsContentSize the dialog width always
+    // *equals* the content, so a width breakpoint could never tell a roomy
+    // window from a squeezed one (it would fire permanently). With a fixed
+    // 480 the gap between dialog and content natural (365) is the "there is
+    // room" signal. Measured (probe, parent 900/460/440/380/360): the
+    // breakpoint reads the dialog's *content* box, so it stays loose while
+    // that box is >450 (parent ≳510 floating; contentWidth caps at 480) and
+    // tightens below — at which point the table (spacing 12, margins 12,
+    // natural 293) fits every rung down to the 360px floor with ~67px slack,
+    // where the old loose table (365) overflowed by 29px. libadwaita also
+    // auto-swaps floating ↔ bottom sheet at parent ≤450 on its own.
+    // A breakpoint-bearing AdwDialog has no implicit minimum size (AdwDialog
+    // docs), so ask for one explicitly. apply/unapply, not addSetter:
+    // node-gtk can't box the GValue (AGENTS).
+    const dialog = new Adw.Dialog({
+      child: box,
+      contentWidth: 480,
+      contentHeight: -1,
+      widthRequest: 280,
+      heightRequest: 240,
+    })
+    const squeeze = Adw.Breakpoint.new(
+      Adw.BreakpointCondition.newLength(
+        Adw.BreakpointConditionLengthType.MAX_WIDTH,
+        450,
+        Adw.LengthUnit.PX,
+      ),
+    )
+    // apply/unapply, not addSetter: node-gtk can't box the GValue (AGENTS).
+    squeeze.on('apply', () => {
+      grid.columnSpacing = 12
+      content.marginStart = 12
+      content.marginEnd = 12
+    })
+    squeeze.on('unapply', () => {
+      grid.columnSpacing = 28
+      content.marginStart = 24
+      content.marginEnd = 24
+    })
+    dialog.addBreakpoint(squeeze)
     dialog.present(options.window)
   }
 
