@@ -418,8 +418,8 @@ app.on('activate', () => {
     typePicker.selectType(type)
   }
 
-  // The selector row's control (narrow layout — placeSelectors decides which
-  // one is on screen), built first because the header button opens its dialog.
+  // The narrow layout's bottom-bar control, built first because the header
+  // button opens its dialog.
   // One dialog for both controls: they are two views of the same decision.
   const typePicker = createScrambleTypePicker({
     initialType: SCRAMBLE_DEFAULT_TYPE,
@@ -526,50 +526,34 @@ app.on('activate', () => {
     if (prefs.inspectionSound) playInspectionCue(cue)
   })
 
-  // ---- content: header, scramble, centered timer, chooser row -------------
-  // The narrow-window home of the scramble selectors (M6, tier C): below ~600
-  // the header has less room than its own ~560 of natural demand, so the two
-  // dropdowns move *out* of it rather than being clipped. The chooser sits at
-  // the **bottom of the main area** (user call, 2026-10-03) — a boxed list
-  // holding one Adw.ButtonRow (scrambleTypePicker.ts) rather than the
-  // dropdowns themselves. updateNudge subtracts its slot from the timer's
-  // region (it is below the timer now, not above it) and lifts the diagram
-  // clear of it, since the diagram is anchored to the same bottom edge.
-  const SELECTOR_ROW_GAP = 4
-  const selectorRow = new Gtk.ListBox({
-    // A boxed list, so the row reads as the list it opens. NONE: the row is
-    // the only child and there is nothing to select *in* it — it is pressed.
-    selectionMode: Gtk.SelectionMode.NONE,
-    activateOnSingleClick: true,
-    cssClasses: ['boxed-list'],
-    visible: false,
-    marginBottom: SELECTOR_ROW_GAP,
+  // ---- content: adaptive top and bottom bars around scramble + timer ------
+  // At ≤600 the selector leaves the header and moves into ToolbarView's
+  // bottom-bar slot. It remains the *same* button in both places; the box is
+  // just the full-width toolbar surface around it. ToolbarView supplies the
+  // native flat bar styling and accounts for the bar separately from its
+  // content. updateNudge uses its measured bottom-bar height to reserve the
+  // timer's region and keep the overlaid diagram clear of the bar.
+  const selectorBar = new Gtk.Box({
+    orientation: Gtk.Orientation.HORIZONTAL,
+    cssClasses: ['toolbar'],
     marginStart: 12,
     marginEnd: 12,
   })
-  /** The diagram's own bottom margin, so rowSpace can be added and removed. */
+  /** The diagram's own bottom margin, so the bottom-bar slot can be added/removed. */
   const DIAGRAM_EDGE_MARGIN = scramblePanel.image.marginBottom
 
-  // One way in for the row: a press (row-activated) or the keyboard
-  // (Return/Space — GTK4's GtkListBox does not activate rows itself, measured
-  // in the dialog: the key arrives and nothing happens). The picker exposes
-  // `open` precisely so both paths end in one place and cannot double-fire.
-  selectorRow.on('row-activated', () => typePicker.open())
-  const rowKeys = new Gtk.EventControllerKey()
-  selectorRow.addController(rowKeys)
-  rowKeys.on('key-pressed', (keyval) => {
-    if (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter || keyval === Gdk.KEY_space) {
-      typePicker.open()
-      return true
-    }
-    return false
-  })
+  const mainContent = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
+  mainContent.append(scramblePanel.widget)
+  mainContent.append(timerView.widget)
 
-  const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
-  content.append(header)
-  content.append(scramblePanel.widget)
-  content.append(timerView.widget)
-  content.append(selectorRow) // bottom of the main area (user call, 2026-10-03)
+  const content = new Adw.ToolbarView({
+    content: mainContent,
+    revealBottomBars: false,
+    topBarStyle: Adw.ToolbarStyle.FLAT,
+    bottomBarStyle: Adw.ToolbarStyle.FLAT,
+  })
+  content.addTopBar(header)
+  content.addBottomBar(selectorBar)
 
   // The diagram floats in the view's bottom-right corner (user call,
   // 2026-10-02). GTK4 does not count overlay children in the parent's size
@@ -664,26 +648,25 @@ app.on('activate', () => {
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
 
-  /** Moves the header's type button and the row's chooser between them. */
+  /** Moves the one type button between ToolbarView's top and bottom bars. */
   let selectorsInRow = false
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
     if (inRow) {
-      // Narrow: the header button gives up its place to the row's chooser
-      // (user call, 2026-10-03 — see scrambleTypePicker.ts). The button stays
-      // *built* (and in step via chooseType) so growing back shows the type
-      // that is actually in force, not the one selected when the window was
-      // last wide.
+      // Narrow: move the same button from the header into the full-width
+      // bottom toolbar. Expand only while it is there, so the header continues
+      // to pack it at its natural width and cannot push out the window controls.
       header.remove(typeButton.widget)
-      selectorRow.append(typePicker.widget)
-      selectorRow.setVisible(true)
+      typeButton.widget.hexpand = true
+      selectorBar.append(typeButton.widget)
+      content.revealBottomBars = true
     } else {
-      selectorRow.remove(typePicker.widget)
-      selectorRow.setVisible(false)
-      // The header is now [toggle, refresh, copy], and the button belongs
-      // before those two — so it goes out and comes back after them, in order
-      // (the copy button must not end up between the button and refresh).
+      // Hide the bottom bar, then move the button back before refresh/copy.
+      // One widget means one label and one activation path across the switch.
+      content.revealBottomBars = false
+      selectorBar.remove(typeButton.widget)
+      typeButton.widget.hexpand = false
       header.remove(copyScramble)
       header.remove(refreshScramble)
       header.packStart(typeButton.widget)
@@ -850,24 +833,19 @@ app.on('activate', () => {
       0,
       measuredHeight - timerView.widget.marginTop - timerView.widget.marginBottom,
     )
-    // The header block is just the header bar: the chooser row sits at the
-    // *bottom* of the main area now (user call, 2026-10-03), so it no longer
-    // contributes to where the timer's region *starts* — its slot comes off
-    // the other end (rowSpace → viewHeight below). The region starts at the
-    // bottom of the panel's slot: panel height plus the margins around it.
-    // …and the row is taken *natural* when it has no allocation yet:
-    // applyLayout shows it at ≤800 and GTK has not sized it by the time this
-    // runs, so `getSize()` says 0. Reading 0 would hand the timer a region
-    // the row is about to eat into — one frame of margin that is too big, i.e.
-    // the "requested 388, 370 available" warning on the way down to 460.
-    const rowHeight = selectorRow.visible
-      ? Math.max(
-          selectorRow.getSize(Gtk.Orientation.VERTICAL),
-          selectorRow.measure(Gtk.Orientation.VERTICAL, -1)[1],
-        )
-      : 0
-    const rowSpace = rowHeight > 0 ? rowHeight + SELECTOR_ROW_GAP : 0
-    const headerHeight = header.getSize(Gtk.Orientation.VERTICAL)
+    // The chooser sits in ToolbarView's bottom bar, so it does not contribute
+    // to where the timer region starts — its slot comes off the other end
+    // (bottomBarSpace → viewHeight below). The region starts below the top bar
+    // and scramble panel.
+    // ToolbarView reports its current animated bottom-bar height. Immediately
+    // after revealing it that can still be 0, so use the bar's natural height
+    // as a floor for that first layout pass; during a hide transition the
+    // reported height follows the animation down to 0.
+    const bottomBarSpace = Math.max(
+      content.getBottomBarHeight(),
+      content.revealBottomBars ? selectorBar.measure(Gtk.Orientation.VERTICAL, -1)[1] : 0,
+    )
+    const topBarHeight = content.getTopBarHeight()
 
     const diagram = scramblePanel.diagramSize()
     // One line whenever the picture's on-screen size changes: it is both what
@@ -905,12 +883,14 @@ app.on('activate', () => {
       // from the *window* width, not the content's — see groundWindowSize.
       phoneForm: phoneFormFor(groundWidth),
       viewWidth: Math.min(content.getSize(Gtk.Orientation.HORIZONTAL), groundWidth - sidebarWidth),
-      // …minus the chooser row's slot: the timer's region ends at that row
-      // (it is a sibling below the timer, and the row takes its height out of
-      // the window), so the margin clamp has to be measured against what is
-      // left after it — otherwise the nudge claims room the row already holds.
-      viewHeight: Math.min(content.getSize(Gtk.Orientation.VERTICAL), groundHeight - rowSpace),
-      regionTop: headerHeight + scramblePanel.slotBottom(),
+      // Minus the bottom toolbar's slot: it occupies the view's bottom edge,
+      // so the clamp must use what remains after it rather than claim space
+      // the toolbar already holds.
+      viewHeight: Math.min(
+        content.getSize(Gtk.Orientation.VERTICAL),
+        groundHeight - bottomBarSpace,
+      ),
+      regionTop: topBarHeight + scramblePanel.slotBottom(),
       naturalWidth,
       naturalHeight,
     })
@@ -921,13 +901,13 @@ app.on('activate', () => {
       timerView.widget.marginBottom = margins.marginBottom
     }
 
-    // The diagram is anchored to the *view's* bottom edge (valign END, 16px),
-    // and the chooser row now owns that edge too — overlay children paint
-    // above the content, so without this the picture would be drawn over the
-    // row. Lift it by exactly the row's slot. The picture's own size does not
-    // move (a margin sits outside the allocation), so every number the nudge
-    // measured is still the number it measured.
-    const diagramBottom = DIAGRAM_EDGE_MARGIN + rowSpace
+    // The diagram is anchored to the view's bottom edge (valign END, 16px),
+    // and ToolbarView's bottom bar owns that edge when revealed — overlay
+    // children paint above the content, so lift the picture by the bar's full
+    // slot to keep it clear. The picture's own size does not move (a margin
+    // sits outside the allocation), so every number the nudge measured is
+    // still the number it measured.
+    const diagramBottom = DIAGRAM_EDGE_MARGIN + bottomBarSpace
     if (scramblePanel.image.marginBottom !== diagramBottom) {
       scramblePanel.image.marginBottom = diagramBottom
     }

@@ -2,11 +2,10 @@
  * scrambleTypePicker.ts — the scramble-type chooser: one dialog, two doors.
  *
  * As of 2026-10-04 the dialog is the only place a type is *chosen*. Both
- * layouts open it: the header's button (src/ui/scrambleTypeButton.ts) while
- * the window is wide, and this widget — an `Adw.ButtonRow` pinned to the
- * bottom of the main area — at ≤600px, where the selectorRow band takes the
- * selectors out of the header entirely. Two views of one decision, so one
- * list, one search and one `onChange` path cover every layout.
+ * layouts open it through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts):
+ * in the header while the window is wide, and in ToolbarView's bottom bar at
+ * ≤600px. The button is reparented rather than duplicated, so one label, one
+ * dialog and one `onChange` path cover every layout.
  *
  * Before that, the wide window carried its own two Gtk.DropDowns
  * (scrambleTypeSelect.ts, now unhooked): the button + row pair below ≤600 was
@@ -25,9 +24,10 @@
  * lists matches from *every* category, labelled `scrambleTypeLabel()` so a hit
  * says where it lives — "PLL" on its own would be ambiguous, there are two.
  *
- * The widget answers `{ widget, open, selectType }` — silent and idempotent,
- * so main.ts broadcasts a choice to the header button as well and does not
- * care which control the user used.
+ * This module owns no presentation widget: it provides `{ open, selectType }`
+ * for the shared button to call. `selectType` is silent and idempotent, so a
+ * session switch updates which category the dialog opens on without
+ * re-announcing the choice.
  *
  * The dialog is built fresh on every open (house pattern: Preferences,
  * Shortcuts) — an AdwDialog is gone when it closes.
@@ -71,26 +71,6 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     groups.findIndex((group) => group.choices.some((choice) => choice.id === id))
 
   let currentId = options.initialType
-
-  /**
-   * The control itself: `Adw.ButtonRow` (user call, 2026-10-03) rather than a
-   * Gtk.Button in a box — it is a list row that *is* a button, so it carries
-   * the boxed-list styling of the list it opens and sits in it visually.
-   * `title` is the whole label (`Category - type`), `endIconName` the chevron
-   * that says there is a list behind it. Plain text, not markup: a type name
-   * may contain `<` and `>` ("3x3x3 Roux - LSE <M, U>").
-   */
-  const typeRow = new Adw.ButtonRow({
-    title: scrambleTypeLabel(currentId),
-    useMarkup: false,
-    endIconName: 'pan-down-symbolic',
-    tooltipText: 'Choose the scramble type',
-    // main.ts owns the container (the selector row) and wires activation —
-    // row-activated for the mouse and its own key controller for Return/Space,
-    // since GTK4's GtkListBox does not activate rows from the keyboard (see
-    // the dialog's controller) and two paths would open two dialogs.
-    activatable: true,
-  })
 
   const openDialog = (): void => {
     let level: Level = 'types'
@@ -252,10 +232,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
       }
       const changed = payload.id !== currentId
       currentId = payload.id
-      typeRow.title = scrambleTypeLabel(currentId)
-      // The dialog's own pick, announced once: main.ts moves the *other*
-      // selector and the feed with it (selectType here would be a no-op —
-      // currentId is already this — so nothing echoes).
+      // The dialog's own pick, announced once: main.ts moves the button and
+      // the feed with it (selectType here would be a no-op — currentId is
+      // already this — so nothing echoes).
       if (changed) options.onChange(payload.id)
       dialog.close()
     }
@@ -345,13 +324,8 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     dialog.present(options.window)
   }
 
-  // Activation lives in main.ts — the container wires row-activated for the
-  // pointer and a key controller for Return/Space (GTK4's GtkListBox does not
-  // activate rows from the keyboard), so there is one way in and no chance of
-  // a double-open.
-
   /**
-   * Point the row at `id` — same contract as the dropdowns' selectType:
+   * Point the dialog at `id` — same contract as the button's selectType:
    * silent (never announces the choice back), idempotent, and false for an id
    * this catalogue does not have (a hand-edited session index), so the caller
    * leaves the feed alone too.
@@ -360,10 +334,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     if (id === currentId) return true
     if (groupIndex(id) < 0) return false
     currentId = id
-    typeRow.title = scrambleTypeLabel(id)
     return true
   }
 
-  /** The row, and the way in — main.ts owns the container it sits in. */
-  return { widget: typeRow, open: openDialog, selectType }
+  /** The dialog's way in and silent session-sync hook. */
+  return { open: openDialog, selectType }
 }

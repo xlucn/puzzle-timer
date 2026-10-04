@@ -73,7 +73,7 @@ src/
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
 │   ├── scrambleTypeButton.ts  header: one flat button, label ellipsizes (J)
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors — UNHOOKED 2026-10-04
-│   ├── scrambleTypePicker.ts  Adw.ButtonRow → Adw.Dialog chooser (both layouts)
+│   ├── scrambleTypePicker.ts  shared Adw.Dialog chooser (opened by one button)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
@@ -641,10 +641,12 @@ Decisions worth carrying forward:
   allocation"). It is also what made the app look frozen: four shrinking
   passes in a row trip GDK's `layout continuously requested, giving up after
   4 tries`, and the frame that never comes looks like a hung UI.
-- **A just-appeared widget reports 0.** The selector row is reparented into
-  existence at ≤800 and has no allocation when `updateNudge` measures it —
-  reading `getSize()` put the region 34px high and produced one frame of
-  overflow per descent; take the row *natural* when it is 0.
+- **A just-revealed bottom bar may report 0.** Since 2026-10-04 the selector
+  lives in `Adw.ToolbarView`'s bottom-bar slot. On the frame it is revealed,
+  `getBottomBarHeight()` can still be 0; `updateNudge` therefore floors that
+  animated height at the selector bar's natural height. During a hide, it uses
+  the actual animated height down to 0. This is the ToolbarView equivalent of
+  the old “just-reparented ListBox row reports 0” workaround above.
 
 Evidence:
 
@@ -762,13 +764,19 @@ Evidence:
   never needed and is now moot. Watch the key names: gdk_keyval names are
   case-sensitive (`space`, not `Space`), or the chip renders empty (checked
   with `Gtk.acceleratorParse`: all 18 entries parse).
-- **Narrow selector: one row at the bottom (user calls, 2026-10-03)** — below
-  ~600 the header's type control gives way to an **`Adw.ButtonRow`** reading
-  `Category - type`, pinned to the **bottom of the main area** (it used to sit
-  under the header). **From 2026-10-04 both open the same `Adw.Dialog`**: the
-  header holds one button (`scrambleTypeButton.ts`) rather than two
-  dropdowns, so there is one list, one search and one `onChange` path for
-  every layout. The dialog has the current
+- **Narrow selector: ToolbarView bottom bar (user call, 2026-10-04)** — below
+  600 the header's ellipsizing type button moves into `Adw.ToolbarView`'s
+  **bottom toolbar**, full-width with the chevron at the right. `ToolbarView`
+  owns the page structure: header in its top-bar slot, scramble/timer in its
+  content slot, and a `.toolbar` `Gtk.Box` in its bottom-bar slot. The same
+  button widget is reparented between the top and bottom bars; it expands only
+  in the bottom bar, so the header's window controls are unaffected.
+  `ToolbarView` supplies native flat-bar styling; its animated bottom-bar
+  height is what `updateNudge` subtracts from the timer region and adds to the
+  diagram's bottom clearance. The button itself owns activation, so the old
+  `Gtk.ListBox` row-activated/key-controller workaround is gone. Both layouts
+  still open the same `Adw.Dialog`: one list, one search and one `onChange`
+  path for every layout. The dialog has the current
   category's types in a boxed list (✓ on the live one), an **up** button that
   swaps in all 44 categories — landing on *the category you came from*, not
   on WCA (it used to select the first every time; fixed) — and a search entry
@@ -792,17 +800,16 @@ Evidence:
   justified it (the two dropdowns wanting ~282px) died with them. Height
   stays 360, so the floor is square, and the width now equals libadwaita's
   own `AdwWindow` default (360×200) — `minHeight` still performs the
-  override the breakpoint docs ask for. Measured on the new floor:
-  **360×360 → `[layout] 350x350 (win 350): drawer, selectors in their own
-  row, timer s`**, all seven header glyphs present, **0 warnings**; phone
-  shape **360×640 → `350x630`** (height clears `shortMax`, so the scramble
-  slot keeps its 160), timer at y277–386 and the diagram at y419–564 —
-  clear of each other and of the bottom row — with the chooser's sheet
-  growing to eight visible rows; and with the longest label in the
-  catalogue (`FTO (Face-Turning Octahedron) - Diamond random state`) the
-  ButtonRow ellipsizes to `… - D…` **and the window still reaches 350
-  wide**, i.e. the label never raises the floor. The `390x350` above is
-  the old floor's number, kept for what it proved.
+  override the breakpoint docs ask for. The original floor measurements were
+  with the `Adw.ButtonRow`; since 2026-10-04 it is the shared `Gtk.Button` in
+  `ToolbarView`'s bottom bar. Reverified: **360×360 → `350x350 (win 350)`,
+  drawer, selectors in their own row, timer s, WM minimum 360×360, no app
+  warnings**; phone shape **360×640 → `350x630`**, full-width toolbar button
+  at the bottom, timer and picture clear of the bar. At square 360×360 the
+  fixed 150px diagram still overlaps the timer — the existing nudge clamp
+  cannot create enough vertical room there; this is the short-window overlay
+  limit, not a ToolbarView bar overlap. The `390x350` above is the old floor's
+  number, kept for what it proved.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
   `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost

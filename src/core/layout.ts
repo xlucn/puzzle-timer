@@ -72,11 +72,11 @@ export const BREAKPOINTS = {
    * override when breakpoints are in use ("the minimum size must be larger
    * than the smallest UI state"), which is what `minHeight` still does.
    *
-   * What used to hold this number up is gone: the selector row was two
-   * Gtk.DropDowns wanting ~282px between them, and is now one ButtonRow whose
-   * title ellipsizes (user-verified), while at ≤600 the header carries no
-   * labels at all. The floor is therefore the header's fixed chrome and the
-   * tier-S timer, both comfortably inside 350 (measured — see PLAN §7).
+   * What used to hold this number up is gone: the selector was two
+   * Gtk.DropDowns wanting ~282px between them, and is now one ellipsizing
+   * button that moves into ToolbarView's bottom bar at ≤600. The floor is
+   * therefore the ToolbarView bars plus the tier-S content, which fit inside
+   * 350 (measured — see PLAN §7).
    */
   minWidth: 360,
   minHeight: 360,

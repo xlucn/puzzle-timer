@@ -110,11 +110,10 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - Type chooser (same keyboard-only rule): **both layouts open the same
   dialog** (2026-10-04). Above 600 the control is one button in the header,
   after the sidebar toggle — walk `Tab` until the focus ring is on it (focus
-  is sticky, so there is no fixed stop count) and press `Return`. In row mode
-  the selector is one `Adw.ButtonRow` **at the bottom of the main area** —
-  walk `Shift+Tab`
-  until the focus ring is on it (≈5 stops with the drawer closed) and press
-  `Return`. Inside the dialog `Shift+Tab` cycles list → search entry → up
+  is sticky, so there is no fixed stop count) and press `Return`. In narrow
+  mode that same button moves into `Adw.ToolbarView`'s **bottom toolbar** —
+  walk `Tab` until its focus ring is on it and press `Return`. Inside the
+  dialog `Shift+Tab` cycles list → search entry → up
   button; arrows and `Return` pick (bound by the dialog, not by GTK — see
   PLAN §7); `Escape` clears the query first and closes second.
 - **If a run looks frozen or the frames look wrong, restart the app and

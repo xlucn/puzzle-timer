@@ -3,9 +3,8 @@
  *
  * One button, one label, one dialog (user call, 2026-10-04). This replaces the
  * two Gtk.DropDowns of scrambleTypeSelect.ts — category and type in one line
- * reading `Category - type`, which is the same string the narrow layout's
- * Adw.ButtonRow shows (src/ui/scrambleTypePicker.ts), so the header and the
- * bottom row are two views of one decision.
+ * reading `Category - type`, so the header and bottom toolbar are two
+ * placements of the same control and the same decision.
  *
  * The label **ellipsizes and is never capped**: `Pango.EllipsizeMode.END` with
  * no `maxWidthChars`. That distinction is the whole reason this widget exists
@@ -59,6 +58,7 @@ export function createScrambleTypeButton(options: ScrambleTypeButtonOptions) {
     label: scrambleTypeLabel(currentId),
     ellipsize: Pango.EllipsizeMode.END,
     xalign: 0,
+    hexpand: true,
   })
   const chevron = new Gtk.Image({ iconName: 'pan-down-symbolic' })
 
