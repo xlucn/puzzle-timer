@@ -7,22 +7,28 @@
  * ≤600px. The button is reparented rather than duplicated, so one label, one
  * dialog and one `onChange` path cover every layout.
  *
- * Before that, the wide window carried its own two Gtk.DropDowns
- * (scrambleTypeSelect.ts, now unhooked): the button + row pair below ≤600 was
- * introduced 2026-10-03 precisely because two dropdowns at the 360px floor
- * leave neither of them readable. One ellipsised line is the whole selection
- * surface, and the choosing happens where there is room for it.
+ * The dialog is an `Adw.NavigationSplitView` used the way the widget is meant
+ * to be used:
  *
- * The dialog opens with the shape asked for:
+ *   - Two `Adw.NavigationPage`s — "Category" sidebar, types content — each
+ *     with its own `Adw.ToolbarView` + `Adw.HeaderBar`. The split view shows
+ *     the page titles, and when collapsed it shows its own back button on the
+ *     content page. No custom up button, no manual title chrome.
+ *   - Collapse is an `Adw.Breakpoint` (`max-width: 600px`) on the dialog,
+ *     applied to `collapsed` through the breakpoint's apply/unapply signals
+ *     (node-gtk can't box the GValue `addSetter` needs — AGENTS.md). The
+ *     dialog follows its own content size, so it is naturally narrow (one
+ *     column) until the content makes it wider than 600px.
+ *   - Both lists are populated once and the type list is filtered in place
+ *     (`Gtk.ListBox.setFilterFunc`), never rebuilt. Selecting a category
+ *     updates the type filter and, collapsed, pushes to the content page;
+ *     the split view's back button pops it. There is no separate "narrow
+ *     render" path.
  *
- *   types      what opens — the current category's types (✓ on the live one),
- *              because that is the list you are most likely to pick from;
- *   categories the up button swaps the same list for the categories, and
- *              picking one drills back into its types.
- *
- * Search covers all 206 types: while it has text it overrides both levels and
- * lists matches from *every* category, labelled `scrambleTypeLabel()` so a hit
- * says where it lives — "PLL" on its own would be ambiguous, there are two.
+ * A type row shows just the type name (`ScrambleChoice.label`): the category
+ * is the selected row on the left and the content page's title, so repeating
+ * it on every row would be noise. (Search was dropped 2026-10-05 — it was
+ * the messy part; the two-level browse covers the catalogue.)
  *
  * This module owns no presentation widget: it provides `{ open, selectType }`
  * for the shared button to call. `selectType` is silent and idempotent, so a
@@ -33,10 +39,10 @@
  * Shortcuts) — an AdwDialog is gone when it closes.
  */
 import Adw from 'gi:Adw-1'
-import Gdk from 'gi:Gdk-4.0'
 import Gtk from 'gi:Gtk-4.0'
 
-import { SCRAMBLE_GROUPS, SCRAMBLE_TYPES, scrambleTypeLabel } from '../core/scrambleTypes.js'
+import { BREAKPOINTS } from '../core/layout.js'
+import { SCRAMBLE_GROUPS, SCRAMBLE_TYPES } from '../core/scrambleTypes.js'
 
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
@@ -45,8 +51,6 @@ import { SCRAMBLE_GROUPS, SCRAMBLE_TYPES, scrambleTypeLabel } from '../core/scra
  */
 type Window = InstanceType<typeof Adw.ApplicationWindow>
 type ActionRow = InstanceType<typeof Adw.ActionRow>
-// The shims export a *value* namespace (AGENTS.md), so even the row type the
-// .d.ts mentions has to come through InstanceType.
 type ListBoxRow = InstanceType<typeof Gtk.ListBoxRow>
 
 export interface ScrambleTypePickerOptions {
@@ -58,12 +62,6 @@ export interface ScrambleTypePickerOptions {
   window: Window
 }
 
-/** Which list the dialog is showing; search overrides both. */
-type Level = 'types' | 'categories'
-
-/** What a row will do when activated. */
-type Payload = { kind: 'type'; id: string } | { kind: 'group'; index: number }
-
 export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
   const groups = SCRAMBLE_GROUPS
   /** The group a level of types is *browsing* (may differ from the live one). */
@@ -73,254 +71,192 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
   let currentId = options.initialType
 
   const openDialog = (): void => {
-    let level: Level = 'types'
-    let browse = Math.max(0, groupIndex(currentId))
-
-    const dialog = new Adw.Dialog({ title: 'Scramble type' })
-
-    const title = new Adw.WindowTitle({ title: 'Scramble type', subtitle: '' })
-    const headerBar = new Adw.HeaderBar({ titleWidget: title })
-    // The up button: A header bar inside a dialog draws the close button and
-    // the title for us (AdwDialog docs), so this is the only chrome added.
-    const up = new Gtk.Button({
-      iconName: 'pan-up-symbolic',
-      tooltipText: 'All categories',
+    const dialog = new Adw.Dialog({
+      title: 'Scramble type',
+      // A default size, not a managed one: the dialog clamps itself to the
+      // parent window, and the 600px breakpoint collapses the split whenever
+      // the allocated width is too narrow. No surface listener, no manual
+      // contentWidth chasing — the dialog uses the space available to it.
+      contentWidth: 720,
+      contentHeight: 480,
+      // A dialog with a breakpoint has no implicit minimum size (AdwDialog
+      // docs); give it one so the one-column sheet never collapses to nothing.
+      widthRequest: 300,
+      heightRequest: 240,
     })
-    headerBar.packStart(up)
 
-    const search = new Gtk.SearchEntry({
-      hexpand: true,
-      placeholderText: 'Search all 206 types',
+    // --- Categories (sidebar) ------------------------------------------------
+    const categoryList = new Gtk.ListBox({
+      selectionMode: Gtk.SelectionMode.SINGLE,
+      activateOnSingleClick: true,
+      cssClasses: ['navigation-sidebar'],
     })
-    const searchBar = new Gtk.Box({
-      orientation: Gtk.Orientation.HORIZONTAL,
-      marginStart: 12,
-      marginEnd: 12,
-      marginTop: 6,
+    // Map a category row to its group index; rows are built once, below.
+    const categoryGroup = new Map<ListBoxRow, number>()
+    groups.forEach((group, index) => {
+      const row = new Adw.ActionRow({ title: group.name, activatable: true, useMarkup: false })
+      row.addSuffix(new Gtk.Image({ iconName: 'go-next-symbolic', valign: Gtk.Align.CENTER }))
+      categoryGroup.set(row, index)
+      categoryList.append(row)
     })
-    searchBar.append(search)
 
-    const list = new Gtk.ListBox({
-      // SINGLE, not NONE: arrow keys need a selection to move, and Return
-      // activates the selected row — the whole dialog is keyboard-drivable
-      // that way (AGENTS: never aim a mouse at it).
+    // --- Types (content) -----------------------------------------------------
+    const typeList = new Gtk.ListBox({
       selectionMode: Gtk.SelectionMode.SINGLE,
       activateOnSingleClick: true,
       cssClasses: ['boxed-list'],
+      // The card frame floats inside the content pane: boxed-list draws it,
+      // and these margins give it breathing room on every side. Without them
+      // the list stretches edge-to-edge and the frame is invisible.
+      marginTop: 12,
+      marginBottom: 12,
       marginStart: 12,
       marginEnd: 12,
-      marginBottom: 12,
     })
-    const scroller = new Gtk.ScrolledWindow({
-      child: list,
+    const typeId = new Map<ListBoxRow, string>()
+    const typeRows: ActionRow[] = []
+    /** The ✓ suffix lives on the live type's row; moved by markCurrent. */
+    const currentCheck = new Gtk.Image({
+      iconName: 'object-select-symbolic',
+      valign: Gtk.Align.CENTER,
+    })
+    let currentRow: ActionRow | null = null
+    const markCurrent = (id: string): void => {
+      if (currentRow !== null) currentRow.remove(currentCheck)
+      const row = typeRows.find((r) => typeId.get(r) === id) ?? null
+      if (row !== null) row.addSuffix(currentCheck)
+      currentRow = row
+    }
+    for (const type of SCRAMBLE_TYPES) {
+      const row = new Adw.ActionRow({
+        // Just the type name: the category is the selected row on the left
+        // and the content page's title, so prefixing it here is redundant.
+        title: type.name,
+        activatable: true,
+        useMarkup: false,
+      })
+      typeId.set(row, type.id)
+      typeRows.push(row)
+      typeList.append(row)
+    }
+    markCurrent(currentId)
+
+    // --- Pages / split view --------------------------------------------------
+    const SCROLLER_MIN_HEIGHT = 180
+    const categoryScroller = new Gtk.ScrolledWindow({
+      child: categoryList,
+      hexpand: true,
       vexpand: true,
       hscrollbarPolicy: Gtk.PolicyType.NEVER,
-      // The dialog sizes itself to its content (AdwDialog:followsContentSize),
-      // and a scrolled window's *natural* height is nothing — with no floor
-      // the sheet sizes to exactly one row (measured: 20 types, one visible).
-      // Floor it to the height the window can spare — header and search take
-      // about 106 of it — and let the list scroll past that.
-      minContentHeight: Math.max(180, options.window.getSize(Gtk.Orientation.VERTICAL) - 140),
+      minContentWidth: 180,
+      minContentHeight: SCROLLER_MIN_HEIGHT,
+      // No 'view' class here: the navigation-sidebar rows are flat and meant
+      // to sit on the split view's muted .sidebar-pane background. An opaque
+      // .view scroller would cover that and make the rail read as a plain box.
+    })
+    const typeScroller = new Gtk.ScrolledWindow({
+      child: typeList,
+      hexpand: true,
+      vexpand: true,
+      hscrollbarPolicy: Gtk.PolicyType.NEVER,
+      minContentWidth: 180,
+      minContentHeight: SCROLLER_MIN_HEIGHT,
+      // No 'view' class: the boxed-list card supplies its own background, and
+      // an opaque .view slab behind it would hide the card's rounded frame.
     })
 
-    const toolbar = new Adw.ToolbarView()
-    toolbar.addTopBar(headerBar)
-    toolbar.addTopBar(searchBar)
-    toolbar.content = scroller
-    dialog.child = toolbar
+    const sidebarHeader = new Adw.HeaderBar({
+      showBackButton: false,
+      showStartTitleButtons: false,
+      showEndTitleButtons: false,
+    })
+    const sidebarToolbar = new Adw.ToolbarView()
+    sidebarToolbar.addTopBar(sidebarHeader)
+    sidebarToolbar.content = categoryScroller
 
-    /** Row → what it does; dropped wholesale on every re-render. */
-    const payloads = new Map<ListBoxRow, Payload>()
-    /** The rows currently in the list, in order — navigation needs indexes. */
-    let currentRows: ListBoxRow[] = []
+    const contentHeader = new Adw.HeaderBar()
+    const contentToolbar = new Adw.ToolbarView()
+    contentToolbar.addTopBar(contentHeader)
+    contentToolbar.content = typeScroller
 
-    const addRow = (title_: string, payload: Payload, extra?: 'current' | 'drill'): ActionRow => {
-      // useMarkup: false — a type name may contain `<` and `>` (measured:
-      // "3x3x3 Roux - LSE <M, U>" made AdwActionRow try to parse it as Pango
-      // markup and log a Gtk-WARNING for the parse error). Titles here are
-      // always plain text; nothing in this dialog is meant to be markup.
-      const row = new Adw.ActionRow({ title: title_, activatable: true, useMarkup: false })
-      if (extra === 'current') {
-        row.addSuffix(new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER }))
-      } else if (extra === 'drill') {
-        row.addSuffix(new Gtk.Image({ iconName: 'go-next-symbolic', valign: Gtk.Align.CENTER }))
-      }
-      payloads.set(row, payload)
-      list.append(row)
-      currentRows.push(row)
-      return row
+    const categoryPage = new Adw.NavigationPage({ title: 'Category', child: sidebarToolbar })
+    const typePage = new Adw.NavigationPage({ title: 'Scramble type', child: contentToolbar })
+    const split = new Adw.NavigationSplitView({
+      sidebar: categoryPage,
+      content: typePage,
+      sidebarPosition: Gtk.PackType.START,
+      sidebarWidthFraction: 0.4,
+      minSidebarWidth: 220,
+      maxSidebarWidth: 320,
+      sidebarWidthUnit: Adw.LengthUnit.PX,
+      showContent: true,
+      hexpand: true,
+      vexpand: true,
+    })
+
+    const collapseBreakpoint = Adw.Breakpoint.new(
+      Adw.BreakpointCondition.newLength(
+        Adw.BreakpointConditionLengthType.MAX_WIDTH,
+        BREAKPOINTS.selectorRowMax,
+        Adw.LengthUnit.PX,
+      ),
+    )
+    collapseBreakpoint.on('apply', () => { split.collapsed = true })
+    collapseBreakpoint.on('unapply', () => { split.collapsed = false })
+    dialog.addBreakpoint(collapseBreakpoint)
+    dialog.child = split
+
+    // --- State + filtering ---------------------------------------------------
+    /** Browsed category. */
+    let browse = Math.max(0, groupIndex(currentId))
+
+    /** Show only the browsed category's types; title the page after it. */
+    const applyTypeFilter = (): void => {
+      typeList.setFilterFunc((row) => {
+        const id = typeId.get(row)
+        return id === undefined ? true : groupIndex(id) === browse
+      })
+      typePage.title = groups[browse].name
     }
 
-    const clearRows = (): void => {
-      payloads.clear()
-      currentRows = []
-      let row = list.getRowAtIndex(0)
-      while (row !== null) {
-        list.remove(row)
-        row = list.getRowAtIndex(0)
-      }
-    }
-
-    /** One list, three shapes — see the header comment. */
-    const render = (): void => {
-      clearRows()
-      const query = search.text.trim().toLowerCase()
-      /** The row to preselect: the live type, the browsed category, else the first. */
-      let first: ActionRow | null = null
-      let live: ActionRow | null = null
-      const remember = (row: ActionRow, isCurrent: boolean): void => {
-        first ??= row
-        if (isCurrent) live = row
-      }
-
-      if (query.length > 0) {
-        title.title = 'Search results'
-        title.subtitle = 'Scramble type'
-        up.visible = false
-        for (const type of SCRAMBLE_TYPES) {
-          const full = scrambleTypeLabel(type.id)
-          if (!full.toLowerCase().includes(query)) continue
-          const isCurrent = type.id === currentId
-          remember(addRow(full, { kind: 'type', id: type.id }, isCurrent ? 'current' : undefined), isCurrent)
-        }
-        if (first === null) addRow('No matches', { kind: 'group', index: -1 })
-      } else if (level === 'categories') {
-        title.title = 'Scramble type'
-        title.subtitle = 'All categories'
-        up.visible = false
-        // Land on the category the types came from, not on the first one
-        // (user call, 2026-10-03): pressing Up from "3x3x3 CFOP" should put
-        // you back in front of 3x3x3 CFOP — otherwise the list starts at
-        // "WCA" every time and the arrow keys have to walk back. No ✓ here:
-        // that mark means "the live type", and this is only where you are
-        // browsing; the chevron already says this row drills in.
-        groups.forEach((group, index) =>
-          remember(addRow(group.name, { kind: 'group', index }, 'drill'), index === browse),
-        )
-      } else {
-        const group = groups[browse]
-        title.title = group.name
-        title.subtitle = 'Scramble type'
-        up.visible = true
-        for (const choice of group.choices) {
-          const isCurrent = choice.id === currentId
-          remember(addRow(choice.label, { kind: 'type', id: choice.id }, isCurrent ? 'current' : undefined), isCurrent)
-        }
-      }
-
-      list.unselectAll()
-      // Focus starts on a row, not on the up button or the search entry: the
-      // dialog's whole point is picking one, so Return should be one arrow
-      // press away from doing that.
-      const target = live ?? first
-      if (target !== null) list.selectRow(target)
-    }
-
-    /** One row doing its job: drill in, or take the type and close. */
-    const activate = (payload: Payload | undefined): void => {
-      if (payload === undefined) return
-      if (payload.kind === 'group') {
-        if (payload.index < 0) return // the "No matches" placeholder
-        browse = payload.index
-        level = 'types'
-        search.text = '' // a category choice ends the search it did not start
-        render()
-        // The rows under the old level are gone with their focus: put it back
-        // on the list, or Down/Return has nothing to move or activate.
-        list.grabFocus()
-        return
-      }
-      const changed = payload.id !== currentId
-      currentId = payload.id
-      // The dialog's own pick, announced once: main.ts moves the button and
-      // the feed with it (selectType here would be a no-op — currentId is
-      // already this — so nothing echoes).
-      if (changed) options.onChange(payload.id)
+    // --- Activation ----------------------------------------------------------
+    const activateType = (row: ListBoxRow | null): void => {
+      const id = row === null ? undefined : typeId.get(row)
+      if (id === undefined) return
+      const changed = id !== currentId
+      currentId = id
+      markCurrent(id)
+      if (changed) options.onChange(id)
       dialog.close()
     }
+    const showCategory = (row: ListBoxRow | null): void => {
+      const index = row === null ? undefined : categoryGroup.get(row)
+      if (index === undefined) return
+      browse = index
+      applyTypeFilter()
+      // Collapsed: push to the content page. Expanded: both panes already show.
+      split.showContent = true
+      typeList.grabFocus()
+    }
 
-    // Bound here rather than left to the widget: GTK4's GtkListBox moves
-    // nothing and activates nothing on its own in this dialog (measured: Down
-    // and Return both reach this controller and no row-activated ever
-    // follows), so the dialog's "pick one" is the binding below — and Return
-    // without a selection takes the first row.
-    const keys = new Gtk.EventControllerKey()
-    list.addController(keys)
-    keys.on('key-pressed', (keyval) => {
-      const at = (): number => {
-        const row = list.getSelectedRow()
-        return row === null ? -1 : currentRows.indexOf(row)
-      }
-      const selectAt = (index: number): void => {
-        if (currentRows.length === 0) return
-        const clamped = Math.max(0, Math.min(index, currentRows.length - 1))
-        list.selectRow(currentRows[clamped])
-      }
-      if (keyval === Gdk.KEY_Down) {
-        selectAt(at() + 1)
-        return true
-      }
-      if (keyval === Gdk.KEY_Up) {
-        selectAt(at() <= 0 ? 0 : at() - 1)
-        return true
-      }
-      if (keyval === Gdk.KEY_End) {
-        selectAt(currentRows.length - 1)
-        return true
-      }
-      if (keyval === Gdk.KEY_Home) {
-        selectAt(0)
-        return true
-      }
-      if (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter || keyval === Gdk.KEY_space) {
-        const row = list.getSelectedRow() ?? currentRows[0]
-        if (row !== undefined && row !== null) activate(payloads.get(row))
-        return true
-      }
-      return false
+    typeList.on('row-activated', activateType)
+    categoryList.on('row-activated', showCategory)
+    // Browsing categories in the expanded view updates the right pane live.
+    categoryList.on('row-selected', (row) => {
+      if (split.collapsed) return
+      const index = row === null ? undefined : categoryGroup.get(row)
+      if (index === undefined) return
+      browse = index
+      applyTypeFilter()
     })
 
-    // node-gtk signal handlers get the signal's *parameters* only — the
-    // emitter is not passed (AGENTS: look the overload up in the .d.ts
-    // rather than guessing), so this one arrives as just the row.
-    list.on('row-activated', (row) => {
-      activate(payloads.get(row))
-    })
-
-    up.on('clicked', () => {
-      level = 'categories'
-      render()
-      // Hiding the focused up button hands focus to the sheet's background
-      // (measured: AdwGizmo), which leaves the keyboard with nowhere to go —
-      // the list is the thing the user is navigating, so it takes it back.
-      list.grabFocus()
-    })
-    search.on('search-changed', render)
-
-    // Escape, in capture phase so it wins over whatever has focus: a plain
-    // AdwDialog does *not* close on Escape (only specialised ones such as
-    // AdwShortcutsDialog do — measured: three Escapes with the search entry
-    // focused left this dialog up), which would strand a keyboard user with
-    // no way out. First Escape clears the query, second closes — the search
-    // entry's own convention.
-    const escapeKeys = new Gtk.EventControllerKey({
-      propagationPhase: Gtk.PropagationPhase.CAPTURE,
-    })
-    dialog.addController(escapeKeys)
-    escapeKeys.on('key-pressed', (keyval) => {
-      if (keyval !== Gdk.KEY_Escape) return false
-      if (search.text.length > 0) {
-        search.text = ''
-        return true
-      }
-      dialog.close()
-      return true
-    })
-
-    render()
-    // Keyboard first: arrows + Return pick (bound in the key controller above),
-    // Escape out (capture controller above).
-    dialog.focusWidget = list
+    applyTypeFilter()
+    // Preselect the browsed category and the live type.
+    const browsedRow =
+      Array.from(categoryGroup.entries()).find(([, i]) => i === browse)?.[0] ?? null
+    if (browsedRow !== undefined) categoryList.selectRow(browsedRow)
+    if (currentRow !== null) typeList.selectRow(currentRow)
+    dialog.focusWidget = split.collapsed ? typeList : categoryList
     dialog.present(options.window)
   }
 

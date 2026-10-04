@@ -775,23 +775,36 @@ Evidence:
   height is what `updateNudge` subtracts from the timer region and adds to the
   diagram's bottom clearance. The button itself owns activation, so the old
   `Gtk.ListBox` row-activated/key-controller workaround is gone. Both layouts
-  still open the same `Adw.Dialog`: one list, one search and one `onChange`
-  path for every layout. The dialog has the current
-  category's types in a boxed list (✓ on the live one), an **up** button that
-  swaps in all 44 categories — landing on *the category you came from*, not
-  on WCA (it used to select the first every time; fixed) — and a search entry
-  over all 206 types, labelled `Category - type` because "PLL" exists twice.
-  What the measurements forced: a plain `AdwDialog` does **not** close on
-  Escape (three Escapes with the search entry focused left it up), so Escape
-  is bound in capture phase — first clears the query, second closes; GTK4's
-  `GtkListBox` activates and moves **nothing** from the keyboard (Down and
-  Return reach the controller, no `row-activated` ever follows), so arrows and
-  Return are bound explicitly; `AdwActionRow` titles are parsed as *markup*,
-  so `useMarkup: false` (else `3x3x3 Roux - LSE <M, U>` logs a parse
-  warning). Layout consequences: the row's slot is subtracted from the timer's
-  region in `updateNudge`, and the diagram — anchored to the same bottom edge
-  — is lifted by exactly that slot, or the picture would be drawn over the
-  row. Also: the first frame now takes its tier from the *asked-for* size
+  open the same `Adw.Dialog`, whose body is an **`Adw.NavigationSplitView`**
+  used natively (user call, 2026-10-05). Each `Adw.NavigationPage` carries its
+  own `Adw.ToolbarView` + `Adw.HeaderBar`, so the split view itself provides
+  the page titles and — collapsed — the back button (a real `AdwBackButton`,
+  confirmed in the widget tree). Collapse is an **`Adw.Breakpoint`**
+  (`max-width: 600px`) applied to `collapsed` via the breakpoint's
+  apply/unapply signals (node-gtk can't box the GValue `addSetter` needs). The
+  dialog is given only a default `contentWidth`/`contentHeight` (720×480) and
+  clamps itself to the parent window — there is no parent-surface listener and
+  no manual `contentWidth` chasing, so the switch follows the dialog's
+  allocated width. (A breakpoint-bearing dialog also needs an explicit
+  `width-request`/`height-request` minimum — AdwDialog docs — or it logs
+  "does not have a minimum size" warnings.) The category list is built once;
+  the type list is filtered in place to the browsed category with
+  `Gtk.ListBox.setFilterFunc` — never rebuilt. Selecting a category updates
+  the type filter and, collapsed, pushes to the content page
+  (`showContent = true`); the split view's back button pops it. The active
+  type carries a ✓ suffix (`object-select-symbolic`). There is no search
+  entry (dropped 2026-10-05 — it was the messy part), and type rows show just
+  the type name: the category is the selected row on the left and the content
+  page's title, so prefixing it per-row was redundant. Navigation, selection
+  and activation are the widgets' own. (Lesson — see
+  AGENTS.md "Let adaptive widgets do their job": an earlier ~600-line version
+  hand-rolled the collapse, back button, titles and per-state list rebuilds
+  that this widget provides; the native rewrite is ~300 lines.)
+  `AdwActionRow` titles are parsed as *markup*, so `useMarkup: false` (else
+  `3x3x3 Roux - LSE <M, U>` logs a parse warning). Layout consequences: the
+  bottom bar's animated slot height is subtracted from the timer region and
+  added to the diagram clearance in `updateNudge`.
+  Also: the first frame now takes its tier from the *asked-for* size
   before `present()`, because with `lsll` selected the old order asked **928px
   in an 890px window** on frame one (0 warnings since).
 - **Window floor: 360 wide (user call, 2026-10-03)** — the GNOME HIG's

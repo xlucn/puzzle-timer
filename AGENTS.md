@@ -36,6 +36,21 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - UI layout must be **native GTK4/libadwaita**, not a copy of the csTimer
   webpage layout. Prefer `Adw.OverlaySplitView`, `Adw.Dialog`,
   `Adw.PreferencesDialog`, `Adw.ToastOverlay`, `Adw.StatusPage`.
+- **Let adaptive widgets do their job — don't reimplement them.** Before
+  writing manual layout/navigation code for an `Adw.*` adaptive widget, check
+  what it already does (the `.d.ts` class docs spell it out). The hard-won
+  lesson from `scrambleTypePicker.ts` (2026-10-05): putting an
+  `Adw.NavigationSplitView` in the tree is not the same as *using* it. The
+  native pattern is — `Adw.Breakpoint` drives `collapsed`; each
+  `Adw.NavigationPage` carries its own `Adw.ToolbarView` + `Adw.HeaderBar` so
+  the split view supplies titles and the collapsed back button itself; lists
+  are populated once and filtered in place with `Gtk.ListBox.setFilterFunc`,
+  never rebuilt per state; and a dialog is given a *default* `contentWidth`/
+  `contentHeight` and left to clamp to the parent, not resized off a
+  parent-surface `layout` listener. The manual version (custom up button,
+  manual titles, three render paths, a resize hook) was ~600 lines and still
+  looked wrong; the native one is ~300 and correct. If you find yourself
+  writing code the widget is documented to provide, stop and delete it.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**
@@ -113,9 +128,25 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   is sticky, so there is no fixed stop count) and press `Return`. In narrow
   mode that same button moves into `Adw.ToolbarView`'s **bottom toolbar** —
   walk `Tab` until its focus ring is on it and press `Return`. Inside the
-  dialog `Shift+Tab` cycles list → search entry → up
-  button; arrows and `Return` pick (bound by the dialog, not by GTK — see
-  PLAN §7); `Escape` clears the query first and closes second.
+  dialog is a plain `Adw.NavigationSplitView`: a "Category" sidebar page and a
+  types content page, each with its own `Adw.HeaderBar`. The category list is
+  built once; the type list is filtered in place to the browsed category
+  (`Gtk.ListBox.setFilterFunc`) — never rebuilt — and an `Adw.Breakpoint`
+  (`max-width: 600px` on the dialog, which clamps to the parent) drives
+  `collapsed`. When collapsed the content page's header shows the split view's
+  own back button to the category page; selecting a category pushes to its
+  types. Navigation, selection and activation are the widgets' own (no custom
+  key controllers). There is no search entry (dropped 2026-10-05); type rows
+  show just the type name. A dialog using a breakpoint needs an explicit
+  `width-request`/`height-request` minimum (AdwDialog docs) or it logs
+  "does not have a minimum size" warnings. CSS: the sidebar's `ListBox` gets
+  `navigation-sidebar` (flat rows + selection pill), but its `ScrolledWindow`
+  must **not** carry the `view` class — `.view` paints an opaque
+  `@view_bg_color` over the split view's muted `.sidebar-pane` background and
+  the rail reads as a plain white box (fixed 2026-10-05). Same on the content
+  side: the `boxed-list` `ListBox` draws its own card, so it gets 12px margins
+  on all four sides (the frame floats inside the pane) and its scroller drops
+  `view` too, else the opaque slab hides the card's rounded frame.
 - **If a run looks frozen or the frames look wrong, restart the app and
   redo the measurement** (user, 2026-10-02): `pkill -f 'main[.]ts'`, start
   it again, re-drive the step. A stale Xephyr session, a stale capture and a
