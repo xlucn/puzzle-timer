@@ -23,8 +23,18 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 3. **Only `src/ui/` touches `gi:*`** (Gtk, Adw, GLib, Gio, Rsvg, Gst).
 4. **Scramble generation never runs on the main thread.** A 4x4 WCA scramble
    takes ~1.2 s (measured) and would freeze the UI.
-5. **No custom `Gtk.Widget` subclassing** (`registerClass`) — node-gtk has
-   open segfault bugs there. Use stock widgets + CSS classes.
+5. **Custom widget subclassing: try it, probe it, fall back if it fails**
+   (user call, 2026-10-05 — replaces an earlier blanket ban). If
+   subclassing is the easy way, attempt it; verify with a *runtime* probe
+   before trusting it (typecheck proves nothing about GObject behavior); if
+   it segfaults or signal payloads come back as bare wrappers, drop it for
+   maps/closures and record the failure here. Plain JS wrapper extension
+   (`class MyRow extends Adw.ActionRow` — no `registerClass`, no new GType;
+   the native object stays stock) passed the full probe on 2026-10-05:
+   construction with native props, `instanceof`, signal round-trip identity
+   with a custom payload, 500-row churn, clean exit — `scrambleTypePicker.ts`
+   uses it. Registering a *new* GType (`registerClass`) is still unproven
+   here: probe first if ever needed.
 6. **No Cairo text rendering** — node-gtk's toy text API is broken (open bug).
    Use Pango / `Gtk.Label`.
 

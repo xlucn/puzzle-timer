@@ -14,12 +14,16 @@
  *     with its own `Adw.ToolbarView` + `Adw.HeaderBar`. The split view shows
  *     the page titles, and when collapsed it shows its own back button on the
  *     content page. No custom up button, no manual title chrome.
+ *   - The sidebar is an `Adw.Sidebar`: it owns the navigation-sidebar list
+ *     look, the selection pill, scrolling, and — flipped to
+ *     `Adw.SidebarMode.PAGE` by the same breakpoint — the boxed-lists page it
+ *     becomes when collapsed (the documented Adw.Sidebar pattern).
  *   - Collapse is an `Adw.Breakpoint` (`max-width: 600px`) on the dialog,
  *     applied to `collapsed` through the breakpoint's apply/unapply signals
  *     (node-gtk can't box the GValue `addSetter` needs — AGENTS.md). The
  *     dialog follows its own content size, so it is naturally narrow (one
  *     column) until the content makes it wider than 600px.
- *   - Both lists are populated once and the type list is filtered in place
+ *   - Both panes are populated once and the type list is filtered in place
  *     (`Gtk.ListBox.setFilterFunc`), never rebuilt. Selecting a category
  *     updates the type filter and, collapsed, pushes to the content page;
  *     the split view's back button pops it. There is no separate "narrow
@@ -50,8 +54,21 @@ import { SCRAMBLE_GROUPS, SCRAMBLE_TYPES } from '../core/scrambleTypes.js'
  * widgets, so the base types say enough.
  */
 type Window = InstanceType<typeof Adw.ApplicationWindow>
-type ActionRow = InstanceType<typeof Adw.ActionRow>
 type ListBoxRow = InstanceType<typeof Gtk.ListBoxRow>
+
+/**
+ * A type row carrying its own id — the easy way to keep the payload with the
+ * row instead of a side Map.
+ *
+ * This is plain JS wrapper extension, not `registerClass`: the native object
+ * stays a stock `AdwActionRow`, only the JS class is extended. Probed working
+ * on 2026-10-05 (construction, `instanceof`, signal round-trip identity,
+ * 500-row churn — see AGENTS.md invariant 5). If that probe ever fails, fall
+ * back to a `Map<ListBoxRow, string>`.
+ */
+class TypeRow extends Adw.ActionRow {
+  typeId?: string
+}
 
 export interface ScrambleTypePickerOptions {
   /** Type the button opens on; must be the feed's starting type. */
@@ -86,19 +103,16 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     })
 
     // --- Categories (sidebar) ------------------------------------------------
-    const categoryList = new Gtk.ListBox({
-      selectionMode: Gtk.SelectionMode.SINGLE,
-      activateOnSingleClick: true,
-      cssClasses: ['navigation-sidebar'],
-    })
-    // Map a category row to its group index; rows are built once, below.
-    const categoryGroup = new Map<ListBoxRow, number>()
-    groups.forEach((group, index) => {
-      const row = new Adw.ActionRow({ title: group.name, activatable: true, useMarkup: false })
-      row.addSuffix(new Gtk.Image({ iconName: 'go-next-symbolic', valign: Gtk.Align.CENTER }))
-      categoryGroup.set(row, index)
-      categoryList.append(row)
-    })
+    // Adw.Sidebar owns the whole look: sidebar mode is a navigation-sidebar
+    // list with a persistent selection pill, page mode a boxed-lists
+    // PreferencesPage — and it scrolls internally (probe: GtkScrolledWindow
+    // in both modes), so no scroller or CSS class of ours.
+    const sidebar = new Adw.Sidebar()
+    const categorySection = new Adw.SidebarSection()
+    groups.forEach((group) =>
+      categorySection.append(new Adw.SidebarItem({ title: group.name })),
+    )
+    sidebar.append(categorySection)
 
     // --- Types (content) -----------------------------------------------------
     const typeList = new Gtk.ListBox({
@@ -113,47 +127,28 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
       marginStart: 12,
       marginEnd: 12,
     })
-    const typeId = new Map<ListBoxRow, string>()
-    const typeRows: ActionRow[] = []
-    /** The ✓ suffix lives on the live type's row; moved by markCurrent. */
-    const currentCheck = new Gtk.Image({
-      iconName: 'object-select-symbolic',
-      valign: Gtk.Align.CENTER,
-    })
-    let currentRow: ActionRow | null = null
-    const markCurrent = (id: string): void => {
-      if (currentRow !== null) currentRow.remove(currentCheck)
-      const row = typeRows.find((r) => typeId.get(r) === id) ?? null
-      if (row !== null) row.addSuffix(currentCheck)
-      currentRow = row
-    }
+    // The dialog rebuilds fresh on every open and selectType() is silent, so
+    // the ✓ and the preselection only ever depend on `currentId` at build
+    // time — stamp them in the loop; no mark-and-move machinery.
+    let liveRow: TypeRow | null = null
     for (const type of SCRAMBLE_TYPES) {
-      const row = new Adw.ActionRow({
+      const row = new TypeRow({
         // Just the type name: the category is the selected row on the left
         // and the content page's title, so prefixing it here is redundant.
         title: type.name,
         activatable: true,
         useMarkup: false,
       })
-      typeId.set(row, type.id)
-      typeRows.push(row)
+      row.typeId = type.id
+      if (type.id === currentId) {
+        row.addSuffix(new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER }))
+        liveRow = row
+      }
       typeList.append(row)
     }
-    markCurrent(currentId)
 
     // --- Pages / split view --------------------------------------------------
     const SCROLLER_MIN_HEIGHT = 180
-    const categoryScroller = new Gtk.ScrolledWindow({
-      child: categoryList,
-      hexpand: true,
-      vexpand: true,
-      hscrollbarPolicy: Gtk.PolicyType.NEVER,
-      minContentWidth: 180,
-      minContentHeight: SCROLLER_MIN_HEIGHT,
-      // No 'view' class here: the navigation-sidebar rows are flat and meant
-      // to sit on the split view's muted .sidebar-pane background. An opaque
-      // .view scroller would cover that and make the rail read as a plain box.
-    })
     const typeScroller = new Gtk.ScrolledWindow({
       child: typeList,
       hexpand: true,
@@ -172,7 +167,7 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     })
     const sidebarToolbar = new Adw.ToolbarView()
     sidebarToolbar.addTopBar(sidebarHeader)
-    sidebarToolbar.content = categoryScroller
+    sidebarToolbar.content = sidebar
 
     const contentHeader = new Adw.HeaderBar()
     const contentToolbar = new Adw.ToolbarView()
@@ -201,8 +196,17 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
         Adw.LengthUnit.PX,
       ),
     )
-    collapseBreakpoint.on('apply', () => { split.collapsed = true })
-    collapseBreakpoint.on('unapply', () => { split.collapsed = false })
+    // apply/unapply, not addSetter: node-gtk can't box the GValue (AGENTS).
+    // mode flips with collapsed — the documented Adw.Sidebar pattern: the
+    // sidebar pane is a sidebar while expanded, a boxed-lists page collapsed.
+    collapseBreakpoint.on('apply', () => {
+      split.collapsed = true
+      sidebar.mode = Adw.SidebarMode.PAGE
+    })
+    collapseBreakpoint.on('unapply', () => {
+      split.collapsed = false
+      sidebar.mode = Adw.SidebarMode.SIDEBAR
+    })
     dialog.addBreakpoint(collapseBreakpoint)
     dialog.child = split
 
@@ -213,7 +217,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     /** Show only the browsed category's types; title the page after it. */
     const applyTypeFilter = (): void => {
       typeList.setFilterFunc((row) => {
-        const id = typeId.get(row)
+        // Row → TypeRow cast is safe: probe-verified wrapper identity (AGENTS
+        // invariant 5); a row without the payload (none exist) would show.
+        const id = (row as TypeRow).typeId
         return id === undefined ? true : groupIndex(id) === browse
       })
       typePage.title = groups[browse].name
@@ -221,44 +227,45 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
 
     // --- Activation ----------------------------------------------------------
     const activateType = (row: ListBoxRow | null): void => {
-      const id = row === null ? undefined : typeId.get(row)
+      const id = row === null ? undefined : (row as TypeRow).typeId
       if (id === undefined) return
       const changed = id !== currentId
       currentId = id
-      markCurrent(id)
+      // No ✓ to move here: the dialog closes on this line, and the next open
+      // rebuilds and stamps the mark from `currentId`.
       if (changed) options.onChange(id)
       dialog.close()
     }
-    const showCategory = (row: ListBoxRow | null): void => {
-      const index = row === null ? undefined : categoryGroup.get(row)
-      if (index === undefined) return
+
+    typeList.on('row-activated', activateType)
+    // Documented Adw.Sidebar pattern: activated → show the content pane.
+    sidebar.on('activated', (index) => {
+      if (index < 0) return
       browse = index
       applyTypeFilter()
       // Collapsed: push to the content page. Expanded: both panes already show.
       // No grabFocus() here: GTK reassigns focus when the sidebar hides, and a
       // programmatic grab paints a focus ring without any keyboard intent.
       split.showContent = true
-    }
-
-    typeList.on('row-activated', activateType)
-    categoryList.on('row-activated', showCategory)
-    // Browsing categories in the expanded view updates the right pane live.
-    categoryList.on('row-selected', (row) => {
+    })
+    // Arrow-browsing in the expanded view updates the right pane live (the
+    // old row-selected behavior); collapsed, selection is just a cursor on
+    // the root page — only activation commits a category.
+    sidebar.on('notify::selected', () => {
       if (split.collapsed) return
-      const index = row === null ? undefined : categoryGroup.get(row)
-      if (index === undefined) return
+      const index = sidebar.selected
+      if (index < 0) return
       browse = index
       applyTypeFilter()
     })
 
     applyTypeFilter()
-    // Preselect the browsed category and the live type. Focus is left to the
-    // dialog itself — no explicit focusWidget, so no focus ring is painted on
-    // open without keyboard intent.
-    const browsedRow =
-      Array.from(categoryGroup.entries()).find(([, i]) => i === browse)?.[0] ?? null
-    if (browsedRow !== undefined) categoryList.selectRow(browsedRow)
-    if (currentRow !== null) typeList.selectRow(currentRow)
+    // Preselect the browsed category and the live type. Sidebar items are
+    // appended in group order, so the group index is the item index. Focus is
+    // left to the dialog itself — no explicit focusWidget, so no focus ring is
+    // painted on open without keyboard intent.
+    sidebar.selected = browse
+    if (liveRow !== null) typeList.selectRow(liveRow)
     dialog.present(options.window)
   }
 
