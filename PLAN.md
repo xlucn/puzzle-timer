@@ -639,15 +639,49 @@ decisions at the end of this block.
     `~/.local/share/cstimer-gtk`. Renaming the app must not silently repoint
     that at an empty directory: either leave it alone, or add a one-time
     migration that renames the old directory when the new one is absent.
-- **Icon.** There is no artwork at all today — no SVG/PNG, no `.desktop`, no
-  AppStream metainfo — and the About dialog already asks for
-  `applicationIcon: APP_ID`, which resolves to nothing, so the About page
-  shows the generic icon right now (drop the property until an icon exists,
-  or point it at the chosen icon name). Deliverables once decided: a
-  scalable SVG, `Gtk.IconTheme.add_search_path()` into the repo (a source
-  checkout has no install prefix to drop hicolor icons into), a `.desktop`
-  file with `Icon=`, and the icon name in `main.ts`. AppStream
-  `metainfo.xml` belongs to packaging, which stays out of scope.
+- **Icon.** *(Direction decided 2026-10-05; artwork not yet in the repo — it
+  still needs the plumbing listed at the end.)*
+  - **Metaphor: a 3×3 cube, alone — no timer element.** The name carries
+    "Timer" (the HIG wants one simple metaphor), and anything overlapping the
+    cube breaks the silhouette at 32 px.
+  - **State: PLL Ga**, yellow on top, green front, orange right — *computed,
+    not drawn*: a generator rotates stickers in 3D from solved, so the picture
+    cannot disagree with the algebra. Verified by move order-4 self-tests, an
+    "only the U layer moved" integrity check, a corner 2-cycle + edge 4-cycle
+    with matching parity (the G-perm structure), the Ga/Gc recognition
+    signature (headlights with an **adjacent** colour between them, not
+    opposite), and two independent published Ga algs whose inverses yield the
+    same state. A third listed alternative disagrees even after a whole-cube
+    rotation — recorded as an unresolved source question, not folded into the
+    render.
+  - **Projection: 25° elevation, not true isometric (35.264°).** A lower
+    camera shrinks the flat top and grows F and R: yellow drops from 17.3 %
+    of the icon to 13.6 %, and the silhouette gets squarer (376×400 of 512,
+    against 346×400). Scale is fitted to the projected bounding box rather
+    than hard-coded, so the visual weight holds at any angle — and the
+    default still reproduces the isometric render exactly (checked by pixel
+    sample, not by eye).
+  - **Shading and finish** (HIG: top lighter, front darker): U 1.0 / F 0.93
+    / R 0.86, flat colours on flat surfaces, no gradients, no shadows outside
+    the silhouette, ~2 px sticker gaps on HIG's 2 px grid.
+  - **32 px finding:** the silhouette still reads as a cube, but the permuted
+    top band smears — the Ga detail is a 64/128 px feature. Accept that, or
+    have the symbolic variant carry the message.
+  - **Still open:** baseline alignment against HIG `template.svg`, the
+    **symbolic variant** the HIG requires, and the icon name.
+  - **Generator:** the state and the SVG come from one rerunnable script,
+    `tools/icon/ga-icon.mjs` — plain Node, no `gi:`, no display, so it runs
+    headless like the rest of `tools/`:
+    `node tools/icon/ga-icon.mjs [out.svg] [elevationDegrees]`. It defaults
+    to writing `ga-cube.svg` beside itself. Its **output is not committed
+    yet** — the artwork lands with M12, along with the icon name.
+  - **Plumbing:** a scalable SVG, `Gtk.IconTheme.add_search_path()` into the
+    repo (a source checkout has no install prefix to drop hicolor icons
+    into), a `.desktop` file with `Icon=`, and the icon name in `main.ts`.
+    AppStream `metainfo.xml` belongs to packaging, which stays out of scope.
+    Until then the About dialog asks for `applicationIcon: APP_ID`, which
+    resolves to nothing, so it shows the generic icon — either drop that
+    property or point it at the chosen icon name.
 
 **Release checklist**
 
@@ -1217,11 +1251,14 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M9: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  Open before M12: the **icon**, and the final call on the **public name** —
-  the shortlist is recorded in the M12 block (`Puzzle Timer` preferred,
-  `Inspection` runner-up) along with what each rename costs. Its first half
-  (versioning, CHANGELOG, About, README, the AI disclosure) needs neither and
-  may be pulled forward.
+  Open before M12: the **icon** — its *direction* is decided and recorded in
+  the M12 block (cube alone in a PLL Ga state, no timer, 25° elevation,
+  computed by a generator rather than drawn), but the artwork itself, its
+  **symbolic variant**, the baseline alignment and the icon name are still to
+  do; and the final call on the **public name** (`Puzzle Timer` preferred,
+  `Inspection` runner-up, both shortlisted in the same block with what each
+  rename costs). M12's first half (versioning, CHANGELOG, About, README, the
+  AI disclosure) needs neither and may be pulled forward.
   Open before M7 and M8: nothing. Probes that gate M9, M11 and M13
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
