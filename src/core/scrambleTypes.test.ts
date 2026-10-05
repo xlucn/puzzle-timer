@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SCRAMBLE_DEFAULT_TYPE,
   SCRAMBLE_GROUPS,
+  SCRAMBLE_SECTIONS,
   SCRAMBLE_TYPES,
   groupOfScrambleType,
   scrambleLength,
@@ -67,6 +68,36 @@ describe('scrambleTypes', () => {
     )
     expect(flat).toEqual(SCRAMBLE_TYPES.map((type) => type.id))
     expect(new Set(flat).size).toBe(flat.length)
+  })
+
+  it('partitions the categories into csTimer’s four higher classes', () => {
+    // The ===WCA===/===OTHER===/===SPECIAL===/===JOKES=== disabled headers in
+    // csTimer's scrdata (zh-cn: WCA/其他/训练/213), each preceding its class.
+    expect(SCRAMBLE_SECTIONS.map((section) => section.name)).toEqual([
+      'WCA',
+      'Other',
+      'Special',
+      'Jokes',
+    ])
+
+    // A true partition: sections concatenate back to the full group list, in
+    // menu order — nothing dropped, duplicated or reordered. The sidebar's
+    // flat item indices (browse = group index) depend on this.
+    expect(SCRAMBLE_SECTIONS.flatMap((section) => section.groups)).toEqual(
+      SCRAMBLE_GROUPS,
+    )
+
+    // The class boundaries land where csTimer's headers are.
+    expect(SCRAMBLE_SECTIONS[0].groups.at(-1)?.name).toBe(
+      'FTO (Face-Turning Octahedron)',
+    )
+    expect(SCRAMBLE_SECTIONS[1].groups[0]?.name).toBe('15 puzzle')
+    expect(SCRAMBLE_SECTIONS[2].groups.map((group) => group.name)).toEqual([
+      '3x3x3 subsets',
+      'Bandaged Cube',
+      'Relays',
+    ])
+    expect(SCRAMBLE_SECTIONS[3].groups[0]?.name).toBe('1x1x1')
   })
 
   it('keeps names unique inside their group, so level 2 needs no prefix', () => {

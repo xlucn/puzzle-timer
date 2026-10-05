@@ -46,7 +46,7 @@ import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 
 import { BREAKPOINTS } from '../core/layout.js'
-import { SCRAMBLE_GROUPS, SCRAMBLE_TYPES } from '../core/scrambleTypes.js'
+import { SCRAMBLE_GROUPS, SCRAMBLE_SECTIONS, SCRAMBLE_TYPES } from '../core/scrambleTypes.js'
 
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
@@ -107,12 +107,20 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     // list with a persistent selection pill, page mode a boxed-lists
     // PreferencesPage — and it scrolls internally (probe: GtkScrolledWindow
     // in both modes), so no scroller or CSS class of ours.
+    //
+    // One Adw.SidebarSection per csTimer higher class (===WCA=== etc. in
+    // scrdata): the section title and the separator between sections are the
+    // widget's own. Probe-verified item indices are FLAT across sections, so
+    // `browse` (a group index) remains the item index unchanged — sections
+    // are contiguous slices of SCRAMBLE_GROUPS appended in order.
     const sidebar = new Adw.Sidebar()
-    const categorySection = new Adw.SidebarSection()
-    groups.forEach((group) =>
-      categorySection.append(new Adw.SidebarItem({ title: group.name })),
-    )
-    sidebar.append(categorySection)
+    SCRAMBLE_SECTIONS.forEach((section) => {
+      const sidebarSection = new Adw.SidebarSection({ title: section.name })
+      section.groups.forEach((group) =>
+        sidebarSection.append(new Adw.SidebarItem({ title: group.name })),
+      )
+      sidebar.append(sidebarSection)
+    })
 
     // --- Types (content) -----------------------------------------------------
     const typeList = new Gtk.ListBox({

@@ -185,8 +185,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   mode that same button moves into `Adw.ToolbarView`'s **bottom toolbar** —
   walk `Tab` until its focus ring is on it and press `Return`. Inside the
   dialog is a plain `Adw.NavigationSplitView`: a "Category" sidebar page and a
-  types content page, each with its own `Adw.HeaderBar`. The category list is
-  built once; the type list is filtered in place to the browsed category
+  types content page, each with its own `Adw.HeaderBar`. The sidebar is an
+  `Adw.Sidebar` whose 44 categories are split into four `Adw.SidebarSection`s
+  — csTimer's higher classes (its disabled `===X===` `scrdata` headers;
+  `SCRAMBLE_SECTIONS` in core, unit-tested as a partition). Item indices are
+  flat across sections, so a group index is still a sidebar item index. The
+  type list is filtered in place to the browsed category
   (`Gtk.ListBox.setFilterFunc`) — never rebuilt — and an `Adw.Breakpoint`
   (`max-width: 600px` on the dialog, which clamps to the parent) drives
   `collapsed`. When collapsed the content page's header shows the split view's

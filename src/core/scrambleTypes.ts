@@ -310,6 +310,48 @@ function buildGroups(types: readonly ScrambleType[]): ScrambleGroup[] {
 /** The categories the first selector offers, in menu order. */
 export const SCRAMBLE_GROUPS: readonly ScrambleGroup[] = buildGroups(SCRAMBLE_TYPES)
 
+/**
+ * One higher class of categories — csTimer's disabled `===X===` header rows
+ * in `scrdata` (kernel.js renders `/===/` as an unselectable section label),
+ * rendered here as an `Adw.SidebarSection` with a separator.
+ *
+ * Names are csTimer en-us.js's headers: `===WCA===`, `===OTHER===`,
+ * `===SPECIAL===`, `===JOKES===` (zh-cn: WCA/其他/训练/213). A header
+ * precedes its section — except `===WCA===` sits after csTimer's top WCA and
+ * Input groups, which this folds into the WCA class so every category lands
+ * in exactly one of the four.
+ */
+export interface ScrambleSection {
+  /** Class title, e.g. "WCA" or "Jokes". */
+  name: string
+  /** Its groups, in menu order. */
+  groups: readonly ScrambleGroup[]
+}
+
+/** [class title, first group of the class] — boundaries at the === headers. */
+const SECTION_STARTS: readonly (readonly [string, string])[] = [
+  ['WCA', 'WCA'],
+  ['Other', '15 puzzle'], // ===OTHER===
+  ['Special', '3x3x3 subsets'], // ===SPECIAL===
+  ['Jokes', '1x1x1'], // ===JOKES===
+]
+
+function buildSections(allGroups: readonly ScrambleGroup[]): ScrambleSection[] {
+  // Resolve each marker to its position; an unknown marker (data drift) is
+  // dropped rather than shifting every later section.
+  const starts = SECTION_STARTS.map(([name, firstGroup]) => ({
+    name,
+    at: allGroups.findIndex((group) => group.name === firstGroup),
+  })).filter((start) => start.at >= 0)
+  return starts.map((start, i) => ({
+    name: start.name,
+    groups: allGroups.slice(start.at, starts[i + 1]?.at ?? allGroups.length),
+  }))
+}
+
+/** The higher classes, in menu order; partitions SCRAMBLE_GROUPS. */
+export const SCRAMBLE_SECTIONS: readonly ScrambleSection[] = buildSections(SCRAMBLE_GROUPS)
+
 const GROUP_BY_TYPE = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type.group]))
 
 /** Category a type belongs to, or undefined for an unknown id. */

@@ -1373,8 +1373,16 @@ Evidence:
   type carries a ✓ suffix (`object-select-symbolic`). There is no search
   entry (dropped 2026-10-05 — it was the messy part), and type rows show just
   the type name: the category is the selected row on the left and the content
-  page's title, so prefixing it per-row was redundant. Navigation, selection
-  and activation are the widgets' own. (Lesson — see
+  page's title, so prefixing it per-row was redundant. The sidebar's 44
+  categories sit in **four `Adw.SidebarSection`s** — csTimer's higher classes,
+  the disabled `===WCA===`/`===OTHER===`/`===SPECIAL===`/`===JOKES===` header
+  rows in `scrdata` (kernel.js renders `/===/` unselectable; zh-cn reads
+  WCA/其他/训练/213). Boundaries live in `core/scrambleTypes.ts`
+  (`SCRAMBLE_SECTIONS`, unit-tested as a true partition of
+  `SCRAMBLE_GROUPS`); section titles and the separators between them are the
+  widget's own in both sidebar and page modes, and item indices stay flat
+  across sections (probe-verified), so `browse = group index` still holds.
+  Navigation, selection and activation are the widgets' own. (Lesson — see
   AGENTS.md "Let adaptive widgets do their job": an earlier ~600-line version
   hand-rolled the collapse, back button, titles and per-state list rebuilds
   that this widget provides; the native rewrite is ~300 lines.)
