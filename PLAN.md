@@ -587,6 +587,46 @@ decisions at the end of this block.
 **B — gated on two open decisions**
 
 - **Public name**, cheapest to most irreversible:
+  - **Shortlist, recorded 2026-10-05: `Puzzle Timer` (preferred),
+    `Inspection` (runner-up).** Judge against the GNOME HIG app-naming
+    rules (<https://developer.gnome.org/hig/guidelines/app-naming.html>):
+    one or two simple nouns, under 15 characters, easy to pronounce, easy to
+    draw as an icon — and avoid puns and inside jokes, made-up words,
+    acronyms, decorative punctuation, and other projects' names.
+    - **`Puzzle Timer`** — 12 chars, two simple nouns (the *Text Editor*
+      pattern), passes every rule, and **nothing on Flathub has the name**.
+      It also fits the cubing community's own `…Timer` convention (csTimer,
+      Twisty Timer, CubeTimer, qubetimer, opentimer), and it is *more*
+      on-domain than *Cube Timer*, because the catalogue is 206 puzzle
+      types — pyraminx, megaminx, skewb, clock, square-1 — not just cubes.
+      One caveat to design around: "puzzle" reads as jigsaw to outsiders,
+      so the icon must be a cube and the AppStream summary must say
+      speedcubing.
+    - **`Inspection`** — 10 chars, the official WCA term for the 15 s,
+      free on Flathub, and the *Celluloid* school of name. Held back
+      because it is a **common word in development tooling**: GHex
+      ("Inspect and edit binary files"), Sonar ("Inspect and debug
+      webhooks"), Color Profile Viewer, DevTools inspectors — easy to
+      confuse with unrelated apps. Good name, weaker identity.
+    - Discarded while searching: **`Cube Timer`** (two Flathub apps
+      already — `io.github.vallabhvidy.CubeTimer`, GTK4/libadwaita,
+      "inspired by cstimer.net", and `xyz.aguno.CubeTimer`);
+      **`Scramble`** (`io.github.tobagin.scramble`, a verified Flathub app
+      on our own stack — Vala/GTK4/libadwaita, GPL-3.0-or-later);
+      **`Scrambled`** (free, but a participle rather than a simple noun,
+      and it reads as eggs); **`Twenty`**, **`Trim`**, **`Stickerless`**
+      (puns or insider vocabulary); **`gtkimer`**, **`Kubo`** (made-up
+      words).
+  - **The Chinese name is chosen freely, never translated** (user call,
+    2026-10-05). Literal translation is what makes bilingual names fail:
+    Inspection → 检查 (bureaucratic), Scrambled → 打乱的 (an accident),
+    Trim → 修剪 (pruning), Stickerless → 无贴纸. Ship a *pair* the way
+    WeChat/微信 does — the Latin brand plus a Chinese name picked as a
+    Chinese name — rendered through `t('app.name')`, `.desktop`
+    `Name[zh_CN]=`, and AppStream `xml:lang`. Candidates offered and not
+    yet chosen: 屏息 (hold your breath) and 谜面 (the surface of a riddle)
+    for the shortlisted English names, plus 蓄势, 玄机, 错落, 未解,
+    分秒, 还原.
   - `APP_NAME` (`'csTimer GTK'`) is display only — window title, menus,
     sidebar, About. Free to change, any time.
   - `package.json.name` — free.
@@ -1177,9 +1217,11 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M9: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  Open before M12: the **public name** and the **icon**, each recorded with
-  what it costs in the M12 block — its first half (versioning, CHANGELOG,
-  About, README, the AI disclosure) needs neither and may be pulled forward.
+  Open before M12: the **icon**, and the final call on the **public name** —
+  the shortlist is recorded in the M12 block (`Puzzle Timer` preferred,
+  `Inspection` runner-up) along with what each rename costs. Its first half
+  (versioning, CHANGELOG, About, README, the AI disclosure) needs neither and
+  may be pulled forward.
   Open before M7 and M8: nothing. Probes that gate M9, M11 and M13
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
