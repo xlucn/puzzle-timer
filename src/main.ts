@@ -52,6 +52,7 @@ import { SessionLibrary } from './core/sessionLibrary.js'
 import type { Penalty } from './core/time.js'
 import { Timer, type TimerState } from './core/timer.js'
 import { playInspectionCue } from './platform/audio.js'
+import { APP_VERSION } from './platform/meta.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createPreferences } from './ui/preferences.js'
@@ -1037,22 +1038,26 @@ app.on('activate', () => {
 
   // ---- app actions (wired to the menu above) ---------------------------
   const showAbout = () => {
-    // Adw.AboutWindow works on libadwaita 1.2+; we require 1.4+ elsewhere.
-    const about = new Adw.AboutWindow({
-      transientFor: window,
+    // Adw.AboutDialog (1.5+), not Adw.AboutWindow (deprecated since 1.6);
+    // GPL_3_0 means *3.0 or later*, matching package.json's
+    // GPL-3.0-or-later — GPL_3_0_ONLY would not. Version comes from
+    // package.json via platform/meta.ts, never a literal (AGENTS: one
+    // version, one place).
+    const about = new Adw.AboutDialog({
       applicationName: APP_NAME,
       applicationIcon: APP_ID,
       developerName: 'Lu Xu',
-      version: '0.1.0',
+      version: APP_VERSION,
       comments:
         'A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\n' +
         'Scrambles are provided by the cstimer_module package, part of the ' +
-        'csTimer project (GPL-3.0).',
+        'csTimer project (GPL-3.0).\n' +
+        'Written with the assistance of AI/LLM tools.',
       developers: ['Lu Xu <oliver_lew@outlook.com>'],
       copyright: '© 2026 Lu Xu',
-      licenseType: Gtk.License.GPL_3_0_ONLY,
+      licenseType: Gtk.License.GPL_3_0,
     })
-    about.present()
+    about.present(window)
   }
 
   const aboutAction = Gio.SimpleAction.new('about', null)

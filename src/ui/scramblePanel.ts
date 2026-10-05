@@ -28,6 +28,7 @@
  * not *place* the picture — it is handed to an overlay (main.ts), so its
  * presence or size can never move the text or the timer.
  */
+import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
 import GdkPixbuf from 'gi:GdkPixbuf-2.0'
 import Gtk from 'gi:Gtk-4.0'
@@ -164,7 +165,13 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     maxContentHeight: TEXT_MAX_HEIGHT,
   })
 
-  const spinner = new Gtk.Spinner()
+  // Adw.Spinner (1.6+), not Gtk.Spinner: it needs no start()/stop() — it
+  // animates only while mapped (adw-spinner-paintable.c), so its visibility
+  // *is* the start/stop. That matters in the error state: the statusRow stays
+  // visible while not generating, and a mapped AdwSpinner would spin over a
+  // failure — hence the spinner hides itself there (Gtk.Spinner had to be
+  // explicitly stopped for the same reason, by a different mechanism).
+  const spinner = new Adw.Spinner({ visible: false })
   const status = new Gtk.Label({
     cssClasses: ['scramble-status'],
     label: GENERATING,
@@ -267,8 +274,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   const setSpinning = (on: boolean) => {
     if (on === spinning) return
     spinning = on
-    if (on) spinner.start()
-    else spinner.stop()
+    spinner.setVisible(on)
   }
 
   /** Redraw for a new feed state. */

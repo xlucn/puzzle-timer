@@ -8,9 +8,12 @@
  * this view and the strip cannot disagree.
  *
  * Layout note (probed 2026-10-01 against libadwaita 1.9.4): an Adw.Dialog
- * does NOT render its own title or close button — only `child`. So the
- * content carries its own Adw.HeaderBar for the title and a Close button at
- * the end; Escape closes the dialog on top of that (Adw.Dialog default).
+ * does NOT render its own title — only `child`, so the content carries its
+ * own Adw.HeaderBar for the title. That HeaderBar gets a close button for
+ * free inside a dialog (AdwDialog docs: it "adjusts the decoration layout to
+ * ensure it always has a close button"; probe 2026-10-05 confirmed clicking
+ * it closes), so no button of ours is needed — and adw-dialog.c binds Escape
+ * to close natively.
  *
  * The figures are computed when the dialog opens: it blocks input to the
  * window behind it, so nothing can change while it is on screen.
@@ -153,16 +156,6 @@ export function createStatsPanel(options: StatsPanelOptions) {
       marginBottom: 18,
     })
     content.append(grid)
-
-    const closeButton = new Gtk.Button({ label: 'Close' })
-    closeButton.on('clicked', () => dialog.close())
-    const buttonRow = new Gtk.Box({
-      orientation: Gtk.Orientation.HORIZONTAL,
-      halign: Gtk.Align.END,
-      marginTop: 18,
-    })
-    buttonRow.append(closeButton)
-    content.append(buttonRow)
 
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
     box.append(

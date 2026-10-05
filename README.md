@@ -133,6 +133,10 @@ re-run it:
 npm run generate-types
 ```
 
+## How this was written
+
+Written with the assistance of AI/LLM tools.
+
 ## License
 
 GPL-3.0-or-later — see [LICENSE](./LICENSE). Not a preference: this project
