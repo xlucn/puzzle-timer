@@ -51,6 +51,20 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   manual titles, three render paths, a resize hook) was ~600 lines and still
   looked wrong; the native one is ~300 and correct. If you find yourself
   writing code the widget is documented to provide, stop and delete it.
+- **Size preferences scale the tier, they don't replace it** (M7): the three
+  scales are inputs to `layoutFor()` in `src/core/layout.ts`, which stays the
+  only file allowed to hold a size threshold. Never add a size constant in
+  `src/ui/` that a preference could disagree with — `scramblePanel.ts`'s
+  duplicated `IMAGE_MAX_WIDTH/HEIGHT` is the existing example, and M7 deletes
+  it.
+- **Every action needs a touch path, and touch must not become a second
+  input model** (M13; PLAN.md decision 15): gestures call the *same* entry
+  points the keyboard does — `timer.keyDown('space', …)` /
+  `keyDown('escape', …)`, and the same `remove()` → undo toast → `restore()`
+  — so there stays one state machine, one deletion path and one undo. Check
+  an action is reachable with no modifier keys and no accelerator before
+  shipping it: Shift/Ctrl-click and Escape are the two things a phone does
+  not have.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**
@@ -60,10 +74,35 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently in the UI: the chip renders empty in
   `Adw.ShortcutsDialog` and nothing says why — check a new entry with
-  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02).
+  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02). M9 adds
+  `app.importData` / `app.exportData` on `<Ctrl+O>` / `<Ctrl+Shift+S>` (both
+  free as of 2026-10-05): re-run the check and update the count when they
+  land.
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
-  Attribute csTimer and `cstimer_module` in the About dialog.
+  The same rule covers csTimer's **data-file format** (M9 —
+  `src/core/csTimerFormat.ts`, evidence in PLAN.md §5) and its **chart math**
+  (M11). Attribute csTimer and `cstimer_module` in the About dialog.
+- **Every user-visible string goes through `t()`** (M8, `src/core/i18n.ts`) —
+  no bare literals in `src/ui/`, in the menus, in the toasts or in the
+  tooltips. The catalogs are TS modules, not JSON: `src/locales/en.ts` is the
+  source of truth and every other locale is typed
+  `Record<keyof typeof en, Message>`, so a missing or misspelled key is a
+  **compile error**, never a raw key on screen. Times stay in `formatTime`
+  (centiseconds are not localised) and the narrow list/edit timestamps stay
+  numeric — `Intl.DateTimeFormat` is for dates with room around them (the
+  M10 PB history).
+- **One version, one place** (M12): the app version comes from
+  `package.json`, read through `src/platform/meta.ts` — never a literal in
+  `main.ts` (the About dialog's hardcoded `'0.1.0'` is exactly the bug that
+  rule prevents). The About dialog is `Adw.AboutDialog`
+  (`Adw.AboutWindow` is deprecated), and its licence enum is
+  `Gtk.License.GPL_3_0`, which means *3.0 or later* and matches
+  `package.json`'s `GPL-3.0-or-later` (`GPL_3_0_ONLY` does not).
+- **Say plainly that AI/LLM assistance was used** (user call, 2026-10-05):
+  the README's *How this was written* section and the About dialog's
+  `comments` line both carry it. Reword one and you reword both — they are
+  the same statement in two places.
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
   argument — a handler takes exactly the signal's own parameters — and what it
   returns becomes the signal's return value (that is how a `boolean`-returning
@@ -207,6 +246,11 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   anyway (tools/README traps 4–5). If an action has no key yet, add one —
   `app.setAccelsForAction(...)` in `src/main.ts` plus an
   `Adw.ShortcutsDialog` entry in `src/ui/shortcuts.ts` — before testing it.
+- **Gestures are drivable the same way** (M13): XTEST gives a long-press as
+  button-down → sleep → button-up, and a swipe as button-down plus motion,
+  so touch work is testable with no touch device at all. The rule above
+  still holds — it is about *driving* the app, not about what input the app
+  accepts.
 - Details and traps: `tools/README.md`.
 
 ### Fresh install
@@ -231,5 +275,13 @@ npm run generate-types
 
 ## Out of scope (agreed, do not add unprompted)
 
-Bluetooth smart cubes, virtual cube, solvers, backup import/export, packaging.
-Stackmat and charts are **long-term** goals (see PLAN.md), not current work.
+Bluetooth smart cubes, virtual cube, solvers, packaging.
+Stackmat is a **long-term** goal (see PLAN.md), not current work.
+
+**Scheduled — not out of scope** (PLAN.md §1, decided 2026-10-05; don't
+redesign them, follow the milestone blocks):
+**M7** size preferences → **M8** i18n → **M9** csTimer import/export →
+**M10** records & statistics → **M11** charts → **M12** release readiness →
+**M13** touch input → **M14** phone-runtime verdict.
+csTimer backup import/export used to be listed above as dropped; it was
+reinstated by that decision, and charts came off the long-term list with it.
