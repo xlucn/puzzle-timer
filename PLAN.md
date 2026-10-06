@@ -44,9 +44,10 @@ where that order is convention rather than dependency):
 - **M13 — touch input, and the narrow-window leftovers.** Today the app
   cannot start a solve without a Space key: there is **not one gesture or
   touch controller in `src/`**. Touch-hold on the timer mirrors Space exactly
-  (decision 15), long press and swipe drive the solve list, and the known
-  360×360 diagram/timer overlap gets fixed. Entirely desktop-verifiable with
-  the existing harness — see §6.
+  (decision 15), long press and swipe drive the solve list, and a **re-measure
+  of the 360×360 diagram/timer overlap** — the nudge whose clamp caused it was
+  dropped on 2026-10-05, so it may already be gone (see §6 M13). Entirely
+  desktop-verifiable with the existing harness — see §6.
 - **M14 — phone runtime (an evaluation, not a port).** The verdict on
   whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
   node-gtk native binding build, audio without `pw-play`. Its deliverable is
@@ -422,7 +423,7 @@ the table.
 | **M10** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
 | **M11** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
 | **M12** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
-| **M13** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and the 360×360 overlap | A solve starts with a finger and the floor layout stops overlapping |
+| **M13** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M14** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
 | **M15** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/cstimer-gtk` launches from outside the source tree |
 
@@ -778,13 +779,24 @@ keyboard rather than becoming a second input model.
 
 **B — the narrow window still owes one fix**
 
-- **360×360 overlap.** §7 records that the fixed 150 px diagram still sits
-  on the timer at the floor. (The nudge that used to move the timer aside
-  was dropped 2026-10-05 — see M6 — so nothing steps aside for the picture
-  anymore; the timer is centred by user call.) The fix belongs in the
-  tier (the smallest tier sheds or shrinks the diagram) and, per decision 14,
-  must arrive **through `layoutFor()`**, never as a constant in `src/ui/`.
-  It has to compose with M7's `diagramScale`, so do this *after* M7.
+- **360×360 overlap — re-measure before fixing anything (2026-10-06).** The
+  old explanation died with the nudge: `timerMargins`, `NUDGE_SLACK` and
+  `phoneFormFor` were deleted on 2026-10-05, so the timer is now **centred at
+  all times** and nothing steps aside for the picture. What the source still
+  says: at the floor `scrambleMaxHeight` is **100** (h ≤ `shortMax` 620) while
+  `diagramMaxHeight` stays **150** (`roomy` is false, so it never steps down),
+  and the picture is a `Gtk.Overlay` child anchored bottom-right with 16 px
+  margins — overlay children are not counted in the parent's size request, so
+  where it lands relative to the timer is decided by GTK's allocation, not by
+  anything readable off the source. §7's "still overlaps the timer" was
+  measured **while the nudge existed**, and lifting the timer was what put it
+  in the picture's way — so dropping the nudge may already have fixed it.
+  `[layout] diagram WxH` logs size, not position, so this needs one real look
+  at the floor before any work is scheduled: it may be a non-issue. **If** it
+  still collides, the fix belongs in the tier (the smallest tier sheds or
+  shrinks the diagram) and, per decision 14, must arrive **through
+  `layoutFor()`**, never as a constant in `src/ui/` — and it has to compose
+  with M7's `diagramScale`, so do it *after* M7.
 - **Re-check the startup-only `AdwToastOverlay exceeds …` warning.** Its
   stated cause (a first frame measuring the selectors before any tier ran)
   went away with `headerSlack` on 2026-10-04 — so either it is gone and the
@@ -1270,12 +1282,14 @@ Evidence:
 ### M6 — landed 2026-10-02
 
 Adaptive layout. Every threshold and both decisions live in
-`src/core/layout.ts` as pure functions (`layoutFor`, `timerMargins`,
-`BREAKPOINTS`); `src/main.ts` only measures and applies. Five **disjoint**
+`src/core/layout.ts` as pure functions (`layoutFor`, `BREAKPOINTS` — and
+`timerMargins` too, until the nudge was dropped on 2026-10-05, see below);
+`src/main.ts` only measures and applies. Five **disjoint**
 width bands (S ≤480, C 481–600, B 601–800, M 1200–1599, L ≥1600) as
 `Adw.BreakpointCondition`s written from those same constants, plus
 `Gdk.Surface::layout` for what bands cannot see (height, in-between sizes)
-and `Gdk.FrameClock::after-paint` for the timer nudge.
+and `Gdk.FrameClock::after-paint`, which now drives `updateDiagram` — the
+picture's size log and bottom-bar lift, since it was the timer nudge.
 
 - **Drawer sidebar ≤800** — `Adw.OverlaySplitView.collapsed`, auto-hide on
   collapse / auto-show on uncollapse, wired exactly as libadwaita's own
@@ -1374,7 +1388,9 @@ Evidence:
   reason `headerSlack` existed, and it was removed 2026-10-04** along with
   the demand measurement, once the selector could ellipsize instead; the
   724/561/521 numbers remain the record of why 800 and 600 were chosen.
-- **The nudge measures right**: at 900 the timer block's centre lands 1.5px
+- **The nudge measures right** *(superseded — the nudge was dropped
+  2026-10-05, so the timer is centred now; kept for what it proved about
+  measuring against the window)*: at 900 the timer block's centre lands 1.5px
   from `content centre − diagram width / 4` (519 measured vs 520.5
   predicted, screenshot pixel scan), and the halving from /2 was visible in
   the same geometry — the old rule put it at 469 (vs 471 predicted), so the
@@ -1570,10 +1586,13 @@ Evidence:
   drawer, selectors in their own row, timer s, WM minimum 360×360, no app
   warnings**; phone shape **360×640 → `350x630`**, full-width toolbar button
   at the bottom, timer and picture clear of the bar. At square 360×360 the
-  fixed 150px diagram still overlaps the timer — even the nudge clamp (since
-  dropped, 2026-10-05) could not create enough vertical room there; this is
-  the short-window overlay limit, not a ToolbarView bar overlap. The
-  `390x350` above is the old floor's
+  fixed 150px diagram still overlaps the timer — even the nudge clamp could
+  not create enough vertical room there; this is the short-window overlay
+  limit, not a ToolbarView bar overlap. **That measurement was taken with the
+  nudge in place** — the nudge lifted the timer toward the bottom-right
+  picture, and was dropped 2026-10-05, so this no longer describes the
+  current geometry. Re-measure before acting on it: M13 carries the item.
+  The `390x350` above is the old floor's
   number, kept for what it proved.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
