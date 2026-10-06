@@ -53,11 +53,11 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `Adw.NavigationSplitView` in the tree is not the same as *using* it. The
   native pattern is — `Adw.Breakpoint` drives `collapsed`; each
   `Adw.NavigationPage` carries its own `Adw.ToolbarView` + `Adw.HeaderBar` so
-  the split view supplies titles and the collapsed back button itself; lists
-  are populated once and filtered in place with `Gtk.ListBox.setFilterFunc`,
-  never rebuilt per state; and a dialog is given a *default* `contentWidth`/
-  `contentHeight` and left to clamp to the parent, not resized off a
-  parent-surface `layout` listener. The manual version (custom up button,
+  the split view supplies titles and the collapsed back button itself; the
+  sidebar is a bare `Adw.Sidebar` with `Adw.SidebarSection`s; and a dialog is
+  given a *default* `contentWidth`/`contentHeight` and left to clamp to the
+  parent, not resized off a parent-surface `layout` listener. The manual
+  version (custom up button,
   manual titles, three render paths, a resize hook) was ~600 lines and still
   looked wrong; the native one is ~300 and correct. If you find yourself
   writing code the widget is documented to provide, stop and delete it.
@@ -133,9 +133,10 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (216 tests — M6's layout/timer-nudge rules, the ≤600 phone-form nudge, the
-  removal of `headerSlack`, plus the per-solve ao5/ao12 columns; older counts:
-  180 at M5, 207 before 2026-10-03, 219 before 2026-10-04)
+  (198 tests — M6's layout rules, the removal of `headerSlack`, plus the
+  per-solve ao5/ao12 columns and the sidebar-section partition; older counts:
+  180 at M5, 207 before 2026-10-03, 219 before 2026-10-04, 217 before the
+  timer nudge was dropped 2026-10-05)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
@@ -190,8 +191,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   — csTimer's higher classes (its disabled `===X===` `scrdata` headers;
   `SCRAMBLE_SECTIONS` in core, unit-tested as a partition). Item indices are
   flat across sections, so a group index is still a sidebar item index. The
-  type list is filtered in place to the browsed category
-  (`Gtk.ListBox.setFilterFunc`) — never rebuilt — and an `Adw.Breakpoint`
+  type list holds only the browsed category's rows, refilled by the one
+  `renderTypes()` when `browse` changes — `Gtk.ListBox.setFilterFunc` over
+  all 206 rows costs ≈79ms *per change* through the node-gtk boundary even
+  with a trivial predicate (≈0.4ms/row-crossing, measured 2026-10-06; it was
+  most of the slow popup and ran twice per category click), while rebuilding
+  the ~19 visible rows costs ≈3ms. One render path keyed on `browse` alone —
+  layout state never reaches it — and an `Adw.Breakpoint`
   (`max-width: 600px` on the dialog, which clamps to the parent) drives
   `collapsed`. When collapsed the content page's header shows the split view's
   own back button to the category page; selecting a category pushes to its

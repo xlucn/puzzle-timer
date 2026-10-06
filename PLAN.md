@@ -433,7 +433,7 @@ Small and self-contained — deliberately the first thing scheduled (user call,
   `diagramScale`. `src/core/layout.ts` keeps its "no threshold outside this
   file" rule intact — nothing in `src/ui/` learns a size.
 - **Applying** — a size change rides the existing `applyPreferences()` path
-  and re-runs `applyLayout()`, so the timer, the nudge and the diagram
+  and re-runs `applyLayout()`, so the timer, the scramble and the diagram
   re-measure in one pass rather than one each.
 - **CSS** — the readout is `.timer-display.size-s/m/l` at fixed px and GTK4
   CSS has no custom properties, so a changed scale re-`add()`s that sheet and
@@ -765,8 +765,9 @@ keyboard rather than becoming a second input model.
 **B — the narrow window still owes one fix**
 
 - **360×360 overlap.** §7 records that the fixed 150 px diagram still sits
-  on the timer at the floor, because the nudge clamp cannot make enough
-  vertical room — the short-window overlay limit. The fix belongs in the
+  on the timer at the floor. (The nudge that used to move the timer aside
+  was dropped 2026-10-05 — see M6 — so nothing steps aside for the picture
+  anymore; the timer is centred by user call.) The fix belongs in the
   tier (the smallest tier sheds or shrinks the diagram) and, per decision 14,
   must arrive **through `layoutFor()`**, never as a constant in `src/ui/`.
   It has to compose with M7's `diagramScale`, so do this *after* M7.
@@ -1185,6 +1186,15 @@ and `Gdk.FrameClock::after-paint` for the timer nudge.
   **doubles to half a diagram-height** (`phoneFormFor()` → `phoneForm`, read
   from the surface width like every other layout number). Clamping is
   unchanged, so the invariant still outranks the rule.
+  **Dropped entirely (user call, 2026-10-05)**: the timer stays centred at
+  all times — "the current method is not clean and elegant". `timerMargins`,
+  `TimerPlacement`, `NUDGE_SLACK` and `phoneFormFor` are deleted from
+  `layout.ts` (19 nudge tests with them, 217 → 198); `updateNudge` in
+  `main.ts` became `updateDiagram`, which keeps only the diagram's own
+  duties (size log + bottom-bar lift). The clamping lessons above still
+  stand for anything that sizes from a measurement: never clamp against a
+  box GTK has already given its minimum, and ground the room in the window,
+  not the content's allocation.
 
 Decisions worth carrying forward:
 
@@ -1208,7 +1218,7 @@ Decisions worth carrying forward:
   4 tries`, and the frame that never comes looks like a hung UI.
 - **A just-revealed bottom bar may report 0.** Since 2026-10-04 the selector
   lives in `Adw.ToolbarView`'s bottom-bar slot. On the frame it is revealed,
-  `getBottomBarHeight()` can still be 0; `updateNudge` therefore floors that
+  `getBottomBarHeight()` can still be 0; `updateDiagram` therefore floors that
   animated height at the selector bar's natural height. During a hide, it uses
   the actual animated height down to 0. This is the ToolbarView equivalent of
   the old “just-reparented ListBox row reports 0” workaround above.
@@ -1365,8 +1375,9 @@ Evidence:
   button widget is reparented between the top and bottom bars; it expands only
   in the bottom bar, so the header's window controls are unaffected.
   `ToolbarView` supplies native flat-bar styling; its animated bottom-bar
-  height is what `updateNudge` subtracts from the timer region and adds to the
-  diagram's bottom clearance. The button itself owns activation, so the old
+  height is what `updateDiagram` adds to the diagram's bottom clearance (the
+  timer-region subtraction went with the nudge, dropped 2026-10-05). The
+  button itself owns activation, so the old
   `Gtk.ListBox` row-activated/key-controller workaround is gone. Both layouts
   open the same `Adw.Dialog`, whose body is an **`Adw.NavigationSplitView`**
   used natively (user call, 2026-10-05). Each `Adw.NavigationPage` carries its
@@ -1381,8 +1392,18 @@ Evidence:
   allocated width. (A breakpoint-bearing dialog also needs an explicit
   `width-request`/`height-request` minimum — AdwDialog docs — or it logs
   "does not have a minimum size" warnings.) The category list is built once;
-  the type list is filtered in place to the browsed category with
-  `Gtk.ListBox.setFilterFunc` — never rebuilt. Selecting a category updates
+  the type list holds only the browsed category's rows, refilled by one
+  `renderTypes()` when the browse index changes. **Perf fix (user call,
+  "the popup is slow", 2026-10-06):** it used to filter all 206 rows in place
+  with `Gtk.ListBox.setFilterFunc` — and *that* was the slowness: every
+  invalidation crosses the node-gtk boundary once per row (206 rows ≈79ms
+  even with a `() => true` predicate, ≈0.4ms/row; `open()` blocked 125–141ms,
+  and a category click paid it twice, notify-then-activated). Rebuilding the
+  visible ~19 rows costs ≈3ms: `open()` 125–141ms → 14–22ms, click → visible
+  ≈140ms → ≈24ms (measured with `/tmp` timing probes; first-ever open keeps a
+  one-time ~190ms layout warm-up). The "never rebuilt" rule it replaced was
+  guarding against render paths keyed on *layout* state — there is still
+  exactly one path, keyed on `browse`. Selecting a category updates
   the type filter and, collapsed, pushes to the content page
   (`showContent = true`); the split view's back button pops it. The active
   type carries a ✓ suffix (`object-select-symbolic`). There is no search
@@ -1402,9 +1423,9 @@ Evidence:
   hand-rolled the collapse, back button, titles and per-state list rebuilds
   that this widget provides; the native rewrite is ~300 lines.)
   `AdwActionRow` titles are parsed as *markup*, so `useMarkup: false` (else
-  `3x3x3 Roux - LSE <M, U>` logs a parse warning). Layout consequences: the
-  bottom bar's animated slot height is subtracted from the timer region and
-  added to the diagram clearance in `updateNudge`.
+  `3x3x3 Roux - LSE <M, U>` logs a parse warning). Layout consequence: the
+  bottom bar's animated slot height is added to the diagram clearance in
+  `updateDiagram` (and floors it — see the M6 note above).
   Also: the first frame now takes its tier from the *asked-for* size
   before `present()`, because with `lsll` selected the old order asked **928px
   in an 890px window** on frame one (0 warnings since).
@@ -1420,9 +1441,10 @@ Evidence:
   drawer, selectors in their own row, timer s, WM minimum 360×360, no app
   warnings**; phone shape **360×640 → `350x630`**, full-width toolbar button
   at the bottom, timer and picture clear of the bar. At square 360×360 the
-  fixed 150px diagram still overlaps the timer — the existing nudge clamp
-  cannot create enough vertical room there; this is the short-window overlay
-  limit, not a ToolbarView bar overlap. The `390x350` above is the old floor's
+  fixed 150px diagram still overlaps the timer — even the nudge clamp (since
+  dropped, 2026-10-05) could not create enough vertical room there; this is
+  the short-window overlay limit, not a ToolbarView bar overlap. The
+  `390x350` above is the old floor's
   number, kept for what it proved.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a

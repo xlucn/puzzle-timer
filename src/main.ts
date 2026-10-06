@@ -43,7 +43,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
-import { BREAKPOINTS, layoutFor, phoneFormFor, timerMargins } from './core/layout.js'
+import { BREAKPOINTS, layoutFor } from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
@@ -395,10 +395,8 @@ app.on('activate', () => {
   let layoutReady = false
   feed.subscribe(() => {
     scramblePanel.render(feed.state)
-    // The scramble's own height is the top of the timer's region: a text that
-    // wraps differently moves where the centred position sits, and a new
-    // diagram changes the offset measured from it.
-    updateNudge()
+    // A new diagram logs and lifts itself on the next after-paint — its size
+    // is only real after that frame's allocation (see diagramSize()).
   })
 
   /**
@@ -532,8 +530,8 @@ app.on('activate', () => {
   // bottom-bar slot. It remains the *same* button in both places; the box is
   // just the full-width toolbar surface around it. ToolbarView supplies the
   // native flat bar styling and accounts for the bar separately from its
-  // content. updateNudge uses its measured bottom-bar height to reserve the
-  // timer's region and keep the overlaid diagram clear of the bar.
+  // content. updateDiagram uses its measured bottom-bar height to keep the
+  // overlaid diagram clear of the bar.
   const selectorBar = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     cssClasses: ['toolbar'],
@@ -605,9 +603,8 @@ app.on('activate', () => {
     console.error(
       `[sidebar] show-sidebar=${split.getShowSidebar()} collapsed=${split.collapsed}`,
     )
-    // The sidebar's width is the content's width (side by side, not in drawer
-    // mode), so opening or closing it moves where the timer's centre belongs.
-    updateNudge()
+    // No explicit updateDiagram() here: showing/hiding the sidebar repaints
+    // the view, and the diagram's next after-paint logs/lifts itself.
   })
 
   /**
@@ -643,8 +640,9 @@ app.on('activate', () => {
   //     current breakpoint and therefore fires apply/unapply.
   //   • Gdk.Surface::layout — every resize, including a height-only one that
   //     no width band can see; that is what carries the short-window tier.
-  //   • the frame clock's after-paint — the nudge follows a diagram that
-  //     changes size or appears, not just a resize.
+  //   • the frame clock's after-paint — the diagram's size log and its
+  //     bottom-bar lift read post-allocation numbers, so they belong at the
+  //     end of a frame, not in a resize handler.
   //
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
@@ -678,11 +676,12 @@ app.on('activate', () => {
 
   /** The last tier reported, so applyLayout's log speaks only on a change. */
   let lastTier = ''
-  /** The last diagram size reported (see updateNudge). */
+  /** The last diagram size reported (see updateDiagram). */
   let lastDiagram = ''
   /**
    * Surface − window-widget, i.e. the CSD shadow, in each axis; 0 until
-   * updateNudge has seen a settled paint to measure it on (see there).
+   * groundWindowSize has seen two calls with the numbers standing still —
+   * the frame-clock hook below pumps it for that (see there).
    */
   let csdShadowWidth = 0
   let csdShadowHeight = 0
@@ -791,7 +790,7 @@ app.on('activate', () => {
     timerView.setSize(tier.timerSize)
     scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
     scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
-    updateNudge()
+    updateDiagram()
 
     // One line per *change* — the M6 evidence trail when the window is walked
     // through its bands (and a cheap way to spot a tier decided from a stale
@@ -808,36 +807,24 @@ app.on('activate', () => {
   }
 
   /**
-   * Step the timer block aside for the diagram — offset from where it would
-   * otherwise sit (centred in its region) by a quarter of the picture's
-   * height up and a quarter of its width left — but only while the diagram is
-   * on screen, and never
-   * at the cost of the block's natural size (see src/core/layout.ts). Writing
-   * the same margins twice is skipped, which is what stops the frame-clock
-   * hook below from feeding itself: these numbers do not depend on the
-   * margins.
+   * The diagram's own business: log its on-screen size when it changes (an
+   * overlay child is allocated, not requested — see tools/README.md, so this
+   * is where clipping shows up), and lift it clear of the bottom bar, which
+   * owns the view's bottom edge when revealed. The timer is *not* touched —
+   * it stays centred at all times (the nudge was dropped, user call,
+   * 2026-10-05). Idempotent, and writes only on change, so the frame-clock
+   * hook below cannot feed itself.
    */
-  function updateNudge(): void {
+  function updateDiagram(): void {
     if (!layoutReady) return
-    // `measure()` reports the box *plus its own margins* (measured: a label
-    // asking 18 goes to 118 with margin-bottom 100). Left in, the clamp below
-    // would read back the margin it just wrote — in a cramped window that
-    // flip-flops: settle on one, and the next measurement shrinks the room.
-    // So the naturals are the box's *content*: what the region has to clear.
-    const [, measuredWidth] = timerView.widget.measure(Gtk.Orientation.HORIZONTAL, -1)
-    const [, measuredHeight] = timerView.widget.measure(Gtk.Orientation.VERTICAL, -1)
-    const naturalWidth = Math.max(
-      0,
-      measuredWidth - timerView.widget.marginStart - timerView.widget.marginEnd,
-    )
-    const naturalHeight = Math.max(
-      0,
-      measuredHeight - timerView.widget.marginTop - timerView.widget.marginBottom,
-    )
-    // The chooser sits in ToolbarView's bottom bar, so it does not contribute
-    // to where the timer region starts — its slot comes off the other end
-    // (bottomBarSpace → viewHeight below). The region starts below the top bar
-    // and scramble panel.
+    // Pump the CSD-shadow credit: groundWindowSize only advances it while two
+    // consecutive calls see the numbers standing still, and this per-paint
+    // caller is what reliably provides that pair (resize events mostly see a
+    // new size each time). Its return value is no longer used here — the
+    // nudge that needed the window's geometry is gone; applyLayout still
+    // reads the credited number for its tier decisions.
+    groundWindowSize()
+
     // ToolbarView reports its current animated bottom-bar height. Immediately
     // after revealing it that can still be 0, so use the bar's natural height
     // as a floor for that first layout pass; during a hide transition the
@@ -846,12 +833,8 @@ app.on('activate', () => {
       content.getBottomBarHeight(),
       content.revealBottomBars ? selectorBar.measure(Gtk.Orientation.VERTICAL, -1)[1] : 0,
     )
-    const topBarHeight = content.getTopBarHeight()
 
     const diagram = scramblePanel.diagramSize()
-    // One line whenever the picture's on-screen size changes: it is both what
-    // the nudge is measured from and the thing most likely to be clipped
-    // (overlay children are allocated, not requested — see tools/README.md).
     const diagramSignature = `${diagram.width}x${diagram.height}`
     if (diagramSignature !== lastDiagram) {
       lastDiagram = diagramSignature
@@ -859,55 +842,12 @@ app.on('activate', () => {
         console.error(`[layout] diagram ${diagramSignature}`)
       }
     }
-    // The room available comes from the *window* (surface-backed, see
-    // groundWindowSize), never from `content`'s own allocation: when the
-    // window is too small for what the content asks, GTK hands the box its
-    // minimum instead — and that minimum contains the very margin being
-    // computed here, so clamping against it is a tautology that settles
-    // *above* the window and clips (measured when the floor was 400x360:
-    // content asked 359, got 359, window had 350 → clipped, and libadwaita then
-    // logged "snapshot … without a current allocation"). The window's size is
-    // the one number a margin cannot inflate. Same story sideways: `content`
-    // is only the window minus the sidebar in side-by-side mode, so that share
-    // is subtracted here rather than trusted from the box.
-    const { width: groundWidth, height: groundHeight } = groundWindowSize()
-    if (groundWidth <= 0 || groundHeight <= 0) return // not allocated yet
-    const sidebarInFlow = !split.collapsed && split.getShowSidebar()
-    const sidebarWidth = sidebarInFlow
-      ? timesList.widget.getSize(Gtk.Orientation.HORIZONTAL)
-      : 0
-    const margins = timerMargins({
-      diagramVisible: scramblePanel.hasImage(),
-      diagramWidth: diagram.width,
-      diagramHeight: diagram.height,
-      // Phone form factor (≤600): no sideways nudge, double the lift. Read
-      // from the *window* width, not the content's — see groundWindowSize.
-      phoneForm: phoneFormFor(groundWidth),
-      viewWidth: Math.min(content.getSize(Gtk.Orientation.HORIZONTAL), groundWidth - sidebarWidth),
-      // Minus the bottom toolbar's slot: it occupies the view's bottom edge,
-      // so the clamp must use what remains after it rather than claim space
-      // the toolbar already holds.
-      viewHeight: Math.min(
-        content.getSize(Gtk.Orientation.VERTICAL),
-        groundHeight - bottomBarSpace,
-      ),
-      regionTop: topBarHeight + scramblePanel.slotBottom(),
-      naturalWidth,
-      naturalHeight,
-    })
-    if (timerView.widget.marginEnd !== margins.marginEnd) {
-      timerView.widget.marginEnd = margins.marginEnd
-    }
-    if (timerView.widget.marginBottom !== margins.marginBottom) {
-      timerView.widget.marginBottom = margins.marginBottom
-    }
 
     // The diagram is anchored to the view's bottom edge (valign END, 16px),
     // and ToolbarView's bottom bar owns that edge when revealed — overlay
     // children paint above the content, so lift the picture by the bar's full
-    // slot to keep it clear. The picture's own size does not move (a margin
-    // sits outside the allocation), so every number the nudge measured is
-    // still the number it measured.
+    // slot to keep it clear. The picture's own size never moves (a margin sits
+    // outside the allocation), so the lift does not feed the log above.
     const diagramBottom = DIAGRAM_EDGE_MARGIN + bottomBarSpace
     if (scramblePanel.image.marginBottom !== diagramBottom) {
       scramblePanel.image.marginBottom = diagramBottom
@@ -1184,8 +1124,9 @@ app.on('activate', () => {
 
   // The two continuous sources (M6), both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
-  // but the short-window tier does), and any repaint that moved the bottom
-  // edge of the scramble, which is where the timer's region starts.
+  // but the short-window tier does), and any repaint that changed the
+  // diagram — its size log and its bottom-bar lift read post-allocation
+  // numbers, so they belong at the end of the frame.
   const surface = window.getSurface()
   if (surface === null) {
     console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the tier')
@@ -1194,9 +1135,9 @@ app.on('activate', () => {
   }
   const frameClock = window.getFrameClock()
   if (frameClock === null) {
-    console.error('[layout] no frame clock — the timer keeps its first position')
+    console.error('[layout] no frame clock — the diagram keeps its first size')
   } else {
-    frameClock.on('after-paint', () => updateNudge())
+    frameClock.on('after-paint', () => updateDiagram())
   }
 
   // Surface the load notices (details already went to stderr).

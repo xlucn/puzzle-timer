@@ -23,11 +23,16 @@
  *     (node-gtk can't box the GValue `addSetter` needs — AGENTS.md). The
  *     dialog follows its own content size, so it is naturally narrow (one
  *     column) until the content makes it wider than 600px.
- *   - Both panes are populated once and the type list is filtered in place
- *     (`Gtk.ListBox.setFilterFunc`), never rebuilt. Selecting a category
- *     updates the type filter and, collapsed, pushes to the content page;
- *     the split view's back button pops it. There is no separate "narrow
- *     render" path.
+ *   - The sidebar is built once; the type list holds only the *browsed*
+ *     category's rows (~19), refilled by a single `renderTypes()` when
+ *     `browse` changes. Measured 2026-10-06: `setFilterFunc` re-evaluates
+ *     its predicate for every row on each change through the node-gtk
+ *     boundary — 206 rows ≈ 79ms *even with a trivial predicate*, which was
+ *     most of the slow popup (open() ≈ 130ms) and made every category click
+ *     pay it; rebuilding the visible rows is ≈3ms. Still exactly one render
+ *     path, keyed on `browse` alone — layout state never reaches it. Selecting
+ *     a category, collapsed, pushes to the content page; the split view's back
+ *     button pops it.
  *
  * A type row shows just the type name (`ScrambleChoice.label`): the category
  * is the selected row on the left and the content page's title, so repeating
@@ -46,7 +51,7 @@ import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 
 import { BREAKPOINTS } from '../core/layout.js'
-import { SCRAMBLE_GROUPS, SCRAMBLE_SECTIONS, SCRAMBLE_TYPES } from '../core/scrambleTypes.js'
+import { SCRAMBLE_GROUPS, SCRAMBLE_SECTIONS } from '../core/scrambleTypes.js'
 
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
@@ -135,25 +140,10 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
       marginStart: 12,
       marginEnd: 12,
     })
-    // The dialog rebuilds fresh on every open and selectType() is silent, so
-    // the ✓ and the preselection only ever depend on `currentId` at build
-    // time — stamp them in the loop; no mark-and-move machinery.
-    let liveRow: TypeRow | null = null
-    for (const type of SCRAMBLE_TYPES) {
-      const row = new TypeRow({
-        // Just the type name: the category is the selected row on the left
-        // and the content page's title, so prefixing it here is redundant.
-        title: type.name,
-        activatable: true,
-        useMarkup: false,
-      })
-      row.typeId = type.id
-      if (type.id === currentId) {
-        row.addSuffix(new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER }))
-        liveRow = row
-      }
-      typeList.append(row)
-    }
+    // The rows are built by renderTypes() below — only the browsed category's
+    // exist at a time (see its doc for the measured filter-vs-rebuild cost).
+    // The ✓ and the preselection depend only on `currentId` at render time; no
+    // mark-and-move machinery.
 
     // --- Pages / split view --------------------------------------------------
     const SCROLLER_MIN_HEIGHT = 180
@@ -222,15 +212,47 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     /** Browsed category. */
     let browse = Math.max(0, groupIndex(currentId))
 
-    /** Show only the browsed category's types; title the page after it. */
-    const applyTypeFilter = (): void => {
-      typeList.setFilterFunc((row) => {
-        // Row → TypeRow cast is safe: probe-verified wrapper identity (AGENTS
-        // invariant 5); a row without the payload (none exist) would show.
-        const id = (row as TypeRow).typeId
-        return id === undefined ? true : groupIndex(id) === browse
-      })
+    /**
+     * Fill the type list with the browsed category's types — the one render
+     * path, keyed on `browse` alone (layout state never reaches it).
+     *
+     * Rebuilt rather than filtered: `Gtk.ListBox.setFilterFunc` re-evaluates
+     * its predicate for *every* row on each invalidation, and each evaluation
+     * crosses the node-gtk boundary — 206 rows cost ≈79ms even with a trivial
+     * `() => true` predicate (measured 2026-10-06), which was most of the slow
+     * popup and made each category click pay it, twice over (notify fires
+     * before activated). The browsed category has ~19 rows; clear-and-refill
+     * costs ≈3ms. The old "never rebuilt" doctrine guarded against render
+     * paths keyed on *layout* state — this is still exactly one path.
+     */
+    const renderTypes = (): void => {
+      let old = typeList.getRowAtIndex(0)
+      while (old !== null) {
+        typeList.remove(old)
+        old = typeList.getRowAtIndex(0) // advance: removing the same wrapper twice warns "non-child" and never terminates
+      }
       typePage.title = groups[browse].name
+      let first: ListBoxRow | null = null
+      let live: ListBoxRow | null = null
+      for (const choice of groups[browse].choices) {
+        // Just the type name: the category is the selected row on the left
+        // and the content page's title, so prefixing it here is redundant.
+        const row = new TypeRow({
+          title: choice.label,
+          activatable: true,
+          useMarkup: false,
+        })
+        row.typeId = choice.id
+        if (choice.id === currentId) {
+          row.addSuffix(
+            new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER }),
+          )
+          live = row
+        }
+        typeList.append(row)
+        first ??= row
+      }
+      typeList.selectRow(live ?? first)
     }
 
     // --- Activation ----------------------------------------------------------
@@ -249,8 +271,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     // Documented Adw.Sidebar pattern: activated → show the content pane.
     sidebar.on('activated', (index) => {
       if (index < 0) return
+      const changed = browse !== index
       browse = index
-      applyTypeFilter()
+      if (changed) renderTypes() // notify fired first in wide mode — guard
       // Collapsed: push to the content page. Expanded: both panes already show.
       // No grabFocus() here: GTK reassigns focus when the sidebar hides, and a
       // programmatic grab paints a focus ring without any keyboard intent.
@@ -262,18 +285,18 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     sidebar.on('notify::selected', () => {
       if (split.collapsed) return
       const index = sidebar.selected
-      if (index < 0) return
+      if (index < 0 || index === browse) return // already the shown category
       browse = index
-      applyTypeFilter()
+      renderTypes()
     })
 
-    applyTypeFilter()
-    // Preselect the browsed category and the live type. Sidebar items are
-    // appended in group order, so the group index is the item index. Focus is
-    // left to the dialog itself — no explicit focusWidget, so no focus ring is
-    // painted on open without keyboard intent.
+    renderTypes()
+    // Preselect the browsed category. Sidebar items are appended in group
+    // order, so the group index is the item index (the notify handler's
+    // `index === browse` guard makes this assignment a no-op render-wise).
+    // Focus is left to the dialog itself — no explicit focusWidget, so no
+    // focus ring is painted on open without keyboard intent.
     sidebar.selected = browse
-    if (liveRow !== null) typeList.selectRow(liveRow)
     dialog.present(options.window)
   }
 

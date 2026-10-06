@@ -81,9 +81,8 @@ const TEXT_MAX_HEIGHT = 160
 /**
  * The panel's own vertical margins (see `widget` below). They are *outside*
  * the panel's height — GTK allots a child its margins plus its size, and the
- * next child starts after the lot — so the timer's region begins this much
- * below the panel's measured bottom edge (M6's nudge maths need that edge
- * exactly; see slotBottom()).
+ * next child starts after the lot — so the timer begins this much below the
+ * panel's measured bottom edge.
  */
 const PANEL_MARGIN_TOP = 14
 const PANEL_MARGIN_BOTTOM = 4
@@ -365,30 +364,19 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       currentSvg = null
       if (lastState !== null) render(lastState)
     },
-    /** Is a diagram on screen right now? The nudge's gate. */
-    hasImage: (): boolean => picture.visible,
     /**
-     * The diagram's size *as drawn* (M6): the nudge is measured from it — the
-     * timer steps a quarter of it up and a quarter of it left. The picture is
-     * an overlay
-     * child, so its allocation is its own natural size (the scaled texture)
-     * or, in a cramped window, whatever room the overlay has — either way it
-     * is where the image actually is, and never a size the timer's margins
-     * could influence (overlay children take no layout space). Zero before the
-     * first allocation, which the caller reads as "not yet" and the frame
-     * clock's after-paint corrects on the next frame.
+     * The diagram's size *as drawn* (M6): the picture is an overlay child, so
+     * its allocation is its own natural size (the scaled texture) or, in a
+     * cramped window, whatever room the overlay has — either way it is where
+     * the image actually is, and nothing in the layout can influence it
+     * (overlay children take no layout space). Zero before the first
+     * allocation, which the caller reads as "not yet" and the frame clock's
+     * after-paint corrects on the next frame. main.ts logs it on every change:
+     * it is the number most likely to reveal clipping.
      */
     diagramSize: (): { width: number; height: number } => ({
       width: picture.getSize(Gtk.Orientation.HORIZONTAL),
       height: picture.getSize(Gtk.Orientation.VERTICAL),
     }),
-    /**
-     * Where the panel's slot ends — the top of the timer's own region (M6).
-     * The measured height is the panel's *content*; the slot that pushed it
-     * down includes the margins above and below, and that is what the next
-     * child starts after.
-     */
-    slotBottom: (): number =>
-      PANEL_MARGIN_TOP + widget.getSize(Gtk.Orientation.VERTICAL) + PANEL_MARGIN_BOTTOM,
   }
 }
