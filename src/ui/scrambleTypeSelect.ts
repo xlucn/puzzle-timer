@@ -18,7 +18,10 @@
  * exploit — see SCRAMBLE_GROUPS in src/core/scrambleTypes.ts.
  *
  * Both popups are searchable (`enableSearch` adds a search entry). GTK only
- * filters when DropDown:expression is set — see stringExpression.ts.
+ * filters when DropDown:expression is set — see stringExpression.ts, which
+ * this file and tools/shrink_demo.mjs still import (the Preferences ComboRow
+ * dropped it 2026-10-06: it renders a plain Gtk.StringList on its own and
+ * keeps row search off).
  */
 import Gtk from 'gi:Gtk-4.0'
 

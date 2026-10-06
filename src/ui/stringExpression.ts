@@ -1,17 +1,21 @@
 /*
  * stringExpression.ts — the GtkExpression that makes GTK's string widgets
- * read a GtkStringList's labels.
+ * read a Gtk.StringList's labels.
  *
- * The preferences ComboRow holds a Gtk.StringList whose items are
- * GtkStringObject. (The header's type *button* needs no expression — it draws
- * one label itself — but scrambleTypeSelect.ts, now unhooked, was a Gtk.DropDown
- * and hit the first gotcha below; it is still worth knowing for any DropDown
- * holding strings.) GTK only binds a default label factory when the widget has
- * an expression pointing at `GtkStringObject:string`:
+ * Still needed by anything that *searches* a string list: GTK builds the
+ * string filter from the expression, so without one `setEnableSearch(true)`
+ * on a Gtk.DropDown is a silent no-op (gtk/gtkdropdown.c installs
+ * GtkEveryFilter instead of GtkStringFilter). Its two users are
+ * tools/shrink_demo.mjs (options A/A2) and the unhooked reference
+ * scrambleTypeSelect.ts.
  *
- *   - DropDown: without it, `setEnableSearch(true)` is a silent no-op
- *     (gtk/gtkdropdown.c installs GtkEveryFilter instead of GtkStringFilter);
- *   - ComboRow: without it, the default factory has nothing to show.
+ * The Preferences ComboRow dropped it 2026-10-06: a plain Gtk.StringList
+ * renders its selected label and its popover items with *no* expression —
+ * measured side by side, with and without, on GTK 4.22.5 / libadwaita 1.9.4
+ * (the docs still describe expression as the default factory's mechanism, so
+ * tools/prefs_probe.mjs now asserts the label actually appears; if that
+ * assertion ever fails, restore setExpression() in ui/preferences.ts). That
+ * row keeps search off, so it has no use for this module.
  *
  * node-gtk cannot set the `expression` *property* (its GValue converter has
  * no case for the GtkExpression fundamental type and aborts) — pass it to a

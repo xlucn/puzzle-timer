@@ -7,7 +7,10 @@
  *   2. Adw.SpinRow reads back in seconds and reports `notify::value`;
  *   3. Adw.SwitchRow reports `notify::active`;
  *   4. a patch produced by a row change merges into the run's Preferences
- *      the way main.ts's applyPreferences() does.
+ *      the way main.ts's applyPreferences() does;
+ *   5. the Theme ComboRow renders the selected item's label from a plain
+ *      Gtk.StringList with no Gtk.Expression (the expression was dropped
+ *      2026-10-06 — this is what says a future libadwaita still does it).
  *
  * Run:
  *   GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/prefs_probe.mjs
@@ -42,6 +45,28 @@ const findRow = (root, title) => {
     child = child.getNextSibling?.()
   }
   return null
+}
+
+/**
+ * Text of every label under a widget that is actually showing. Descending
+ * into a closed popover would pick up its item labels, so invisible subtrees
+ * are skipped wholesale (`visible === false` — the popup reports that even
+ * while its own children claim visible=true).
+ */
+const shownLabels = (root, out = []) => {
+  if (root === null) return out
+  if (root.visible === false) return out
+  try {
+    if (typeof root.label === 'string' && root.label.length > 0) out.push(root.label)
+  } catch {
+    /* not a label — nothing to read */
+  }
+  let child = root.getFirstChild?.() ?? null
+  while (child !== null) {
+    shownLabels(child, out)
+    child = child.getNextSibling?.()
+  }
+  return out
 }
 
 app.on('activate', () => {
@@ -80,12 +105,19 @@ app.on('activate', () => {
     check(cues !== null, 'found the sound cues SwitchRow')
     if (cues !== null) check(cues.getActive() === true, 'cues start ON (default)')
 
-    // Appearance: the ComboRow exists (setExpression survived — the property
-    // path would have aborted the process) and opens on the stored scheme.
+    // Appearance: the ComboRow opens on the stored scheme, and its default
+    // factory labels a plain Gtk.StringList with no expression set (dropped
+    // 2026-10-06 — measured identical trees with and without on GTK 4.22.5 /
+    // libadwaita 1.9.4). Read from the row itself, so the popover's item
+    // labels (invisible, skipped) cannot stand in for the selected label.
     const theme = findRow(dialog, 'Theme')
-    check(theme !== null, 'found the Theme ComboRow (setExpression did not abort)')
+    check(theme !== null, 'found the Theme ComboRow')
     if (theme !== null) {
       check(theme.selected === 0, `opens on "Follow system" (got ${theme.selected})`)
+      check(
+        shownLabels(theme).includes('Follow system'),
+        'the selected-item label renders without a Gtk.Expression',
+      )
       theme.selected = 2 // "Dark"
     }
 
@@ -114,6 +146,13 @@ app.on('activate', () => {
         `the ComboRow reported the colour scheme (${JSON.stringify(patches)})`,
       )
       check(prefs.colorScheme === 'dark', 'the merged preference is dark')
+      // The label follows the selection too — still with no expression set.
+      if (theme !== null) {
+        check(
+          shownLabels(theme).includes('Dark'),
+          'the selected-item label follows a change without a Gtk.Expression',
+        )
+      }
       check(prefs.scrambleImage === false, 'the image switch reported off')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)

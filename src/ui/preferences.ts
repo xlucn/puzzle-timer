@@ -30,8 +30,6 @@ import {
   type Preferences,
 } from '../core/preferences.js'
 
-import { makeStringExpression } from './stringExpression.js'
-
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
  * types come from InstanceType.
@@ -128,10 +126,16 @@ export function createPreferences(options: PreferencesPanelOptions) {
       title: 'Theme',
       model: Gtk.StringList.new(COLOR_SCHEME_CHOICES.map((choice) => choice.label)),
     })
-    // The default label factory needs an expression to read GtkStringObject
-    // (see stringExpression.ts); setExpression() takes it as a positional
-    // argument — the `expression` *property* would abort node-gtk.
-    schemeRow.setExpression(makeStringExpression())
+    // No GtkExpression: a plain Gtk.StringList labels itself. Measured
+    // 2026-10-06 — a control row with setExpression() and one without drew
+    // identical selected-label and popover trees on GTK 4.22.5 /
+    // libadwaita 1.9.4; tools/prefs_probe.mjs asserts the label renders, so a
+    // libadwaita that stops doing this fails the probe rather than showing an
+    // empty row. The docs still name AdwComboRow:expression as the default
+    // factory's binding mechanism, and *search* needs it too, so if this row
+    // ever gets enableSearch, hand setExpression(makeStringExpression()) back
+    // to it — positional/setter, never the `expression` *property* (that path
+    // aborts node-gtk; PLAN decision 10, stringExpression.ts).
     schemeRow.selected = Math.max(
       0,
       COLOR_SCHEME_CHOICES.findIndex((choice) => choice.id === prefs.colorScheme),

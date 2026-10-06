@@ -119,7 +119,8 @@ src/
 │   ├── sessionMenu.ts    session radio-menu (Gtk.MenuButton + Gio.Menu)
 │   ├── shortcuts.ts      Adw.ShortcutsDialog (built fresh on app.shortcuts)
 │   ├── preferences.ts    Adw.PreferencesDialog: Timer / Appearance / Scramble
-│   └── stringExpression.ts  makeStringExpression() — ComboRow labels (decision 10)
+│   └── stringExpression.ts  makeStringExpression() — string search (decision 10; the
+│                         Preferences ComboRow dropped it 2026-10-06, see decision 10)
 ```
 
 ### Why the boundary matters
@@ -200,6 +201,16 @@ src/
     plus `setSearchMatchMode(SUBSTRING)` (the default PREFIX misses "roux" in
     "3x3x3 Roux"). Swapping a level-2 model from JS resets `selected` → 0 and
     emits `notify::selected`; guard the callback while swapping.
+    *Amended 2026-10-06* — only half of this was ever load-bearing. The
+    Preferences `ComboRow` no longer sets an expression: rendered side by
+    side, with and without, it drew an identical selected label and an
+    identical popover (GTK 4.22.5 / libadwaita 1.9.4), so "the default
+    factory has nothing to show" was wrong for *display* — what needs the
+    expression is *search* (ComboRow: "Search requires
+    AdwComboRow:expression to be set"). `tools/prefs_probe.mjs` now asserts
+    the label renders, the tripwire for a libadwaita release that stops
+    doing it; `stringExpression.ts` stays for the searchable dropdowns
+    (shrink_demo A/A2, the unhooked reference selector).
 
 11. **i18n — catalogs are TypeScript modules, not JSON files.**
     `src/locales/en.ts` exports the message table `as const`; every other
@@ -817,7 +828,9 @@ spinner) and the two-dropdown selector `src/ui/scrambleTypeSelect.ts` —
 category → type, both searchable (see decision 10 in §4 for the GTK
 `expression` pitfall that made search silently do nothing). *Both dropdowns
 were unhooked 2026-10-04 in favour of one ellipsizing header button; the
-module is kept and the pitfall still applies to the ComboRow.*
+module is kept and the pitfall still applies to any string row with search
+on (the Preferences ComboRow keeps search off, and dropped its expression
+2026-10-06 — decision 10).*
 
 Evidence:
 
@@ -1076,7 +1089,9 @@ same `applyPreferences` path: `system` → `DEFAULT` (the default manager,
 follows the desktop, light fallback), `light`/`dark` → `FORCE_*`. The dialog
 gains its Appearance page: an `Adw.ComboRow` whose label factory is fed with
 `setExpression(makeStringExpression())` — the positional/setter path, since
-the expression *property* still aborts node-gtk (decision 10).
+the expression *property* still aborts node-gtk (decision 10). *The call was
+removed 2026-10-06: a plain `Gtk.StringList` labels itself on GTK 4.22.5 /
+libadwaita 1.9.4, and the probe now asserts it — decision 10.*
 
 **Scramble diagram (stage 3, `cf0963c`).** The image rides the same worker
 round trip as the text (`scrambleWithImage`), so both land in one frame; an
