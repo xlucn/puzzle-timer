@@ -11,7 +11,7 @@ able to continue at the current milestone.
 
 **MVP (M0–M5):** timers, scrambles, sessions, statistics.
 
-**Scheduled next (M7–M14, decided 2026-10-05).** Order: size preferences
+**Scheduled next (M7–M15, decided 2026-10-05; M15 added 2026-10-06).** Order: size preferences
 first (small and self-contained), then **i18n**, so every string the later
 milestones add is written translated instead of swept afterwards (§7 notes
 where that order is convention rather than dependency):
@@ -51,13 +51,26 @@ where that order is convention rather than dependency):
   whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
   node-gtk native binding build, audio without `pw-play`. Its deliverable is
   a written result plus a scoped packaging milestone — or a documented "not
-  viable". **Only M14 may reopen the packaging line below.**
+  viable". **M14 decides whether packaging reopens any *further* — M15 has
+  already opened the AUR slice.**
+- **M15 — AUR package.** A PKGBUILD that precompiles with Arch's own
+  `typescript` (in [extra]) and ships only `dist/` plus the two npm runtime
+  dependencies: about **13 MiB installed against today's 39 MiB**
+  `npm install --omit=dev` tree — because `node-gtk` declares `node-gyp` and
+  `@mapbox/node-pre-gyp` as *production* deps and drags 113 lockfile packages
+  in behind them. **Blocked on M12** (a package needs a name, an icon, a
+  `.desktop` file and a tag for `source=()` to point at); the draft PKGBUILD
+  and every measurement are in §6.
 
 **Explicitly out of scope for now:**
 - Bluetooth smart cube support (decided: not in v1)
 - Virtual cube, solvers, batch generators, cross-session stats
-- Packaging/distribution (personal use only for now) — **M14 may reopen
-  this**, and no other milestone may.
+- Packaging/distribution (personal use only for now) — **one exception,
+  decided 2026-10-06: an AUR package, scheduled as M15.** A PKGBUILD is just
+  a recipe over a source tarball: no infrastructure, no publishing pipeline,
+  and it doubles as proof that a stranger can build this from a tag.
+  Everything else (Flatpak, deb, AppStream publishing) stays closed until
+  **M14** reports yes.
 
 **Long-term goals (added by decision, not scheduled):**
 - **Stackmat support** — `serialport` npm package + udev rule; protocol logic
@@ -390,7 +403,7 @@ it). Import *from* csTimer reads only, so it is the safe direction.
 
 Each milestone ends with a runnable app.
 
-Blocks are ordered **what's next first**: the scheduled M7–M14 come before
+Blocks are ordered **what's next first**: the scheduled M7–M15 come before
 the landed M0–M6 log, so the milestone to pick up is the first block after
 the table.
 
@@ -411,6 +424,7 @@ the table.
 | **M12** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M13** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and the 360×360 overlap | A solve starts with a finger and the floor layout stops overlapping |
 | **M14** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
+| **M15** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/cstimer-gtk` launches from outside the source tree |
 
 **Post-MVP backlog:** stackmat (§1), then packaging if ever needed.
 
@@ -801,6 +815,116 @@ A decision gate. Nothing here may change the architecture on its own.
   line in §1 stay closed.
 
 **Checkpoint for the user:** the verdict.
+
+### M15 — scheduled (AUR package)
+
+Opened 2026-10-06 — the one exception to the packaging line in §1. **Blocked
+on M12**: a package needs a name, an icon, a `.desktop` file, and a tag for
+`source=()` to point at.
+
+**What Arch already has** (queried with `pacman -Si`, 2026-10-06, all in
+[extra]): `typescript` 6.0.3 (23.21 MiB), `esbuild` 0.28.2 (11.09 MiB — the
+same version as our `allowScripts` pin), `node-gyp` 13.1.0, `nodejs` 26.10.0,
+`npm` 12.2.0. **Packaged nowhere — official repos *or* AUR:** `node-gtk`,
+`cstimer_module`, `tsx`, `vitest`, `@types/node`. So `typescript` becomes a
+`makedepends`, and precompiling is what keeps `tsx` and its 11 MiB of esbuild
+out of the package entirely.
+
+**Three size levers**, measured against today's **39 MiB**
+`npm install --omit=dev` tree:
+
+1. **Precompile.** `typescript` (23 MiB), `esbuild` (11 MiB), `vitest`,
+   `cross-env`, `tsx` and `src/` (476 KiB) never enter the package — they are
+   shared system packages or build-time only.
+2. **Prune node-gtk's build closure — 26.7 MiB of the 39.** `node-gtk`
+   declares `node-gyp` **and** `@mapbox/node-pre-gyp` as *production*
+   dependencies, so `--omit=dev` dutifully ships npm's internals (`cacache`,
+   `@npmcli/*`, `tar`, `glob`, `nan`, …) — **113 non-dev packages in the
+   lockfile**. Once `lib/binding/node-v147-linux-x64/node_gtk.node` is in
+   place none of it is needed: `lib/native.js` only reaches
+   `require('@mapbox/node-pre-gyp')` *inside*
+   `if (!fs.existsSync(bindingPath))`. What stays: `node-gtk/lib` 12 M
+   (almost all of it the binding) plus `cstimer_module` 288 K, which has zero
+   dependencies.
+3. **Ship neither `tools/` nor tests.** `tsconfig.json` has
+   `include: ["src/**/*.ts"]` and **no `exclude`**, so `npm run build` emits
+   all **9 `*.test.ts` files** into `dist/` (measured: 39 `.js`, of which 9
+   are `.test.js`), each importing `vitest`. Add
+   `"exclude": ["**/*.test.ts"]` — or delete them in `package()`.
+
+**Verified so far:** `npm run build` is clean under tsc 5.9.3, and all three
+runtime paths resolve from `dist/` — `dist/platform/meta.js` imports and
+returns `APP_VERSION` (its `../../package.json` reaches the root from `src/`
+*and* `dist/`), `dist/main.js` carries `new URL('../style.css', …)`, and
+`dist/scramble/service.js` still branches `.ts` → `.js`, so it picks
+`worker.js`. **Not verified:** running the built output, and compiling with
+Arch's `typescript` **6.0.3** against a project declared `^5.5.0` — that gap
+is the first thing to test.
+
+**Two gotchas, both measured:**
+- The binding path is ABI-specific (`node-v147-linux-x64`), so an Arch
+  `nodejs` major bump breaks the package until a `pkgrel` rebuild.
+- `--import node-gtk/register` resolves a bare specifier **from the cwd** —
+  it works from the repo root and fails `ERR_MODULE_NOT_FOUND` from `/tmp`.
+  The `/usr/bin` launcher must `cd` into the app directory.
+
+**Draft PKGBUILD** (untested against Arch's tsc):
+
+```bash
+# Maintainer: Lu Xu <oliver_lew@outlook.com>
+pkgname=cstimer-gtk
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
+arch=('x86_64')
+url="https://github.com/<you>/cstimer-gtk"        # ← needs M12's public name
+license=('GPL-3.0-or-later')
+depends=('nodejs' 'gtk4' 'libadwaita' 'gobject-introspection')
+makedepends=('typescript' 'npm' 'node-gyp' 'gcc' 'make' 'python')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
+        'cstimer_module-0.1.5.tgz::https://registry.npmjs.org/cstimer_module/-/cstimer_module-0.1.5.tgz'
+        'node-gtk-4.1.1.tgz::https://registry.npmjs.org/node-gtk/-/node-gtk-4.1.1.tgz'
+        'node-types-node.tgz::https://registry.npmjs.org/@types/node/-/node-<exact>.tgz')
+b2sums=('…')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # lockfile-pinned; no scripts — we compile node-gtk ourselves below.
+  npm ci --omit=dev --ignore-scripts
+  # Arch doesn't package @types/node, and tsconfig sets "types": ["node"]
+  mkdir -p node_modules/@types/node
+  tar -xf "$srcdir/node-types-node.tgz" -C node_modules/@types/node --strip-components=1
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  tsc -p tsconfig.json                     # Arch's typescript, not npm's
+  ( cd node_modules/node-gtk && npx --no-install node-pre-gyp \
+      install --fallback-to-build )        # → lib/binding/node-v147-…/node_gtk.node
+}
+
+package() {
+  local d="/usr/lib/$pkgname"
+  cd "$pkgname-$pkgver"
+  install -d "$pkgdir$d/node_modules" "$pkgdir/usr/bin"
+  cp -r dist package.json style.css "$pkgdir$d/"
+  cp -r node_modules/cstimer_module "$pkgdir$d/node_modules/"
+  cp -r node_modules/node-gtk/lib node_modules/node-gtk/package.json \
+        "$pkgdir$d/node_modules/node-gtk/"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  # .desktop + icon + metainfo land here with M12
+  printf '#!/bin/sh\ncd %s && exec node --import node-gtk/register dist/main.js\n' "$d" |
+    install -Dm750 /dev/stdin "$pkgdir/usr/bin/$pkgname"
+}
+```
+
+Pragmatic note: `npm ci` inside `prepare()` fetches the network, which Arch's
+guidelines prefer to avoid (everything should be in `source=()`). The clean
+alternative is listing every tarball — but node-gtk's production closure alone
+is 113 packages, so start pragmatic and tighten later if it bothers you.
+
+**Checkpoint for the user:** `makepkg -si`, then launch `/usr/bin/cstimer-gtk`
+from a directory that is *not* the source tree.
 
 ### M0 — landed 2026-09-30
 
@@ -1264,10 +1388,11 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M7–M14 scheduled 2026-10-05** — size preferences → i18n → csTimer
-  import/export → records & statistics → charts → release readiness → touch
-  input → the phone-runtime verdict, in that order (the scope block in §1,
-  the dated blocks in §6). M7 is deliberately
+- **M7–M15 scheduled 2026-10-05 (M15 added 2026-10-06)** — size preferences
+  → i18n → csTimer import/export → records & statistics → charts → release
+  readiness → touch input → the phone-runtime verdict → **AUR package**, in
+  that order (the scope block in §1, the dated blocks in §6). M7 is
+  deliberately
   first: three size scales, self-contained. Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every feature that adds strings so M9's
@@ -1284,6 +1409,10 @@ Evidence:
   `Inspection` runner-up, both shortlisted in the same block with what each
   rename costs). M12's first half (versioning, CHANGELOG, About, README, the
   AI disclosure) needs neither and may be pulled forward.
+  **M15 (AUR) is blocked on M12** and needs nothing beyond it: the draft
+  PKGBUILD and the size measurements are in its §6 block, and the first two
+  things to test there are Arch's `typescript` 6.0.3 against our declared
+  `^5.5.0`, and whether the built `dist/` runs at all.
   Open before M7 and M8: nothing. Probes that gate M9, M11 and M13
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
@@ -1298,9 +1427,9 @@ Evidence:
   behind during a resize. `npm test` = **219 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
   **Next milestone: M7 (size preferences)** — see the bullet above. The older
-  "M7+ should be picked, not assumed" note now applies only beyond M14: M7–M14
-  are scheduled above. The still-unscheduled backlog beyond M14 is stackmat,
-  and packaging only if M14 reports yes (§1).
+  "M7+ should be picked, not assumed" note now applies only beyond M15: M7–M15
+  are scheduled above. The still-unscheduled backlog beyond M15 is stackmat
+  and the rest of packaging (Flatpak, deb), which only M14 can reopen (§1).
   Still open from earlier user calls: the diagram's thin outlines read
   low-contrast on the dark theme (accepted for now, noted in a code
   comment), and one startup-only `AdwToastOverlay exceeds` warning with the

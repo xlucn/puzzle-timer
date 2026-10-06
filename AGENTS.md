@@ -75,6 +75,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   an action is reachable with no modifier keys and no accelerator before
   shipping it: Shift/Ctrl-click and Escape are the two things a phone does
   not have.
+- **Four relative paths are load-bearing for the packaged layout (M15):**
+  `styles.addFile('../style.css', …)` in `src/main.ts`, the
+  `.ts`/`.js` worker branch in `src/scramble/service.ts`, `meta.ts`'s
+  `../../package.json`, and the bare `node-gtk/register` specifier — which
+  resolves **from the cwd**, so the `/usr/bin` launcher has to `cd` first.
+  `src/` and `dist/` are siblings by design: moving either breaks all of
+  them. All four were verified working from `dist/` on 2026-10-06.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**
@@ -295,13 +302,18 @@ npm run generate-types
 
 ## Out of scope (agreed, do not add unprompted)
 
-Bluetooth smart cubes, virtual cube, solvers, packaging.
+Bluetooth smart cubes, virtual cube, solvers, and packaging **beyond the AUR
+package scheduled as M15**.
 Stackmat is a **long-term** goal (see PLAN.md), not current work.
 
-**Scheduled — not out of scope** (PLAN.md §1, decided 2026-10-05; don't
-redesign them, follow the milestone blocks):
+**Scheduled — not out of scope** (PLAN.md §1; don't redesign them, follow the
+milestone blocks):
 **M7** size preferences → **M8** i18n → **M9** csTimer import/export →
 **M10** records & statistics → **M11** charts → **M12** release readiness →
-**M13** touch input → **M14** phone-runtime verdict.
+**M13** touch input → **M14** phone-runtime verdict → **M15** AUR package
+(added 2026-10-06; blocked on M12 — PLAN.md §6 has the draft PKGBUILD and
+the size measurements).
 csTimer backup import/export used to be listed above as dropped; it was
 reinstated by that decision, and charts came off the long-term list with it.
+
+Only **M14** may reopen packaging any further (Flatpak, deb, AppStream).
