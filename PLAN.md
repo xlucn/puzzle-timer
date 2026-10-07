@@ -613,9 +613,14 @@ decisions at the end of this block.
 **B — gated on two open decisions**
 
 - **Public name**, cheapest to most irreversible:
-  - **Shortlist, recorded 2026-10-05: `Puzzle Timer` (preferred),
-    `Inspection` (runner-up).** Judge against the GNOME HIG app-naming
-    rules (<https://developer.gnome.org/hig/guidelines/app-naming.html>):
+  - **Adopted 2026-10-07: `Puzzle Timer`.** The repo is
+    `github.com/xlucn/puzzle-timer` (SSH: `git@github.com:xlucn/puzzle-timer.git`),
+    which takes the shortlist's preferred option and closes the "final call"
+    §7 was carrying — the runner-up, `Inspection`, is dropped. The *Chinese*
+    name is still open (see below). The shortlist and its evidence stay,
+    because that is what the decision rests on: judge names against the GNOME
+    HIG app-naming rules
+    (<https://developer.gnome.org/hig/guidelines/app-naming.html>):
     one or two simple nouns, under 15 characters, easy to pronounce, easy to
     draw as an icon — and avoid puns and inside jokes, made-up words,
     acronyms, decorative punctuation, and other projects' names.
@@ -654,8 +659,12 @@ decisions at the end of this block.
     for the shortlisted English names, plus 蓄势, 玄机, 错落, 未解,
     分秒, 还原.
   - `APP_NAME` (`'csTimer GTK'`) is display only — window title, menus,
-    sidebar, About. Free to change, any time.
-  - `package.json.name` — free.
+    sidebar, About. Free to change, any time — and it now has a target,
+    `'Puzzle Timer'` (under M8 it becomes `t('app.name')` either way).
+  - `package.json.name` — free, and should become `puzzle-timer` to match the
+    repo. The file also still lacks a `repository` field and still carries the
+    scaffold's placeholder `description`, both of which the repo now makes
+    easy to fill in.
   - **App id** — `APP_ID = 'com.oliver.cstimergtk'` (note it already
     differs from the package name `cstimer-gtk`): it is the About
     `applicationIcon`, the `.desktop` filename and the `WM_CLASS`. Settle it
@@ -833,6 +842,15 @@ A decision gate. Nothing here may change the architecture on its own.
 Opened 2026-10-06 — the one exception to the packaging line in §1. **Blocked
 on M12**: a package needs a name, an icon, a `.desktop` file, and a tag for
 `source=()` to point at.
+
+**Second blocker, noted 2026-10-07: the repo is private.** `makepkg` fetches
+every `source=()` entry over plain HTTP, so
+`github.com/xlucn/puzzle-timer` as it stands is unbuildable for anyone but
+its owner — and for you too, inside a clean chroot or a container that has no
+SSH keys. M15 needs the repo **public at tag time**, or the release tarball
+hosted somewhere public. Make that call deliberately before submitting, not
+discovered at submission; note that it cuts against the reason the repo is
+private.
 
 **What Arch already has** (queried with `pacman -Si`, 2026-10-06, all in
 [extra]): `typescript` 6.0.3 (23.21 MiB), `esbuild` 0.28.2 (11.09 MiB — the
@@ -1417,18 +1435,23 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M9: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  Open before M12: the **icon** — its *direction* is decided and recorded in
-  the M12 block (cube alone in a PLL Ga state, no timer, 25° elevation,
-  computed by a generator rather than drawn), but the artwork itself, its
-  **symbolic variant**, the baseline alignment and the icon name are still to
-  do; and the final call on the **public name** (`Puzzle Timer` preferred,
-  `Inspection` runner-up, both shortlisted in the same block with what each
-  rename costs). M12's first half (versioning, CHANGELOG, About, README, the
-  AI disclosure) needs neither and may be pulled forward.
-  **M15 (AUR) is blocked on M12** and needs nothing beyond it: the draft
-  PKGBUILD and the size measurements are in its §6 block, and the first two
-  things to test there are Arch's `typescript` 6.0.3 against our declared
-  `^5.5.0`, and whether the built `dist/` runs at all.
+  Open before M12: only the **icon** now — its *direction* is decided and
+  recorded in the M12 block (cube alone in a PLL Ga state, no timer, 25°
+  elevation, computed by a generator rather than drawn), but the artwork
+  itself, its **symbolic variant**, the baseline alignment and the icon name
+  are still to do. The **public name is settled**: `Puzzle Timer` was adopted
+  2026-10-07 with the repo `xlucn/puzzle-timer`, so what is left of that
+  decision is the rename checklist in the M12 block — `package.json`,
+  `APP_NAME`, the README and About links, and the app id, which must land
+  before the first tag. M12's first half (versioning, CHANGELOG, About, README,
+  the AI disclosure) needs no icon and no name call, so it may be pulled
+  forward.
+  **M15 (AUR) has two blockers**, both written into its §6 block: M12 (name,
+  icon, `.desktop`, a tag) and the repo's **privacy** — `makepkg` fetches over
+  plain HTTP, so the sources must be public at tag time. The draft PKGBUILD
+  and the size measurements live there too, along with the first two things to
+  test: Arch's `typescript` 6.0.3 against our declared `^5.5.0`, and whether
+  the built `dist/` runs at all.
   Open before M7 and M8: nothing. Probes that gate M9, M11 and M13
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
