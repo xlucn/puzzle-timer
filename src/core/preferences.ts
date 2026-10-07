@@ -28,7 +28,7 @@ export interface Preferences {
   inspection: boolean
   /** The inspection's 8 s / 12 s acoustic cues. */
   inspectionSound: boolean
-  /** Show a picture of the scramble when its type has one (SVG, via Rsvg). */
+  /** Show a picture of the scramble when its type has one (SVG, via Gtk.Svg). */
   scrambleImage: boolean
   /** Light/dark theming; `system` follows the desktop. */
   colorScheme: ColorScheme

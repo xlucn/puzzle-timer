@@ -29,10 +29,8 @@
  * presence or size can never move the text or the timer.
  */
 import Adw from 'gi:Adw-1'
-import Gdk from 'gi:Gdk-4.0'
-import GdkPixbuf from 'gi:GdkPixbuf-2.0'
+import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
-import Rsvg from 'gi:Rsvg-2.0'
 
 import { styles } from 'node-gtk/styles'
 
@@ -66,9 +64,9 @@ const FAILED = (reason: string) => `Scramble failed: ${reason}`
  * tier — M6's applyLayout() pushes larger caps into the panel on a wide
  * window (see setDiagramMax). The natural sizes run from ~375×180 (clock) to
  * ~526×393 (4x4) — a 396×296 3x3 image would eat half the window, so the
- * pixbuf is scaled down to fit, keeping its aspect. Within one type and one
- * window size the result is constant, which is what keeps the timer from
- * moving between solves.
+ * picture is asked for the cap-fitted box (svgPaintable), keeping its
+ * aspect. Within one type and one window size the result is constant,
+ * which is what keeps the timer from moving between solves.
  */
 const IMAGE_MAX_WIDTH = 440
 const IMAGE_MAX_HEIGHT = 150
@@ -89,33 +87,101 @@ const PANEL_MARGIN_TOP = 14
 const PANEL_MARGIN_BOTTOM = 4
 
 /**
- * SVG → scaled Gdk.Texture, or null when it cannot be rendered (never throws:
- * a broken picture must not cost the scramble that came with it).
+ * SVG → a Gtk.Svg paintable whose intrinsic size is the cap-fitted box, or
+ * null when it cannot be parsed (never throws: a broken picture must not cost
+ * the scramble that came with it).
+ *
+ * `Gtk.Svg` (GTK 4.22+) replaces the old Rsvg → GdkPixbuf → Gdk.Texture
+ * pipeline: GTK's own renderer rasterizes at paint time, so the diagram is
+ * crisp at any scale/DPR instead of inheriting the pre-scaled texture's
+ * resolution — and the app drops its Rsvg/GdkPixbuf imports.
+ *
+ * The tier caps have to live in the SVG itself: Gtk.Picture's width/height
+ * requests only raise the *minimum*, so the paintable's intrinsic size wins
+ * (probe: request 201×150, allocated 396×296 — the cap would be gone). So
+ * the root viewport is re-declared at the fitted size, with a viewBox in the
+ * original coordinates when the generator omitted one (csTimer's SVGs are
+ * absolute-coordinate) — the content then scales into the box, keeping its
+ * aspect, and every measure downstream (Picture, diagramSize's allocation)
+ * sees the capped size.
+ *
+ * Parse errors land on Gtk.Svg's `error` signal (docs: logging is fine) and
+ * are logged; a *failed* parse reports GtkSvg's 200×200 default instead of
+ * the declared size, which can never equal the fitted box — every tier keeps
+ * the height under 200 — so that mismatch reads as "no picture", matching
+ * the old never-renders-garbage contract.
  */
-function svgToTexture(
+function svgPaintable(
   svg: string,
   maxWidth: number,
   maxHeight: number,
-): InstanceType<typeof Gdk.Texture> | null {
+): InstanceType<typeof Gtk.Svg> | null {
   try {
-    const handle = Rsvg.Handle.newFromData(Array.from(new TextEncoder().encode(svg)))
-    if (handle === null) return null
-    const original = handle.getPixbuf()
-    if (original === null) return null
+    // csTimer's generator emits a fixed root: <svg width="W" height="H" …>.
+    const root = svg.match(/^<svg\b([^>]*)>/)
+    if (root === null) return null
+    const declaredWidth = root[1].match(/\bwidth="([\d.]+)"/)
+    const declaredHeight = root[1].match(/\bheight="([\d.]+)"/)
+    if (declaredWidth === null || declaredHeight === null) return null
+    const intrinsicWidth = Number.parseFloat(declaredWidth[1])
+    const intrinsicHeight = Number.parseFloat(declaredHeight[1])
+    if (!(intrinsicWidth > 0) || !(intrinsicHeight > 0)) return null
 
-    const width = original.getWidth()
-    const height = original.getHeight()
-    const scale = Math.min(maxWidth / width, maxHeight / height, 1)
-    const pixbuf =
-      scale < 1 && width > 0 && height > 0
-        ? original.scaleSimple(
-            Math.max(1, Math.round(width * scale)),
-            Math.max(1, Math.round(height * scale)),
-            GdkPixbuf.InterpType.BILINEAR,
-          )
-        : original
-    if (pixbuf === null) return null
-    return Gdk.Texture.newForPixbuf(pixbuf)
+    const scale = Math.min(maxWidth / intrinsicWidth, maxHeight / intrinsicHeight, 1)
+    const width = Math.max(1, Math.round(intrinsicWidth * scale))
+    const height = Math.max(1, Math.round(intrinsicHeight * scale))
+
+    const fitted =
+      root[1]
+        .replace(/\bwidth="[^"]*"/, `width="${width}"`)
+        .replace(/\bheight="[^"]*"/, `height="${height}"`) +
+      (/\bviewBox="/.test(root[1]) ? '' : ` viewBox="0 0 ${intrinsicWidth} ${intrinsicHeight}"`)
+    let rewritten = svg.replace(root[0], `<svg${fitted}>`)
+    // csTimer's text labels take their colours from kernel preferences
+    // (`col-font`/`col-board`) that a headless module never loads, so the
+    // generator writes literal `undefined` — no renderer parses that (probe:
+    // Gtk.Svg, rsvg and browsers all decline it, falling back to black/no
+    // stroke). Sub in csTimer's own defaults (kernel.js: col-font #000000,
+    // col-board #ffdddd): black text outlined in the board colour — the
+    // bright border that keeps labels legible over the cube image, which is
+    // what `paint-order:stroke;stroke-width:3px` was always for.
+    rewritten = rewritten
+      .replace(/\bfill:undefined\b/g, 'fill:#000000')
+      .replace(/\bstroke:undefined\b/g, 'stroke:#ffdddd')
+    // csTimer's text labels use the `font:` shorthand (`font:20px Arial`),
+    // which Gtk.Svg's minimal CSS support declines ("No property named
+    // font") — the size/family would silently fall back. librsvg applies it
+    // (probe: identical output to the longhand), so expand it here rather
+    // than let the text render at the wrong size.
+    rewritten = rewritten.replace(
+      /\bfont:\s*(\d+(?:\.\d+)?)px\s+([\w-]+)/g,
+      'font-size:$1px;font-family:$2',
+    )
+
+    const paintable = Gtk.Svg.new()
+    const warnings: string[] = []
+    paintable.on('error', (error) => warnings.push(error.message))
+    paintable.loadFromBytes(
+      GLib.Bytes.new(Array.from(new TextEncoder().encode(rewritten))),
+    )
+    if (warnings.length > 0) {
+      // Tripwire: the known defects above are rewritten before loading, so
+      // anything left is new — log one line per distinct message (an image
+      // repeats the same style on every label) rather than failing the
+      // picture: a partial render still beats no scramble.
+      const unique = [...new Set(warnings)]
+      const repeat = warnings.length > unique.length ? ` (${warnings.length}×)` : ''
+      console.error(`[scramble] svg warnings: ${unique.join('; ')}${repeat}`)
+    }
+    // Success reports the declared size; a failed parse reports the fallback
+    // (200×200), which no fitted box can equal — see the doc comment.
+    if (
+      paintable.getIntrinsicWidth() !== width ||
+      paintable.getIntrinsicHeight() !== height
+    ) {
+      return null
+    }
+    return paintable
   } catch (error) {
     console.error(
       `[scramble] could not render the image: ${error instanceof Error ? error.message : String(error)}`,
@@ -189,7 +255,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   // corner (user call, 2026-10-02). Overlay children are not counted in the
   // parent's size request, so the picture cannot move the text or the timer
   // at any window size, and switching the image off reflows nothing. Its
-  // size is the *scaled pixbuf's* (see IMAGE_MAX_*), constant within a
+  // size is the *cap-fitted request's* (see IMAGE_MAX_*), constant within a
   // type; `canShrink` + CONTAIN take it down again when the window narrows
   // instead of clipping.
   //
@@ -326,10 +392,13 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       lastText !== null && lastType !== null ? options.getImage(lastType, lastText) : null
     if (svg !== currentSvg) {
       currentSvg = svg
-      const texture =
-        svg === null ? null : svgToTexture(svg, diagramMaxWidth, diagramMaxHeight)
-      picture.setPaintable(texture)
-      picture.setVisible(texture !== null)
+      // The paintable's intrinsic size is already the cap-fitted box
+      // (svgPaintable rewrites the root viewport), so the Picture's natural
+      // size *is* the cap — recomputed here on tier changes, since
+      // setDiagramMax clears currentSvg and this block re-runs.
+      const fit = svg === null ? null : svgPaintable(svg, diagramMaxWidth, diagramMaxHeight)
+      picture.setPaintable(fit)
+      picture.setVisible(fit !== null)
     }
   }
 
@@ -359,10 +428,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       }
     },
     /**
-     * M6: the diagram cap for this tier. The texture is already scaled to the
-     * old cap, so the cache is dropped and the last state redrawn — the
-     * picture changes size, never its position, and the text and timer are
-     * untouched (overlay children take no layout space).
+     * M6: the diagram cap for this tier. The paintable's viewport was written
+     * against the old cap, so the cache is dropped and the last state
+     * redrawn — the picture changes size, never its position, and the text
+     * and timer are untouched (overlay children take no layout space).
      */
     setDiagramMax(width: number, height: number): void {
       if (width === diagramMaxWidth && height === diagramMaxHeight) return
@@ -373,8 +442,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     },
     /**
      * The diagram's size *as drawn* (M6): the picture is an overlay child, so
-     * its allocation is its own natural size (the scaled texture) or, in a
-     * cramped window, whatever room the overlay has — either way it is where
+     * its allocation is its own natural size (the paintable's cap-fitted
+     * viewport) or, in a cramped window, whatever room the overlay has — either way it is where
      * the image actually is, and nothing in the layout can influence it
      * (overlay children take no layout space). Zero before the first
      * allocation, which the caller reads as "not yet" and the frame clock's

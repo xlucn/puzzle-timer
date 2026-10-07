@@ -20,7 +20,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
    `ui/` + `platform/` + `scramble/`.
 2. **Node-specific code lives in `src/platform/`** (`store.ts` for persistence,
    `random.ts` for CSPRNG seeding) and `src/scramble/` (worker host).
-3. **Only `src/ui/` touches `gi:*`** (Gtk, Adw, GLib, Gio, Rsvg, Gst).
+3. **Only `src/ui/` touches `gi:*`** (Gtk, Adw, GLib, Gio, Gdk, Gst).
 4. **Scramble generation never runs on the main thread.** A 4x4 WCA scramble
    takes ~1.2 s (measured) and would freeze the UI.
 5. **Custom widget subclassing: try it, probe it, fall back if it fails**

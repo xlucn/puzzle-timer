@@ -11,8 +11,10 @@ project rules in [AGENTS.md](./AGENTS.md).
 
 ## Prerequisites
 
-You need GTK 4 and libadwaita — plus their GObject-Introspection data — installed
-on your system. node-gtk talks to the libraries you actually have installed.
+You need GTK ≥ 4.22 and libadwaita — plus their GObject-Introspection data —
+installed on your system. node-gtk talks to the libraries you actually have
+installed; 4.22 is where GTK ships its own SVG renderer (`Gtk.Svg`), which
+draws the scramble diagrams (no librsvg needed).
 
 - **Fedora:** `sudo dnf install gtk4-devel libadwaita-devel gobject-introspection-devel`
 - **Debian/Ubuntu:** `sudo apt install libgtk-4-dev libadwaita-1-dev gobject-introspection`

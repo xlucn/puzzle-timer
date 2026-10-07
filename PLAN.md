@@ -194,6 +194,16 @@ src/
 
 8. **SVG scramble images** — GTK4 has no SVG support; use `Rsvg-2.0` via GI
    → `Gtk.Picture` (typelib confirmed present on this machine).
+   **Superseded 2026-10-08 (user call)**: the machine is on GTK 4.24, and
+   `Gtk.Svg` (since 4.22) renders in-process — crisper at any scale, ~2-3×
+   faster to load (measured 0.6-2.9ms vs 1.9-8.2ms per image), and it drops
+   the Rsvg/GdkPixbuf imports and the `Rsvg-2.0` typelib from
+   `generate-types`. The tier caps move into the SVG's rewritten viewport
+   (probe: a Gtk.Picture size request only raises the minimum — the
+   paintable's intrinsic size wins, so requests cannot enforce the cap).
+   Caveat found by probe: a few types (megaminx, FTO, multi-blind relays)
+   carry CSS that Gtk.Svg's minimal style support declines — the image still
+   renders, with warnings on stderr; visually verify those three.
 
 9. **Wayland** — no global key grabs. Hold-space works only while the window
    is focused (same as csTimer in a browser tab). GlobalShortcuts portal is a
