@@ -469,9 +469,13 @@ app.on('activate', () => {
   // selectable — see src/ui/scramblePanel.ts — so this button, and the
   // accelerator below, are *the* ways to get the text out, by mouse or by
   // keyboard, and they copy what is on screen whether it wrapped or not.
-  // GDK4 has no `clipboard.set_text`: the clipboard takes a content provider,
-  // and text is bytes under a mime type (`text/plain;charset=utf-8` is the
-  // one every paste target asks for).
+  // GDK4 *does* have Gdk.Clipboard.set_text(), but it is marked
+  // `introspectable="0"` in the gir, so it is dropped from the typelib and no
+  // binding can call it — probed 2026-10-07: GdkClipboard's prototype carries
+  // setContent/set/readTextAsync and no setText (nor setTexture/setValue).
+  // The clipboard therefore takes a content provider, and text is bytes under
+  // a mime type (`text/plain;charset=utf-8` is the one every paste target
+  // asks for).
   const runCopy = (): void => {
     const scramble = feed.state.scramble
     // Null only while the very first scramble is still generating — nothing
@@ -678,21 +682,8 @@ app.on('activate', () => {
   let lastTier = ''
   /** The last diagram size reported (see updateDiagram). */
   let lastDiagram = ''
-  /**
-   * Surface − window-widget, i.e. the CSD shadow, in each axis; 0 until
-   * groundWindowSize has seen two calls with the numbers standing still —
-   * the frame-clock hook below pumps it for that (see there).
-   */
-  let csdShadowWidth = 0
-  let csdShadowHeight = 0
-  /** The window widget's size on the previous paint, for the test above. */
-  let lastWindowWidth = -1
-  let lastWindowHeight = -1
-  /** The surface's size on the previous paint, likewise. */
-  let lastSurfaceWidth = -1
-  let lastSurfaceHeight = -1
-  /** So the shadow is reported once, not on every paint. */
-  let reportedShadow = false
+  /** The shadow last logged, so groundWindowSize's line speaks on a change. */
+  let reportedShadow = ''
 
   /**
    * The window's size, read from the *surface* where possible.
@@ -706,48 +697,36 @@ app.on('activate', () => {
    * moments, and a decision taken from any of the widget ones is a decision
    * about a window that no longer exists.
    *
-   * The gap between surface and widget is just the CSD shadow, and it is read
-   * only while both numbers stand still between two calls. A positive gap is
-   * either exactly the shadow (settled) or larger than it (widget lagging low
-   * during a growth) — never smaller — so this can under-credit the room by a
-   * frame, never over-credit it, which is the direction that overflows. Until
-   * the first settled pair the widget is used, and that is correct too: at
-   * startup nothing has been resized yet.
+   * The surface is the whole window *plus* the CSD shadow GTK draws around it,
+   * so the client area is that shadow subtracted — and the shadow is not
+   * something to infer but something to read: Gtk.Native reports its own
+   * offset inside the surface (`getSurfaceTransform`), i.e. the shadow on one
+   * edge, hence the 2×. Measured 2026-10-07 against three window sizes, that
+   * equalled `surface − window widget` exactly every time (offset 5 → 10px)
+   * and matched the value the old inference eventually settled on — it just
+   * got there by differencing two samples that first had to stand still, and
+   * credited `1x1` on its opening pass, so one tier was decided from a shadow
+   * that had not been measured yet. The transform is right from the first
+   * frame and needs no pump, so the frame clock no longer has to call in.
+   *
+   * Sign is not meaningful (it only says which way the axes run), hence the
+   * absolute value. Before realization there is no surface, so this reports
+   * 0×0 and applyLayout falls back to the size we asked for (see there).
    */
   function groundWindowSize(): { width: number; height: number } {
-    const windowWidth = window.getSize(Gtk.Orientation.HORIZONTAL)
-    const windowHeight = window.getSize(Gtk.Orientation.VERTICAL)
     const surface = window.getSurface()
-    const surfaceWidth = surface !== null ? surface.getWidth() : 0
-    const surfaceHeight = surface !== null ? surface.getHeight() : 0
-    if (
-      windowWidth === lastWindowWidth &&
-      windowHeight === lastWindowHeight &&
-      surfaceWidth === lastSurfaceWidth &&
-      surfaceHeight === lastSurfaceHeight
-    ) {
-      if (surfaceWidth > windowWidth && surfaceWidth - windowWidth < 32)
-        csdShadowWidth = surfaceWidth - windowWidth
-      if (surfaceHeight > windowHeight && surfaceHeight - windowHeight < 32)
-        csdShadowHeight = surfaceHeight - windowHeight
-      if (csdShadowWidth > 0 && !reportedShadow) {
-        reportedShadow = true
-        console.error(`[layout] CSD shadow ${csdShadowWidth}x${csdShadowHeight}`)
-      }
+    if (surface === null) return { width: 0, height: 0 }
+    const [shadowX, shadowY] = window.getSurfaceTransform()
+    const shadowWidth = 2 * Math.abs(shadowX)
+    const shadowHeight = 2 * Math.abs(shadowY)
+    const shadow = `${shadowWidth}x${shadowHeight}`
+    if (shadowWidth > 0 && shadow !== reportedShadow) {
+      reportedShadow = shadow
+      console.error(`[layout] CSD shadow ${shadow}`)
     }
-    lastWindowWidth = windowWidth
-    lastWindowHeight = windowHeight
-    lastSurfaceWidth = surfaceWidth
-    lastSurfaceHeight = surfaceHeight
     return {
-      width:
-        csdShadowWidth > 0 && surfaceWidth > csdShadowWidth
-          ? surfaceWidth - csdShadowWidth
-          : windowWidth,
-      height:
-        csdShadowHeight > 0 && surfaceHeight > csdShadowHeight
-          ? surfaceHeight - csdShadowHeight
-          : windowHeight,
+      width: surface.getWidth() - shadowWidth,
+      height: surface.getHeight() - shadowHeight,
     }
   }
 
@@ -817,14 +796,6 @@ app.on('activate', () => {
    */
   function updateDiagram(): void {
     if (!layoutReady) return
-    // Pump the CSD-shadow credit: groundWindowSize only advances it while two
-    // consecutive calls see the numbers standing still, and this per-paint
-    // caller is what reliably provides that pair (resize events mostly see a
-    // new size each time). Its return value is no longer used here — the
-    // nudge that needed the window's geometry is gone; applyLayout still
-    // reads the credited number for its tier decisions.
-    groundWindowSize()
-
     // ToolbarView reports its current animated bottom-bar height. Immediately
     // after revealing it that can still be 0, so use the bar's natural height
     // as a floor for that first layout pass; during a hide transition the
