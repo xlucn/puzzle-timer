@@ -29,28 +29,24 @@ styles.add(`
   .timer-display {
     font-size: 96px;
     font-weight: 700;
-    /* Tabular figures keep the digits from shifting as the time changes. */
-    font-feature-settings: "tnum" 1;
+    /* Tabular figures come from the built-in 'numeric' class on the label
+       (Adwaita: font-variant-numeric: tabular-nums) — keep the digits from
+       shifting as the time changes. */
   }
   /* M6: the readout steps with the window's tier. Small covers both narrow
      and short windows — the digits are the one thing that must never clip —
      and large is what a window over 1200 logical does with the room. */
   .timer-display.size-s { font-size: 72px; }
   .timer-display.size-l { font-size: 128px; }
+  /* State colours are semantics, not styling: idle dimmed while waiting,
+     red while holding, green at ready, orange through inspection and red
+     once doomed (≥ 17 s → the readout spells DNF). The running/stopped
+     states carry no rule on purpose — they are the default foreground. */
   .timer-display.state-idle     { color: alpha(@window_fg_color, 0.55); }
   .timer-display.state-holding  { color: @error_color; }
   .timer-display.state-ready    { color: @success_color; }
-  .timer-display.state-running  { color: @window_fg_color; }
-  .timer-display.state-stopped  { color: @window_fg_color; }
-  /* Inspection: orange while counting down (and in the +2 window), red once
-     the solve is doomed (≥ 17 s → the readout spells DNF). */
   .timer-display.state-inspecting          { color: @warning_color; }
   .timer-display.state-inspecting.expired  { color: @error_color; }
-
-  .timer-hint {
-    font-size: 15px;
-    color: alpha(@window_fg_color, 0.55);
-  }
 `)
 
 const HINTS: Record<TimerState, string> = {
@@ -75,7 +71,7 @@ const HINTS: Record<TimerState, string> = {
 export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   const label = new Gtk.Label({
     label: '0.00',
-    cssClasses: ['timer-display', 'size-m', 'state-idle'],
+    cssClasses: ['timer-display', 'numeric', 'size-m', 'state-idle'],
   })
 
   /**
@@ -88,14 +84,16 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   let state: TimerState = 'idle'
   let expired = false
   const applyClasses = (): void => {
-    const classes = ['timer-display', `size-${size}`, `state-${state}`]
+    const classes = ['timer-display', 'numeric', `size-${size}`, `state-${state}`]
     if (expired) classes.push('expired')
     label.setCssClasses(classes)
   }
 
   const hint = new Gtk.Label({
     label: HINTS.idle,
-    cssClasses: ['timer-hint'],
+    // Built-in dim-label (Adwaita: opacity var(--dim-opacity) = 55%) instead
+    // of a hand-rolled color rule; the size is the default 11pt.
+    cssClasses: ['dim-label'],
   })
 
   const widget = new Gtk.Box({

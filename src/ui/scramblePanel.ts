@@ -40,7 +40,10 @@ import type { ScrambleFeedState } from '../core/scrambleFeed.js'
 
 styles.add(`
   .scramble-text {
-    font-family: monospace;
+    /* Monospace comes from the built-in 'monospace' class (which also picks
+       up the platform's --monospace-font-family). The size stays ours: the
+       layout's char caps (scrambleChars per tier) are measured against 18px,
+       so this number is load-bearing, not decoration. */
     font-size: 18px;
   }
   /* Ghost of the scramble being replaced: it keeps its space (so the timer
@@ -48,10 +51,8 @@ styles.add(`
   .scramble-text.pending {
     opacity: 0.4;
   }
-  .scramble-status {
-    font-size: 13px;
-    color: alpha(@window_fg_color, 0.55);
-  }
+  /* Only the failure keeps a rule — red is semantics; the resting status
+     gets its size and dim from the built-in caption/dim-label classes. */
   .scramble-status.error {
     color: @error_color;
   }
@@ -134,7 +135,9 @@ export interface ScramblePanelOptions {
 
 export function createScramblePanel(options: ScramblePanelOptions) {
   const text = new Gtk.Label({
-    cssClasses: ['scramble-text'],
+    // 'monospace' is the built-in class (platform font-family + size); our
+    // .scramble-text rule only pins the size the char caps are measured at.
+    cssClasses: ['scramble-text', 'monospace'],
     label: '',
     visible: false,
     wrap: true,
@@ -172,7 +175,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   // explicitly stopped for the same reason, by a different mechanism).
   const spinner = new Adw.Spinner({ visible: false })
   const status = new Gtk.Label({
-    cssClasses: ['scramble-status'],
+    // Resting state = built-in caption (size) + dim-label (dim); the error
+    // state swaps dim-label out so the red reads full-strength.
+    cssClasses: ['scramble-status', 'caption', 'dim-label'],
     label: GENERATING,
     wrap: true,
     maxWidthChars: 60, // cap the natural width so long errors wrap too
@@ -220,7 +225,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   // The one status that shares the panel with visible text (a warm failure)
   // stays stacked, reported under the scramble as documented above.
   const warmError = new Gtk.Label({
-    cssClasses: ['scramble-status', 'error'],
+    cssClasses: ['scramble-status', 'caption', 'error'],
     wrap: true,
     maxWidthChars: 60,
     visible: false,
@@ -290,9 +295,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       lastText = state.scramble
       lastType = state.type
       text.setLabel(lastText)
-      text.setCssClasses(['scramble-text'])
+      text.setCssClasses(['scramble-text', 'monospace'])
     } else if (lastText !== null) {
-      text.setCssClasses(['scramble-text', 'pending'])
+      text.setCssClasses(['scramble-text', 'monospace', 'pending'])
     }
     text.setVisible(lastText !== null)
 
@@ -302,7 +307,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     setSpinning(generating)
     if (state.scramble === null) {
       status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
-      status.setCssClasses(generating ? ['scramble-status'] : ['scramble-status', 'error'])
+      status.setCssClasses(
+        generating ? ['scramble-status', 'caption', 'dim-label'] : ['scramble-status', 'caption', 'error'],
+      )
     }
 
     // A warm failure reports under the scramble still on screen.

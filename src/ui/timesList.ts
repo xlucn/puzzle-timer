@@ -1,9 +1,13 @@
 /*
  * timesList.ts — the sidebar's solve list.
  *
- * Component module (see timerLabel.ts): the top level only registers styles
- * and defines exports, so `styles.add()` hot-reloads the CSS below under
- * `npm run dev`.
+ * Component module (see timerLabel.ts): the top level only defines exports —
+ * this module owns no CSS since 2026-10-07, when the last custom column rule
+ * went: the Time column's semibold made it shout next to its siblings, and
+ * the platform's own hierarchy — Time at default size in full foreground,
+ * the averages at the same size but dimmed (`dim-label`), the # index smaller
+ * (`caption`), tabular figures via `numeric` — is reasonable enough on its
+ * own.
  *
  * Gtk.ColumnView, not Gtk.ListBox (AGENTS.md): a session reaches thousands of
  * solves and ColumnView only builds the rows actually on screen.
@@ -48,32 +52,10 @@ import Gdk from 'gi:Gdk-4.0'
 import Gtk from 'gi:Gtk-4.0'
 import Pango from 'gi:Pango-1.0'
 
-import { styles } from 'node-gtk/styles'
-
 import { MAX_COMMENT_LENGTH, type Session, type Solve } from '../core/session.js'
 import type { SessionLibrary } from '../core/sessionLibrary.js'
 import { effectiveTimes, windowAtEach } from '../core/stats.js'
 import { type Penalty, formatAverage, formatFullTimestamp, formatSolve } from '../core/time.js'
-
-// Dimming goes through alpha(@window_fg_color): GTK3's @dim_label_color does
-// not exist in GTK4 and silently renders white (see the risk table in PLAN.md).
-styles.add(`
-  .solve-index,
-  .solve-average {
-    font-size: 13px;
-    color: alpha(@window_fg_color, 0.55);
-    /* Tabular figures keep the averages on a fixed advance, so the columns
-       do not jitter as 9.99 becomes 1:02.34. */
-    font-feature-settings: "tnum" 1;
-  }
-  .solve-time {
-    font-size: 14px;
-    font-weight: 600;
-    /* Tabular figures stop the digits jittering as times change width. */
-    font-feature-settings: "tnum" 1;
-  }
-  /* The footer needs no CSS: Gtk.ActionBar carries its own chrome. */
-`)
 
 /*
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
@@ -188,11 +170,13 @@ export function createTimesList(options: TimesListOptions) {
    */
   let trailing: Map<number, { ao5: number; ao12: number }> = new Map()
 
-  const indexColumn = makeColumn('#', ['solve-index'], (solve) => String(current.indexOf(solve.id) + 1))
+  const indexColumn = makeColumn('#', ['caption', 'dim-label', 'numeric'], (solve) => String(current.indexOf(solve.id) + 1))
   // formatSolve, not formatTime: the raw centiseconds with the penalty
   // suffix ("14.34+") or a bare "DNF" — csTimer's `pretty()` parity, so the
   // list shows what the solve actually scored.
-  const timeColumn = makeColumn('Time', ['solve-time'], (solve) => formatSolve(solve.timeMs, solve.penalty))
+  // Default weight/size; the averages share it and differ only by dim-label,
+  // the index is smaller via caption — the platform's hierarchy again.
+  const timeColumn = makeColumn('Time', ['numeric'], (solve) => formatSolve(solve.timeMs, solve.penalty))
   // The averages beside their own solve: the window *ending* there, so the
   // column reads as the history of the run instead of repeating today's
   // number on every row. Incomplete window (fewer solves than the average
@@ -202,8 +186,9 @@ export function createTimesList(options: TimesListOptions) {
     const value = trailing.get(solve.id)?.[kind]
     return value === undefined || Number.isNaN(value) ? '—' : formatAverage(value)
   }
-  const ao5Column = makeColumn('ao5', ['solve-average'], (solve) => average(solve, 'ao5'))
-  const ao12Column = makeColumn('ao12', ['solve-average'], (solve) => average(solve, 'ao12'))
+  // Hierarchy: see the module header — same default size, brightness only.
+  const ao5Column = makeColumn('ao5', ['dim-label', 'numeric'], (solve) => average(solve, 'ao5'))
+  const ao12Column = makeColumn('ao12', ['dim-label', 'numeric'], (solve) => average(solve, 'ao12'))
   // Time and the averages expand: GTK splits the *extra* width equally between
   // them, so the columns span the whole sidebar instead of clumping left.
   // `#` deliberately does not — it is a digit column and an equal share of

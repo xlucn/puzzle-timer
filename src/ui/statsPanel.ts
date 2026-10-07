@@ -39,18 +39,12 @@ type Window = InstanceType<typeof Adw.ApplicationWindow>
 // Dimming goes through alpha(@window_fg_color) (GTK3's @dim_label does not
 // exist in GTK4); tabular figures keep the value columns from jittering.
 styles.add(`
-  .stats-col-head,
-  .stats-caption {
-    font-size: 13px;
-    color: alpha(@window_fg_color, 0.55);
-  }
-  .stats-name {
-    font-size: 15px;
-  }
+  /* Small text and dimming come from built-ins on the cells: caption (82%
+     size) and dim-label (55% dim) for the column heads, the mean caption and
+     the names; numeric (tabular figures) keeps the value columns from
+     jittering. Only the semibold stays a rule — no Adwaita class is 600. */
   .stats-cell {
-    font-size: 15px;
     font-weight: 600;
-    font-feature-settings: "tnum" 1;
   }
   .stats-cell.incomplete {
     font-weight: 400;
@@ -106,10 +100,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
     }
 
     // ---- header ----------------------------------------------------------
-    attach(0, 0, cell('', ['stats-col-head']))
-    attach(1, 0, cell('Current', ['stats-col-head']))
-    attach(2, 0, cell('Best', ['stats-col-head']))
-    attach(3, 0, cell('Target', ['stats-col-head']))
+    // Built-ins instead of rules: caption (82% + 400 weight) + dim-label
+    // (55%) is the platform's small secondary text — what the deleted
+    // `.stats-col-head` rule hand-rolled.
+    attach(0, 0, cell('', ['caption', 'dim-label']))
+    attach(1, 0, cell('Current', ['caption', 'dim-label']))
+    attach(2, 0, cell('Best', ['caption', 'dim-label']))
+    attach(3, 0, cell('Target', ['caption', 'dim-label']))
 
     // ---- one row per record ----------------------------------------------
     ROWS.forEach(({ kind, name }, index) => {
@@ -126,10 +123,10 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const best = stats.best[kind] === null ? '—' : formatAverage(stats.best[kind]!.value)
       const target = targetText(stats.target[kind])
 
-      attach(0, row, cell(name, ['stats-name']))
-      attach(1, row, cell(current, current === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell']))
-      attach(2, row, cell(best, best === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell']))
-      attach(3, row, cell(target, target === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell']))
+      attach(0, row, cell(name, [])) // default size — the deleted .stats-name was 15px ≈ default
+      attach(1, row, cell(current, current === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
+      attach(2, row, cell(best, best === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
+      attach(3, row, cell(target, target === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
     })
 
     // ---- mean -------------------------------------------------------------
@@ -143,9 +140,9 @@ export function createStatsPanel(options: StatsPanelOptions) {
           : `${count} of ${total} counted · ${dnfCount} DNF${dnfCount === 1 ? '' : 's'}`
 
     const meanRow = ROWS.length + 1
-    attach(0, meanRow, cell('Session mean', ['stats-name']))
-    attach(1, meanRow, cell(meanValue, meanValue === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell']))
-    const captionLabel = cell(caption, ['stats-caption'])
+    attach(0, meanRow, cell('Session mean', []))
+    attach(1, meanRow, cell(meanValue, meanValue === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
+    const captionLabel = cell(caption, ['caption', 'dim-label'])
     grid.attach(captionLabel, 2, meanRow, 2, 1)
 
     // ---- frame ------------------------------------------------------------

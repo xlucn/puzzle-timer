@@ -30,14 +30,12 @@ import { effectiveMs, formatAverage } from '../core/time.js'
 // exist in GTK4 (see the risk table in PLAN.md). Tabular figures keep the
 // digits from jittering as the average changes width.
 styles.add(`
-  .stats-kind {
-    font-size: 13px;
-    color: alpha(@window_fg_color, 0.55);
-  }
+  /* Small secondary text comes from the built-in 'caption' (82% size) and
+     'dim-label' (55% opacity) classes on the labels — no rules of ours. */
   .stats-value {
-    font-size: 15px;
     font-weight: 600;
-    font-feature-settings: "tnum" 1;
+    /* Tabular figures from the built-in 'numeric' class; the weight stays a
+       rule because no Adwaita class is exactly semibold. */
   }
   .stats-value.incomplete {
     font-weight: 400;
@@ -57,8 +55,11 @@ export interface StatsStripOptions {
 
 export function createStatsStrip(options: StatsStripOptions) {
   const cell = () => {
-    const kind = new Gtk.Label({ cssClasses: ['stats-kind'] })
-    const value = new Gtk.Label({ cssClasses: ['stats-value'] })
+    // Built-ins: caption = 82% size + 400 weight, dim-label = 55% dim —
+    // close cousins of the 13px dim rule this replaces, but they track the
+    // user's font and contrast preferences instead of fighting them.
+    const kind = new Gtk.Label({ cssClasses: ['caption', 'dim-label'] })
+    const value = new Gtk.Label({ cssClasses: ['stats-value', 'numeric'] })
     const box = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 })
     box.append(kind)
     box.append(value)
@@ -95,7 +96,7 @@ export function createStatsStrip(options: StatsStripOptions) {
     const incomplete = Number.isNaN(average)
     target.value.setLabel(incomplete ? '—' : formatAverage(average))
     target.value.setCssClasses(
-      incomplete ? ['stats-value', 'incomplete'] : ['stats-value'],
+      incomplete ? ['stats-value', 'incomplete'] : ['stats-value', 'numeric'],
     )
   }
 
