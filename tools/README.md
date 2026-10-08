@@ -240,17 +240,17 @@ python3 tools/xtest.py --window "csTimer GTK" \
 # invocation and screenshot again to prove the batch came back.
 
 # The scramble-type chooser: a header *button* opening an Adw.Dialog — not a
-# popup (2026-10-04). The button is centred in the header (it is the
-# HeaderBar's title widget since 2026-10-08); walk Tab until
-# the focus ring is on it (focus is sticky, so there is no fixed stop count)
+# popup (2026-10-04). Since 2026-10-08 the type text lives in the header's
+# title/subtitle (Adw.WindowTitle); the control is an icon-only button
+# packed after refresh/copy (≈160,28 at 900px window-relative, sidebar
+# closed — re-verify the x before trusting it, coords in this file drift).
+# Walk Tab until the focus ring is on it (focus is sticky, so there is no
+# fixed stop count; order: sidebar → refresh → copy → select)
 # and press Return. The dialog focuses its own list, so Down + Return picks
 # straight away; there is no search entry (dropped 2026-10-05) — rows are
 # browsed, not filtered.
-# Pointer equivalent (button at the header centre ≈450,28 at 900px window-
-# relative, sidebar closed — re-verify the x before trusting it, coords in
-# this file drift):
 python3 tools/xtest.py --window "csTimer GTK" \
-    click 450 28 sleep 0.6 \
+    click 160 28 sleep 0.6 \
     press Down release Down sleep 0.3 \
     press Return release Return sleep 1.5 shot type-switched.png
 

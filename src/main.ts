@@ -59,6 +59,7 @@ import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypePicker } from './ui/scrambleTypePicker.js'
 import { createScrambleTypeButton } from './ui/scrambleTypeButton.js'
+import { createScrambleTypeTitle } from './ui/scrambleTypeTitle.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsDialog } from './ui/shortcuts.js'
 import { createStatsPanel } from './ui/statsPanel.js'
@@ -135,17 +136,21 @@ app.on('activate', () => {
   // M6: the window stops here, and it is a floor rather than a suggestion.
   // AdwWindow's own default minimum is 360×200, which libadwaita's breakpoint
   // docs explicitly tell you to override ("the minimum size must be larger
-  // than the smallest UI state"): at 400 the selectors row (~282) plus the
-  // header's own buttons are already the whole window, and below that no tier
-  // in src/core/layout.ts could keep the layout deliberate.
+  // than the smallest UI state"): measured 2026-10-08, at 400 the header's
+  // own minimum (~282 — window controls, sidebar toggle, the centred type
+  // title, app menu; selectors in the bottom row) already claims most of the
+  // width, and below 360 no tier in src/core/layout.ts could keep the layout
+  // deliberate.
   window.widthRequest = BREAKPOINTS.minWidth
   window.heightRequest = BREAKPOINTS.minHeight
 
   // ---- content header: the timer's controls ------------------------------
-  // No title here (layout F, 2026-10-01): the app name is the *sidebar's*
+  // No *app name* here (layout F, 2026-01-01): that is the *sidebar's*
   // header, and the window title still goes to the taskbar. Dropping it (and
   // the session pill that used to sit here) is part of what lets the header
-  // render uncut at 900 px — see the setDefaultSize comment above.
+  // render uncut at 900 px — see the setDefaultSize comment above. The centre
+  // slot does show a title since 2026-10-08: the scramble type as
+  // title/subtitle, assigned once below as the titleWidget.
   const header = new Adw.HeaderBar({ showTitle: false })
 
   // App functions, packed at the end before the window controls: the
@@ -402,10 +407,10 @@ app.on('activate', () => {
   /**
    * Where a scramble type lands, whichever control chose it: the feed
    * regenerates, and the choice is written to the active session — it belongs
-   * to the session (a switch restores it, below). The *other* control is
+   * to the session (a switch restores it, below). The *other* display is
    * moved onto the same id at the same time: selectType is silent by
    * contract, so the broadcast cannot feed the value back, and one handler is
-   * what keeps the header button and the row's chooser from ever showing
+   * what keeps the header title and the row's chooser from ever showing
    * different types.
    */
   const chooseType = (type: string): void => {
@@ -413,7 +418,7 @@ app.on('activate', () => {
     // `retyped` rides the index subscription at the top of this function,
     // which is what writes the file.
     library.setScrambleType(library.activeId, type)
-    typeButton.selectType(type)
+    typeTitle.selectType(type)
     typePicker.selectType(type)
   }
 
@@ -426,24 +431,18 @@ app.on('activate', () => {
     window,
   })
 
-  // The header's control (user call, 2026-10-04): one button whose label
-  // ellipsizes, replacing the two dropdowns. Kept in step with the picker via
-  // chooseType, so switching tiers mid-session shows the type in force.
-  // Centred (user call, 2026-10-08): as the HeaderBar's title widget it
-  // lives in the centre bin — the one slot a HeaderBar centres natively —
-  // with halign CENTER so the flat button hugs its label instead of filling
-  // the whole centre. placeSelectors moves it to the bottom bar at ≤600.
-  const typeButton = createScrambleTypeButton({
-    initialType: SCRAMBLE_DEFAULT_TYPE,
-    onActivate: () => typePicker.open(),
-  })
-  typeButton.widget.halign = Gtk.Align.CENTER
-  header.titleWidget = typeButton.widget
+  // The header's display (user call, 2026-10-08): category over type as an
+  // Adw.WindowTitle — the slot a HeaderBar centres natively, with ellipsizing
+  // template labels so a long name cannot raise the header's minimum (the
+  // old headerSlack hazard). Assigned once here and never reparented: the
+  // stale HeaderBar:title-widget trap only exists for widgets that leave.
+  const typeTitle = createScrambleTypeTitle({ initialType: SCRAMBLE_DEFAULT_TYPE })
+  header.titleWidget = typeTitle.widget
   header.showTitle = true
 
   /**
    * Scramble type is per session: switching applies the new active
-   * session's type to the header button, the row's chooser and the feed
+   * session's type to the header title, the row's chooser and the feed
    * (absent = the default type, which the feed is already on — nothing moves,
    * no regeneration). Unknown ids from a hand-edited index are ignored by
    * selectType.
@@ -451,12 +450,12 @@ app.on('activate', () => {
   const applySessionType = (id: string): void => {
     const type = library.find(id)?.scrambleType ?? SCRAMBLE_DEFAULT_TYPE
     if (type === feed.state.type) return
-    // Both controls, both silent: whichever one is on screen has to show the
+    // Both displays, both silent: whichever one is on screen has to show the
     // session's type after a switch, and neither may announce it — re-reporting
     // would write the session's value back onto the session it came from.
     // Unknown ids from a hand-edited index make selectType return false and
     // the feed is left alone too.
-    if (typeButton.selectType(type) && typePicker.selectType(type)) feed.setType(type)
+    if (typeTitle.selectType(type) && typePicker.selectType(type)) feed.setType(type)
   }
   library.subscribe((change) => {
     if (change.kind === 'switched') applySessionType(change.id)
@@ -509,6 +508,13 @@ app.on('activate', () => {
   app.setAccelsForAction('app.copy-scramble', ['<Control>c'])
   header.packStart(copyScramble)
 
+  // The type chooser (user call, 2026-10-08): icon-only — the label lives in
+  // the header title now — packed after copy, so header and bottom bar share
+  // one order: sidebar, refresh, copy, select. It opens the same picker the
+  // row's chooser does (one dialog, one onChange path).
+  const typeButton = createScrambleTypeButton({ onActivate: () => typePicker.open() })
+  header.packStart(typeButton.widget)
+
   // A finished solve is recorded against the scramble that was on screen —
   // read before advance(), which swaps in the pre-generated one — and then
   // the feed promotes that scramble and warms the one after it, so the next
@@ -537,11 +543,14 @@ app.on('activate', () => {
 
   // ---- content: adaptive top and bottom bars around scramble + timer ------
   // At ≤600 the selector leaves the header and moves into ToolbarView's
-  // bottom-bar slot. It remains the *same* button in both places; the box is
-  // just the full-width toolbar surface around it. ToolbarView supplies the
-  // native flat bar styling and accounts for the bar separately from its
-  // content. updateDiagram uses its measured bottom-bar height to keep the
-  // overlaid diagram clear of the bar.
+  // bottom-bar slot. All three scramble controls — refresh, copy, select —
+  // move together between header and bar (user call, 2026-10-08); the box is
+  // just the full-width toolbar surface around them — buttons left-packed at
+  // natural width (user call: left, not equal thirds; the inter-button gap
+  // comes from Adwaita's .toolbar style, measured 2026-10-08), and
+  // ToolbarView supplies the native flat bar styling and accounts for the bar
+  // separately from its content. updateDiagram uses its measured bottom-bar
+  // height to keep the overlaid diagram clear of the bar.
   const selectorBar = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     cssClasses: ['toolbar'],
@@ -657,37 +666,41 @@ app.on('activate', () => {
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
 
-  /** Moves the one type button between the header's centre and the bottom bar. */
+  /**
+   * The scramble controls, in header pack order — refresh, copy, select —
+   * so one loop moves them all and repacks them in the same order they were
+   * created (sidebar never leaves the header, so nothing else has to shuffle).
+   */
+  const scrambleControls = [refreshScramble, copyScramble, typeButton.widget]
+
+  /**
+   * Moves the scramble controls between the header and the bottom bar.
+   *
+   * All three move together (user call, 2026-10-08) — the common GTK4
+   * adaptive pattern: narrow keeps the header to toggle, title and app
+   * menu, and gives the bar the actions. In both places they sit at natural
+   * width — in the bar that left-packs them (user call, 2026-10-08), in the
+   * header packStart already did — so nothing but the parent changes. The
+   * *title* never moves: it is the HeaderBar's titleWidget for every width,
+   * so the stale-title-widget trap (remove() clears the bin but not the
+   * property) is unreachable by construction.
+   */
   let selectorsInRow = false
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
     if (inRow) {
-      // Narrow: the button leaves the header's centre for the full-width
-      // bottom toolbar. Use setTitleWidget(null), *not* header.remove():
-      // remove() clears the centre bin but leaves HeaderBar:title-widget
-      // pointing at the button (adw-header-bar.c), so the wide path's
-      // re-assignment would early-return and never re-adopt it — a silently
-      // empty header. showTitle=false first so the default window title
-      // label that setTitleWidget(null) reconstructs never shows.
-      header.showTitle = false
-      header.setTitleWidget(null)
-      typeButton.widget.halign = Gtk.Align.FILL
-      typeButton.widget.hexpand = true
-      selectorBar.append(typeButton.widget)
+      for (const widget of scrambleControls) {
+        header.remove(widget)
+        selectorBar.append(widget)
+      }
       content.revealBottomBars = true
     } else {
-      // Wide: back to the centre slot as the title widget; halign CENTER
-      // keeps the flat button hugging its label inside the centre bin
-      // instead of stretching across it. No other header child moves, so
-      // the old remove/re-pack ordering dance (button before refresh/copy)
-      // is gone.
       content.revealBottomBars = false
-      selectorBar.remove(typeButton.widget)
-      typeButton.widget.hexpand = false
-      typeButton.widget.halign = Gtk.Align.CENTER
-      header.titleWidget = typeButton.widget
-      header.showTitle = true
+      for (const widget of scrambleControls) {
+        selectorBar.remove(widget)
+        header.packStart(widget)
+      }
     }
   }
 

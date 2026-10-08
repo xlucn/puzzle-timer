@@ -187,13 +187,14 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
   the 360×360 floor (360×640 gives `350x630`).
 - Type chooser (same keyboard-only rule): **both layouts open the same
-  dialog** (2026-10-04). Above 600 the control is one button **centered in
-  the header** (it is the `Adw.HeaderBar`'s title widget, so it sits after
-  sidebar/refresh/copy in Tab order) — walk `Tab` until the focus ring is on
-  it (focus is sticky, so there is no fixed stop count) and press `Return`.
-  In narrow mode that same button moves into `Adw.ToolbarView`'s **bottom
-  toolbar** —
-  walk `Tab` until its focus ring is on it and press `Return`. Inside the
+  dialog** (2026-10-04). Above 600 the current type shows as the header's
+  **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)
+  and the control is an **icon-only button packed after refresh/copy** —
+  walk `Tab` until the focus ring is on it (focus is sticky, so there is no
+  fixed stop count; order: sidebar → refresh → copy → select) and press
+  `Return`. Below 600 **all three scramble controls** — refresh, copy,
+  select — move together into `Adw.ToolbarView`'s **bottom toolbar** —
+  walk `Tab` until the select button's ring is on it and press `Return`. Inside the
   dialog is a plain `Adw.NavigationSplitView`: a "Category" sidebar page and a
   types content page, each with its own `Adw.HeaderBar`. The sidebar is an
   `Adw.Sidebar` whose 44 categories are split into four `Adw.SidebarSection`s
@@ -246,8 +247,9 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
   arrow keys scroll a tall one, the label itself is not focusable —,
   app-functions ⋮, type, copy, refresh; the header segment is measured
-  2026-10-08 — the type button is the centred title widget now, so it sits
-  between ⋮ and copy; the old ×7 counted a category dropdown that M4
+  2026-10-08 — type is now an icon button packed after copy, so it still
+  sits between ⋮ and copy, and the centred title (`Adw.WindowTitle`) is not
+  focusable; the old ×7 counted a category dropdown that M4
   merged) — `Return` closes the sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
   path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a

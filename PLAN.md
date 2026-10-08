@@ -123,7 +123,8 @@ src/
 │                         fire-and-forget: pw-play → paplay → gst → aplay
 ├── ui/                   GTK widgets only; talks to core via callbacks
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
-│   ├── scrambleTypeButton.ts  header: one flat button, label ellipsizes (J)
+│   ├── scrambleTypeButton.ts  header: icon-only type chooser button (J)
+│   ├── scrambleTypeTitle.ts   header: Adw.WindowTitle — category / type
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors — UNHOOKED 2026-10-04
 │   ├── scrambleTypePicker.ts  shared Adw.Dialog chooser (opened by one button)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
@@ -210,8 +211,9 @@ src/
    possible later addition, not in MVP.
 
 10. **Scramble-type selector — two dropdowns, not one searchable list.**
-    *Superseded for the header on 2026-10-04* — the header now shows one
-    ellipsizing button (`scrambleTypeButton.ts`) — but the reasoning and the
+    *Superseded for the header on 2026-10-04* — the header showed one
+    ellipsizing button (`scrambleTypeButton.ts`; icon-only with the text in
+    an `Adw.WindowTitle` since 2026-10-08) — but the reasoning and the
     search gotcha still stand for any `Gtk.DropDown` holding strings, and the
     Preferences `ComboRow` is one. Mirrors
     csTimer's own two-level menu: 44 categories → plain type names (names are
@@ -1358,7 +1360,8 @@ picture's size log and bottom-bar lift, since it was the timer nudge.
   category + Diamond type), the second pushing the window controls off the edge
   of a 900px window, so the band alone could not be the rule. That second
   condition existed only because the two Gtk.DropDowns could *not* shrink; the
-  header's selector is now one button whose label ellipsizes, so
+  header's selector became one button whose label ellipsizes (icon button +
+  ellipsizing `Adw.WindowTitle` since 2026-10-08), so
   `headerSlack` and the demand measurement went with it.
 - **Growing sidebar / scaling**: `maxSidebarWidth` 320 → 380 (≥1200) → 440
   (≥1600); timer `s`/`m`/`l` (also `s` below 480 wide *or* 480 tall);
@@ -1569,31 +1572,44 @@ Evidence:
   never needed and is now moot. Watch the key names: gdk_keyval names are
   case-sensitive (`space`, not `Space`), or the chip renders empty (checked
   with `Gtk.acceleratorParse`: all 18 entries parse).
-- **Wide selector: centred title widget (user call, 2026-10-08)** — above
-  600 the type button is the `Adw.HeaderBar`'s **`titleWidget`** (with
-  `showTitle` on), which is the one slot a HeaderBar centres natively; it is
-  not packed at start anymore, so it sits after sidebar/refresh/copy in Tab
-  order. `halign: CENTER` keeps the flat button hugging its label inside the
-  centre bin. Transitions must go through `setTitleWidget(null)` and *not*
-  `header.remove()`: the remove path clears the centre bin but leaves
-  `HeaderBar:title-widget` pointing at the button (adw-header-bar.c), so the
-  wide path's re-assignment would early-return and never re-adopt it — a
-  silently empty header. Measured drift vs the header's true centre: +1px at
-  900 and 620 (default `LOOSE` policy; `STRICT` changes nothing here since
-  it only size-groups the side boxes). Narrow transitions additionally set
-  `showTitle` false first, or `setTitleWidget(null)` would reconstruct the
-  default window-title label visible for a frame.
-- **Narrow selector: ToolbarView bottom bar (user call, 2026-10-04)** — below
-  600 the header's ellipsizing type button moves into `Adw.ToolbarView`'s
-  **bottom toolbar**, full-width with the chevron at the right. `ToolbarView`
+- **Header: type as title/subtitle, icon-only select (user call,
+  2026-10-08)** — the "category - type" text left the button and became the
+  header's **`Adw.WindowTitle`** (title = category, subtitle = type; split
+  tested against `scrambleTypeLabel` by reassembly equivalence in core), so
+  the centre slot always names the type in both layouts. The control is now
+  an **icon-only button** (`view-list-symbolic`) packed after copy —
+  header order: sidebar, refresh, copy, select. The WindowTitle is assigned
+  as `titleWidget` once and **never reparented**, which makes the
+  stale-`HeaderBar:title-widget` trap (remove() clears the centre bin but not
+  the property, adw-header-bar.c) unreachable by construction — that trap is
+  why the morning's *button-as-title-widget* experiment (superseded the same
+  day) needed `setTitleWidget(null)` instead of `remove()`. Its template
+  labels ellipsize (`adw-window-title.ui`), so a long type cannot raise the
+  header's minimum (`headerSlack` stays dead), and an empty subtitle hides
+  itself, so a hand-edited unknown id shows verbatim on one line. Centre
+  alignment: `GtkCenterLayout` positions the centre child at
+  `size/2 - width/2` — **absolute centre**, pushed aside only on collision —
+  measured +1px drift vs the header's true centre at 900/620/601 (integer
+  rounding); the available-gap centre (start box 168 vs end 154) would be
+  +7px and is **not** what any `centeringPolicy` gives: `STRICT` only
+  size-groups the side boxes so the gap *becomes* symmetric (measured
+  identical to `LOOSE` here). Absolute centre is also the common choice —
+  it is what every GNOME app's HeaderBar does by default.
+- **Narrow: all three scramble controls share the bottom bar (user call,
+  2026-10-08)** — below 600 refresh, copy **and** select move together into
+  `Adw.ToolbarView`'s **bottom toolbar**, left-packed at natural width (the
+  6px gap comes from Adwaita's `.toolbar`, not a `spacing` property) —
+  replacing the morning's equal-thirds `hexpand` and the original single
+  full-width labeled button. The header keeps only sidebar toggle, title and
+  app menu. `ToolbarView`
   owns the page structure: header in its top-bar slot, scramble/timer in its
   content slot, and a `.toolbar` `Gtk.Box` in its bottom-bar slot. The same
-  button widget is reparented between the top and bottom bars; it expands only
-  in the bottom bar, so the header's window controls are unaffected.
+  three widgets are reparented between the bars; nothing expands, so the
+  header's window controls are unaffected.
   `ToolbarView` supplies native flat-bar styling; its animated bottom-bar
   height is what `updateDiagram` adds to the diagram's bottom clearance (the
-  timer-region subtraction went with the nudge, dropped 2026-10-05). The
-  button itself owns activation, so the old
+  timer-region subtraction went with the nudge, dropped 2026-10-05). Each
+  button owns its own activation, so the old
   `Gtk.ListBox` row-activated/key-controller workaround is gone. Both layouts
   open the same `Adw.Dialog`, whose body is an **`Adw.NavigationSplitView`**
   used natively (user call, 2026-10-05). Each `Adw.NavigationPage` carries its
@@ -1655,8 +1671,10 @@ Evidence:
   with the `Adw.ButtonRow`; since 2026-10-04 it is the shared `Gtk.Button` in
   `ToolbarView`'s bottom bar. Reverified: **360×360 → `350x350 (win 350)`,
   drawer, selectors in their own row, timer s, WM minimum 360×360, no app
-  warnings**; phone shape **360×640 → `350x630`**, full-width toolbar button
-  at the bottom, timer and picture clear of the bar. At square 360×360 the
+  warnings**; phone shape **360×640 → `350x630`**, toolbar button
+  at the bottom (then one full-width labeled button; since 2026-10-08 three
+  left-packed icons — that geometry needs re-measuring too), timer and
+  picture clear of the bar. At square 360×360 the
   fixed 150px diagram still overlaps the timer — even the nudge clamp could
   not create enough vertical room there; this is the short-window overlay
   limit, not a ToolbarView bar overlap. **That measurement was taken with the

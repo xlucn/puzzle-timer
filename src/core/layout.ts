@@ -120,10 +120,12 @@ const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, va
  * header's natural width exceeded its room), but that only existed because the
  * two Gtk.DropDowns could not shrink: Gtk.HeaderBar packs start widgets at
  * natural width, so long labels pushed the window controls off the edge. The
- * header's selector is now one button whose label ellipsizes (see
- * src/ui/scrambleTypeButton.ts), so its *min* stays small, the header absorbs
- * whatever it is given, and the labels have a place to go (user call,
- * 2026-10-04).
+ * header's selector is now an icon button and the type text lives in the
+ * window title, whose `Adw.WindowTitle` template labels ellipsize (see
+ * src/ui/scrambleTypeButton.ts and src/ui/scrambleTypeTitle.ts), so the
+ * header's *min* stays small, it absorbs
+ * whatever it is given, and the labels have a place to go (user calls,
+ * 2026-10-04, 2026-10-08).
  */
 export function layoutFor(width: number, height: number): LayoutTier {
   const w = sane(width)

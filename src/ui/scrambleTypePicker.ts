@@ -3,9 +3,11 @@
  *
  * As of 2026-10-04 the dialog is the only place a type is *chosen*. Both
  * layouts open it through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts):
- * in the header while the window is wide, and in ToolbarView's bottom bar at
- * ≤600px. The button is reparented rather than duplicated, so one label, one
- * dialog and one `onChange` path cover every layout.
+ * packed in the header while the window is wide, and in ToolbarView's bottom
+ * bar at ≤600px together with refresh and copy. The button is reparented
+ * rather than duplicated, and its text lives in the header's WindowTitle
+ * (src/ui/scrambleTypeTitle.ts), so one dialog and one `onChange` path cover
+ * every layout.
  *
  * The dialog is an `Adw.NavigationSplitView` used the way the widget is meant
  * to be used:
@@ -301,10 +303,11 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
   }
 
   /**
-   * Point the dialog at `id` — same contract as the button's selectType:
-   * silent (never announces the choice back), idempotent, and false for an id
-   * this catalogue does not have (a hand-edited session index), so the caller
-   * leaves the feed alone too.
+   * Point the dialog at `id` — same contract as the header title's
+   * selectType (src/ui/scrambleTypeTitle.ts): silent (never announces the
+   * choice back), idempotent, and false for an id this catalogue does not
+   * have (a hand-edited session index), so the caller leaves the feed alone
+   * too.
    */
   const selectType = (id: string): boolean => {
     if (id === currentId) return true

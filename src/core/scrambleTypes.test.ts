@@ -8,6 +8,7 @@ import {
   groupOfScrambleType,
   scrambleLength,
   scrambleTypeLabel,
+  scrambleTypeTitle,
 } from './scrambleTypes.js'
 
 /**
@@ -147,5 +148,29 @@ describe('scrambleTypeLabel — both levels on one line', () => {
 
   it('shows an unknown id verbatim instead of substituting one', () => {
     expect(scrambleTypeLabel('no-such-type')).toBe('no-such-type')
+  })
+})
+
+describe('scrambleTypeTitle — the two header lines', () => {
+  it('splits the label into category and type name', () => {
+    expect(scrambleTypeTitle('333')).toEqual({ category: 'WCA', name: '3x3x3' })
+    expect(scrambleTypeTitle('pll')).toEqual({ category: '3x3x3 CFOP', name: 'PLL' })
+    expect(scrambleTypeTitle('sq1pll')).toEqual({ category: 'Square-1', name: 'PLL' })
+  })
+
+  it('reassembles to exactly scrambleTypeLabel for every id', () => {
+    // The header shows the type twice — as the WindowTitle's two lines and as
+    // the picker's one-line rows. This is the equivalence that keeps them from
+    // drifting apart.
+    const reassemble = ({ category, name }: { category: string; name: string }): string =>
+      name === '' ? category : `${category} - ${name}`
+    for (const type of SCRAMBLE_TYPES) {
+      expect(reassemble(scrambleTypeTitle(type.id)), type.id).toBe(scrambleTypeLabel(type.id))
+    }
+    expect(reassemble(scrambleTypeTitle('no-such-type'))).toBe(scrambleTypeLabel('no-such-type'))
+  })
+
+  it('leaves an unknown id alone on one line (empty subtitle hides it)', () => {
+    expect(scrambleTypeTitle('no-such-type')).toEqual({ category: 'no-such-type', name: '' })
   })
 })
