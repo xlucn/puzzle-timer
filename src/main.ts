@@ -515,6 +515,33 @@ app.on('activate', () => {
   const typeButton = createScrambleTypeButton({ onActivate: () => typePicker.open() })
   header.packStart(typeButton.widget)
 
+  // The image toggle (user call, 2026-10-08): right side of whichever bar
+  // the layout shows — packEnd in the header (AdwHeaderBar prepends, so it
+  // lands left of the app-functions menu, keeping ⋮ the rightmost app
+  // control), and placeSelectors moves it into the bottom bar at ≤600 with
+  // halign END (one expander = the whole slack, button stays natural —
+  // measured). It drives the *existing* scrambleImage preference through
+  // applyPreferences below — the same path the Preferences SwitchRow uses,
+  // so prefs.json, the dialog and this button can never disagree — and its
+  // `active` mirrors that preference (the reverse sync lives in
+  // applyPreferences).
+  const imageToggle = new Gtk.ToggleButton({
+    iconName: 'image-x-generic-symbolic',
+    tooltipText: 'Show the scramble image',
+    active: prefs.scrambleImage,
+    halign: Gtk.Align.END, // no effect in the header's natural-width end box; right-aligns in the bar
+    cssClasses: ['flat'],
+  })
+  imageToggle.on('notify::active', () => {
+    // Only a real change writes: applyPreferences syncs `active` back, which
+    // re-fires this handler, and the equality guard below is what stops that
+    // round trip from looping.
+    if (imageToggle.active !== prefs.scrambleImage) {
+      applyPreferences({ scrambleImage: imageToggle.active })
+    }
+  })
+  header.packEnd(imageToggle)
+
   // A finished solve is recorded against the scramble that was on screen —
   // read before advance(), which swaps in the pre-generated one — and then
   // the feed promotes that scramble and warms the one after it, so the next
@@ -542,12 +569,15 @@ app.on('activate', () => {
   })
 
   // ---- content: adaptive top and bottom bars around scramble + timer ------
-  // At ≤600 the selector leaves the header and moves into ToolbarView's
-  // bottom-bar slot. All three scramble controls — refresh, copy, select —
-  // move together between header and bar (user call, 2026-10-08); the box is
-  // just the full-width toolbar surface around them — buttons left-packed at
-  // natural width (user call: left, not equal thirds; the inter-button gap
-  // comes from Adwaita's .toolbar style, measured 2026-10-08), and
+  // At ≤600 the selectors leave the header and move into ToolbarView's
+  // bottom-bar slot. All four controls — refresh, copy, select and the image
+  // toggle — move together between header and bar (user call, 2026-10-08);
+  // the box is just the full-width toolbar surface around them — the three
+  // scramble buttons left-packed at natural width (user call: left, not
+  // equal thirds; the inter-button gap
+  // comes from Adwaita's .toolbar style, measured 2026-10-08), the image
+  // toggle right-aligned at the far edge (halign END + the bar's only
+  // hexpand), and
   // ToolbarView supplies the native flat bar styling and accounts for the bar
   // separately from its content. updateDiagram uses its measured bottom-bar
   // height to keep the overlaid diagram clear of the bar.
@@ -681,9 +711,13 @@ app.on('activate', () => {
    * menu, and gives the bar the actions. In both places they sit at natural
    * width — in the bar that left-packs them (user call, 2026-10-08), in the
    * header packStart already did — so nothing but the parent changes. The
-   * *title* never moves: it is the HeaderBar's titleWidget for every width,
-   * so the stale-title-widget trap (remove() clears the bin but not the
-   * property) is unreachable by construction.
+   * image toggle rides along to the *right* end of each bar: it is packed
+   * with packEnd in the header and halign END in the bar (its hexpand makes
+   * it the bar's single expander, so it takes the slack and keeps its
+   * natural width — measured, no spacer needed). The *title* never moves:
+   * it is the HeaderBar's titleWidget for every width, so the
+   * stale-title-widget trap (remove() clears the bin but not the property)
+   * is unreachable by construction.
    */
   let selectorsInRow = false
   function placeSelectors(inRow: boolean): void {
@@ -694,9 +728,15 @@ app.on('activate', () => {
         header.remove(widget)
         selectorBar.append(widget)
       }
+      header.remove(imageToggle)
+      imageToggle.hexpand = true
+      selectorBar.append(imageToggle)
       content.revealBottomBars = true
     } else {
       content.revealBottomBars = false
+      selectorBar.remove(imageToggle)
+      imageToggle.hexpand = false
+      header.packEnd(imageToggle)
       for (const widget of scrambleControls) {
         selectorBar.remove(widget)
         header.packStart(widget)
@@ -1024,9 +1064,10 @@ app.on('activate', () => {
   /**
    * The single path for a settings change (M5): merge the patch into this
    * run's Preferences, persist it, then push the new values into everything
-   * they drive. The preferences dialog is the only writer (the app-functions
-   * menu's inspection check item was retired, user call 2026-10-02), so the
-   * timer and prefs.json can never disagree.
+   * they drive. The preferences dialog and the header's image toggle (user
+   * call, 2026-10-08) are the only writers — both come through here (the
+   * app-functions menu's inspection check item was retired, user call
+   * 2026-10-02), so the timer and prefs.json can never disagree.
    */
   const applyPreferences = (patch: Partial<Preferences>): void => {
     prefs = { ...prefs, ...patch }
@@ -1036,7 +1077,13 @@ app.on('activate', () => {
     if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
     // imageFor reads `prefs`, so a plain re-render shows or drops the
     // diagram — the SVG is already in the cache (images are always fetched).
-    if ('scrambleImage' in patch) scramblePanel.render(feed.state)
+    // The header's toggle mirrors the same value: assigning an equal
+    // `active` is a no-op in GtkToggleButton, so this cannot loop back
+    // into the notify handler above.
+    if ('scrambleImage' in patch) {
+      scramblePanel.render(feed.state)
+      imageToggle.active = prefs.scrambleImage
+    }
     if ('inspection' in patch) timer.setInspection(prefs.inspection, nowMs())
   }
 

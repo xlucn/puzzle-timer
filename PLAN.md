@@ -1595,17 +1595,37 @@ Evidence:
   size-groups the side boxes so the gap *becomes* symmetric (measured
   identical to `LOOSE` here). Absolute centre is also the common choice —
   it is what every GNOME app's HeaderBar does by default.
-- **Narrow: all three scramble controls share the bottom bar (user call,
-  2026-10-08)** — below 600 refresh, copy **and** select move together into
-  `Adw.ToolbarView`'s **bottom toolbar**, left-packed at natural width (the
-  6px gap comes from Adwaita's `.toolbar`, not a `spacing` property) —
+- **Image toggle: right side of the bar (user call, 2026-10-08)** — a flat
+  `Gtk.ToggleButton` (`image-x-generic-symbolic`, the same icon the
+  Preferences group uses) that shows or hides the scramble diagram. It
+  drives the **existing `scrambleImage` preference** through
+  `applyPreferences` — the same single-writer path the Preferences
+  `SwitchRow` uses, so prefs.json, the dialog and the toggle can never
+  disagree — and `applyPreferences` mirrors the value back onto the
+  button's `active`, with an equality guard in the handler so the mirror
+  cannot loop (probe: one write per click, external change propagates,
+  same-value assign is a no-op). Placement: `packEnd` in the header —
+  `AdwHeaderBar.pack_end` *prepends*, so the last-packed toggle lands
+  **left of the app-functions menu**, keeping ⋮ the rightmost app control —
+  and right-aligned in the bottom bar via `halign: END` + sole `hexpand`.
+  It joins the `placeSelectors` move (four widgets, not three), and it is a
+  focus stop: the wide chain gained one stop, `Shift+Tab`×7 (AGENTS
+  Layout-F anchors). Floor: header min 282, row min 156 → 198, both ≤ 360.
+- **Narrow: all four bar controls share the bottom bar (user call,
+  2026-10-08)** — below 600 refresh, copy, select **and the image toggle**
+  move together into `Adw.ToolbarView`'s **bottom toolbar**: the three
+  scramble buttons left-packed at natural width, the image toggle
+  right-aligned at the far edge (halign END; it is the bar's only
+  `hexpand`, so it takes the slack while staying natural — measured, no
+  spacer needed; the 6px gap between buttons comes from Adwaita's
+  `.toolbar`, not a `spacing` property) —
   replacing the morning's equal-thirds `hexpand` and the original single
   full-width labeled button. The header keeps only sidebar toggle, title and
   app menu. `ToolbarView`
   owns the page structure: header in its top-bar slot, scramble/timer in its
   content slot, and a `.toolbar` `Gtk.Box` in its bottom-bar slot. The same
-  three widgets are reparented between the bars; nothing expands, so the
-  header's window controls are unaffected.
+  four widgets are reparented between the bars; in the header none of them
+  expands, so the window controls are unaffected.
   `ToolbarView` supplies native flat-bar styling; its animated bottom-bar
   height is what `updateDiagram` adds to the diagram's bottom clearance (the
   timer-region subtraction went with the nudge, dropped 2026-10-05). Each
