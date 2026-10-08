@@ -187,10 +187,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
   the 360×360 floor (360×640 gives `350x630`).
 - Type chooser (same keyboard-only rule): **both layouts open the same
-  dialog** (2026-10-04). Above 600 the control is one button in the header,
-  after the sidebar toggle — walk `Tab` until the focus ring is on it (focus
-  is sticky, so there is no fixed stop count) and press `Return`. In narrow
-  mode that same button moves into `Adw.ToolbarView`'s **bottom toolbar** —
+  dialog** (2026-10-04). Above 600 the control is one button **centered in
+  the header** (it is the `Adw.HeaderBar`'s title widget, so it sits after
+  sidebar/refresh/copy in Tab order) — walk `Tab` until the focus ring is on
+  it (focus is sticky, so there is no fixed stop count) and press `Return`.
+  In narrow mode that same button moves into `Adw.ToolbarView`'s **bottom
+  toolbar** —
   walk `Tab` until its focus ring is on it and press `Return`. Inside the
   dialog is a plain `Adw.NavigationSplitView`: a "Category" sidebar page and a
   types content page, each with its own `Adw.HeaderBar`. The sidebar is an
@@ -240,11 +242,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`
-  opens it; `Down`+`Return` activates Keyboard Shortcuts), `Shift+Tab`×7 →
+  opens it; `Down`+`Return` activates Keyboard Shortcuts), `Shift+Tab`×6 →
   the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
   arrow keys scroll a tall one, the label itself is not focusable —,
-  app-functions ⋮, copy, refresh, type, category) — `Return` closes the
-  sidebar, and `<Ctrl+S>`
+  app-functions ⋮, type, copy, refresh; the header segment is measured
+  2026-10-08 — the type button is the centred title widget now, so it sits
+  between ⋮ and copy; the old ×7 counted a category dropdown that M4
+  merged) — `Return` closes the sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
   path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
   separate toplevel — `Adw.ShortcutsDialog` draws inside the app's own

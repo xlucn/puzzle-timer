@@ -240,20 +240,19 @@ python3 tools/xtest.py --window "csTimer GTK" \
 # invocation and screenshot again to prove the batch came back.
 
 # The scramble-type chooser: a header *button* opening an Adw.Dialog — not a
-# popup (2026-10-04). The button sits after the sidebar toggle; walk Tab until
+# popup (2026-10-04). The button is centred in the header (it is the
+# HeaderBar's title widget since 2026-10-08); walk Tab until
 # the focus ring is on it (focus is sticky, so there is no fixed stop count)
 # and press Return. The dialog focuses its own list, so Down + Return picks
-# straight away; to filter, Shift+Tab to the search entry (list → search is
-# the documented cycle, AGENTS "Narrow type chooser"), type, Tab back to the
-# list, then Return. Escape clears the query first and closes second.
-# Pointer equivalent, which is what this recipe uses (search entry is
-# window-relative ≈440,106 at 900px, sidebar closed):
+# straight away; there is no search entry (dropped 2026-10-05) — rows are
+# browsed, not filtered.
+# Pointer equivalent (button at the header centre ≈450,28 at 900px window-
+# relative, sidebar closed — re-verify the x before trusting it, coords in
+# this file drift):
 python3 tools/xtest.py --window "csTimer GTK" \
-    click 260 28 sleep 0.6 \
-    click 440 106 sleep 0.4 \
-    type 4x4 sleep 0.6 \
-    click 450 136 sleep 0.4 \
-    press Return release Return sleep 1.5 shot type444.png
+    click 450 28 sleep 0.6 \
+    press Down release Down sleep 0.3 \
+    press Return release Return sleep 1.5 shot type-switched.png
 
 # Per-session scramble type (M4): the index file is ground truth for this
 # feature — screenshots go stale (trap 2), so pair every switch with jq.

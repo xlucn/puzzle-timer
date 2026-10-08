@@ -429,11 +429,17 @@ app.on('activate', () => {
   // The header's control (user call, 2026-10-04): one button whose label
   // ellipsizes, replacing the two dropdowns. Kept in step with the picker via
   // chooseType, so switching tiers mid-session shows the type in force.
+  // Centred (user call, 2026-10-08): as the HeaderBar's title widget it
+  // lives in the centre bin — the one slot a HeaderBar centres natively —
+  // with halign CENTER so the flat button hugs its label instead of filling
+  // the whole centre. placeSelectors moves it to the bottom bar at ≤600.
   const typeButton = createScrambleTypeButton({
     initialType: SCRAMBLE_DEFAULT_TYPE,
     onActivate: () => typePicker.open(),
   })
-  header.packStart(typeButton.widget)
+  typeButton.widget.halign = Gtk.Align.CENTER
+  header.titleWidget = typeButton.widget
+  header.showTitle = true
 
   /**
    * Scramble type is per session: switching applies the new active
@@ -651,30 +657,37 @@ app.on('activate', () => {
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
 
-  /** Moves the one type button between ToolbarView's top and bottom bars. */
+  /** Moves the one type button between the header's centre and the bottom bar. */
   let selectorsInRow = false
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
     if (inRow) {
-      // Narrow: move the same button from the header into the full-width
-      // bottom toolbar. Expand only while it is there, so the header continues
-      // to pack it at its natural width and cannot push out the window controls.
-      header.remove(typeButton.widget)
+      // Narrow: the button leaves the header's centre for the full-width
+      // bottom toolbar. Use setTitleWidget(null), *not* header.remove():
+      // remove() clears the centre bin but leaves HeaderBar:title-widget
+      // pointing at the button (adw-header-bar.c), so the wide path's
+      // re-assignment would early-return and never re-adopt it — a silently
+      // empty header. showTitle=false first so the default window title
+      // label that setTitleWidget(null) reconstructs never shows.
+      header.showTitle = false
+      header.setTitleWidget(null)
+      typeButton.widget.halign = Gtk.Align.FILL
       typeButton.widget.hexpand = true
       selectorBar.append(typeButton.widget)
       content.revealBottomBars = true
     } else {
-      // Hide the bottom bar, then move the button back before refresh/copy.
-      // One widget means one label and one activation path across the switch.
+      // Wide: back to the centre slot as the title widget; halign CENTER
+      // keeps the flat button hugging its label inside the centre bin
+      // instead of stretching across it. No other header child moves, so
+      // the old remove/re-pack ordering dance (button before refresh/copy)
+      // is gone.
       content.revealBottomBars = false
       selectorBar.remove(typeButton.widget)
       typeButton.widget.hexpand = false
-      header.remove(copyScramble)
-      header.remove(refreshScramble)
-      header.packStart(typeButton.widget)
-      header.packStart(refreshScramble)
-      header.packStart(copyScramble)
+      typeButton.widget.halign = Gtk.Align.CENTER
+      header.titleWidget = typeButton.widget
+      header.showTitle = true
     }
   }
 

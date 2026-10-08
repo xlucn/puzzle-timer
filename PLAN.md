@@ -1569,6 +1569,20 @@ Evidence:
   never needed and is now moot. Watch the key names: gdk_keyval names are
   case-sensitive (`space`, not `Space`), or the chip renders empty (checked
   with `Gtk.acceleratorParse`: all 18 entries parse).
+- **Wide selector: centred title widget (user call, 2026-10-08)** — above
+  600 the type button is the `Adw.HeaderBar`'s **`titleWidget`** (with
+  `showTitle` on), which is the one slot a HeaderBar centres natively; it is
+  not packed at start anymore, so it sits after sidebar/refresh/copy in Tab
+  order. `halign: CENTER` keeps the flat button hugging its label inside the
+  centre bin. Transitions must go through `setTitleWidget(null)` and *not*
+  `header.remove()`: the remove path clears the centre bin but leaves
+  `HeaderBar:title-widget` pointing at the button (adw-header-bar.c), so the
+  wide path's re-assignment would early-return and never re-adopt it — a
+  silently empty header. Measured drift vs the header's true centre: +1px at
+  900 and 620 (default `LOOSE` policy; `STRICT` changes nothing here since
+  it only size-groups the side boxes). Narrow transitions additionally set
+  `showTitle` false first, or `setTitleWidget(null)` would reconstruct the
+  default window-title label visible for a frame.
 - **Narrow selector: ToolbarView bottom bar (user call, 2026-10-04)** — below
   600 the header's ellipsizing type button moves into `Adw.ToolbarView`'s
   **bottom toolbar**, full-width with the chevron at the right. `ToolbarView`
