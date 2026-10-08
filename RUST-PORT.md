@@ -404,16 +404,17 @@ gitignored (2 GB), and nothing here ships with the app.
 
 ## 8. What a Rust rewrite would touch in *this* app
 
-Separate from the dependency question, if the whole app moves to gtk4-rs:
+Separate from the dependency question, if the whole app moves to gtk4-rs
+(line counts measured 2026-10-08):
 
 | area | non-test lines | notes |
 |---|---|---|
-| `src/ui/` | 2 721 | rewrite against `gtk4` 0.11 / `libadwaita` 0.9 |
-| `src/core/` | 2 131 | **portable as-is in spirit** — pure TS, no `gi:*`, 2 028 test lines |
-| root-level | 1 130 | `main.ts` etc. |
+| `src/ui/` | 2 744 | rewrite against `gtk4` 0.11 / `libadwaita` 0.9 — see Blueprint below |
+| `src/core/` | 2 152 | **portable as-is in spirit** — pure TS, no `gi:*`, 2 053 test lines |
+| root-level | 1 204 | `main.ts` etc. |
 | `src/platform/` | 625 | store + CSPRNG; 423 test lines |
 | `src/scramble/` | 318 | **this is the boundary** — protocol/service/worker |
-| **total** | **6 925** | + 2 451 test lines |
+| **total** | **7 043** | + 2 476 test lines |
 
 `src/scramble/` is deliberately thin: a one-request/one-reply queue over
 plain data (`protocol.ts`, 33 lines). Swapping the Node worker for an embedded
@@ -424,6 +425,53 @@ the same job here.
 **Rule 4 survives either way.** A 4×4 scramble takes ~1.2 s; whatever engine
 produces it must stay off the UI thread (`deno_core` on a worker thread, or the
 existing `worker_threads` shape reimplemented with a Rust thread + channel).
+
+### Blueprint (`.blp`) — free win in a rewrite, not worth it now
+
+[Blueprint](https://gitlab.gnome.org/exalm/blueprint) is GNOME's declarative
+markup for GTK4 widget trees; `blueprint-compiler` compiles `.blp` to the
+`.ui` GtkBuilder XML GTK already consumes. It matters here because
+`gtk4::CompositeTemplate` accepts it **directly** — `#[template(file = "…blp")]`
+or an inline `string`, needing only `blueprint-compiler` on `PATH` at build
+time (gtk-rs release notes, 2023-08-28). So a rewrite gets:
+
+- **Typed children and callbacks.** `[Child]` becomes a `#[template_child]`
+  field, `clicked => on_click()` becomes a `#[template_callback]` method —
+  both checked against the `.blp` at compile time, not at runtime.
+- **Errors move to build time.** A misspelled property or signal is a
+  `blueprint-compiler` error instead of a GTK stderr warning you scroll past.
+  Today the equivalent typo surfaces only when the widget is constructed.
+
+**Why it isn't worth it in this codebase:** templates require GObject
+subclassing, and subclassing is precisely what AGENTS.md rule 5 tells this
+project to avoid — the risk is node-gtk's FFI, not GObject itself. Strip that
+constraint and the calculus flips: the subclassing behind `[Child]`/
+`[Callback]` becomes ordinary memory-safe Rust through `glib::subclass`.
+
+**How much would actually move:** of `src/ui/`'s 1 453 substantive lines
+(non-blank, non-comment), **344 — about 24% — sit inside `new Gtk.*`/`new
+Adw.*` construction blocks** across 76 sites, which is what a `.blp` tree
+replaces. The rest does not move:
+
+| stays in Rust | why |
+|---|---|
+| layout tiers / breakpoints | Blueprint has no conditionals or loops — the three-tier adaptive logic is code |
+| `Gtk.ColumnView` model + factories | data-driven; Blueprint can only declare the widget |
+| signal handlers, timers, undo paths | behaviour |
+| `gi:*` property readback | Blueprint writes properties; it doesn't read them back |
+
+So: roughly a quarter of `ui/` gets shorter and better-checked, and the
+hard parts (the adaptive layout, the focus chains AGENTS.md anchors document)
+stay where they are. Real, but modest.
+
+**Costs:** a `blueprint-compiler` build dependency (Python — goes in the
+M15 PKGBUILD's `makedepends`), a two-file navigation for every widget tree,
+and no hot-reload equivalent to `npm run dev`'s CSS reload. The AGENTS.md
+rules about adaptive widgets still apply unchanged — Blueprint draws the tree;
+it does not stop you reimplementing `Adw.Breakpoint` by hand.
+
+**Verdict:** adopt `.blp` for the static shell *if and when* a gtk4-rs rewrite
+happens; don't retrofit it into the node-gtk app.
 
 ---
 
