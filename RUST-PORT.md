@@ -17,10 +17,11 @@ reason *"awkward fit for the JS scramble module"*. Two questions follow:
 
 **Answers, both measured:**
 
-1. **Yes, easily.** Four engines were tested end-to-end. Every one of them runs
+1. **Yes, easily.** Five engines were tested end-to-end. Every one of them runs
    the real bundle and produces **byte-identical output for all 206 scramble
-   types**. The host shim is ~10 lines of JavaScript. The recommended engine
-   (`deno_core`) runs at Node speed.
+   types**. The host shim is ~10 lines of JavaScript. The recommended engine is
+   the **`v8` crate (rusty_v8) used directly** — 8 crates in the dependency
+   graph, no tokio, Node-class speed (§5).
 2. **Hard-ish, ~19k lines**, with 4k of it machine-transpiled from Java and
    ~600 sites where JS integer semantics must be reproduced exactly to keep
    seed parity. Doable, but it is weeks of work against a few hours for option 1.
@@ -38,7 +39,7 @@ main architectural risk. So a future Rust rewrite buys better GUI bindings
 
 ---
 
-## 2. The four engines, tested
+## 2. The five engines, tested
 
 Each probe loads the real `node_modules/cstimer_module/cstimer_module.js`,
 drives all 206 types with the app's own default lengths (`src/core/scrambleTypes.ts`),
@@ -47,27 +48,29 @@ stream aligned with Node, and dumps `id<TAB>json-string` per type.
 
 | engine | crate | version tested | verdict |
 |---|---|---|---|
-| **V8** via `deno_core` | `deno_core` | 0.412 | ✅ **recommended** — Node-class speed, MIT, statically linked |
+| **V8** direct | `v8` (rusty_v8) | 150.4.0 | ✅ **recommended** — Node-class speed, 8-crate graph, no tokio |
+| **V8** via `deno_core` | `deno_core` | 0.412 | ✅ works — same speed, richer API, but 322 crates + tokio |
 | **Node.js** via libnode | `edon` | 0.0.27 | ✅ works — truest semantics, but you ship a 143 MB `.so` |
 | **QuickJS** | `rquickjs` | 0.14 | ⚠️ correct, ~23× slower — fine for 3×3, not for 4×4+ |
 | **boa** | `boa_engine` | 0.22 | ❌ correct *after a polyfill*, ~49× slower |
 
-### Correctness — all four identical to Node
+### Correctness — all five identical to Node
 
 ```
 === diff vs node ===
   quickjs    IDENTICAL (all 206 types byte-for-byte)
   boa        IDENTICAL (all 206 types byte-for-byte)
   deno       IDENTICAL (all 206 types byte-for-byte)
+  v8         IDENTICAL (all 206 types byte-for-byte)
   libnode    IDENTICAL (all 206 types byte-for-byte)
 
-engines identical: 4   problems: 0
+engines identical: 4   problems: 0     # 5 with LIBNODE set
 ```
 
 Every dump hashes to the same value as Node's:
 
 ```
-7750f9e8e1eaf18540c43a8ec7f6d574  (206 lines, all four engines + node)
+7750f9e8e1eaf18540c43a8ec7f6d574  (206 lines, all five engines + node)
 ```
 
 and all report `generated OK=206 empty=0 images=177 failures=0 total=206`.
@@ -144,11 +147,14 @@ Measured twice (initial research run, then the committed harness) — expect
 | engine | sweep | vs node |
 |---|---|---|
 | **node 26.10** (baseline) | **7.5 – 8.4 s** | 1× |
-| **deno_core (V8)** | **8.0 – 8.1 s** | ~1× |
+| **rusty_v8 direct** | **8.9 – 9.1 s** | ~1× |
+| **deno_core (V8)** | **8.0 – 9.1 s** | ~1× |
 | **rquickjs (QuickJS)** | **187 – 192 s** | ~24× |
 | **boa** | **415 – 526 s** | ~55× |
 
-Slowest types are always the random-state ones: `mgmso`, `444wca`, `ftoso`,
+The two V8 rows are the same engine on the same machine; their ranges overlap,
+so the difference between them is noise, not a deno_core overhead. Slowest
+types are always the random-state ones: `mgmso`, `444wca`, `ftoso`,
 `444bld`, `444ud3c`.
 
 ### Per-type, first call (builds pruning tables) / warm call
@@ -162,13 +168,14 @@ Slowest types are always the random-state ones: `mgmso`, `444wca`, `ftoso`,
 | `clkwca` | 0 / 0 ms | 0 / 0 ms | 0.3 / 0.02 ms | 0.65 / 0.08 ms |
 
 `deno_core`'s numbers are **the same class as Node** — occasionally faster, since
-it skips `worker_threads` and the structured clone.
+it skips `worker_threads` and the structured clone. `v8` direct is the same
+engine and tracks it within noise (both engines swept in 8.0 – 9.1 s).
 
 **Against this project's own budget:** AGENTS.md rule 4 exists because *"a 4×4
 WCA scramble takes ~1.2 s and would freeze the UI"*. QuickJS's **warm** 4×4 is
 3.5 s — already 3× over budget — and boa's is 7.6 s, with `mgmso` at 107 s.
-So for *this* app only `deno_core` or libnode qualify. QuickJS/boa would be
-acceptable only for a non-interactive tool.
+So for *this* app only a V8-backed crate (`v8` or `deno_core`) or libnode
+qualify. QuickJS/boa would be acceptable only for a non-interactive tool.
 
 ### Why Python was ruled out early
 
@@ -189,7 +196,61 @@ bindings usefully.)
 
 ## 5. Engine-by-engine notes
 
-### `deno_core` — recommended
+### `v8` (rusty_v8) direct — recommended
+
+```toml
+v8 = "150"
+```
+
+The `v8` crate on crates.io **is** rusty_v8 — Deno's own name for it. It is
+`deno_core`'s substrate, not a competitor: deno_core adds an *op system*
+(Rust↔JS FFI), an *event loop* mapping JS Promises onto Rust Futures, a module
+loader, and startup snapshots. (The CLI is a separate crate, `deno_cli`.)
+
+**None of that is needed here**, and dropping it is a real win:
+
+| | `v8` direct | `deno_core` |
+|---|---|---|
+| crates in the graph | **8** | 322 |
+| tokio required | **no** | yes |
+| stripped binary | **44.3 MB** | 48.2 MB |
+| sweep | 8.9 – 9.1 s | 8.0 – 9.1 s |
+| our code | 99 lines | 47 lines |
+
+The bundle is a synchronous ES5 script: no Promises, no dynamic `import`, no
+ops. So the runtime is platform init → one `Isolate` → one `Context` → three
+`Script::compile` + `run`. That also **removes deno_core's tokio requirement**
+— that requirement was deno_core's own delayed-task plumbing, not V8's (V8's
+`new_default_platform` runs its tasks on its own pool).
+
+- **MIT**, V8 statically linked — the 44 MB binary depends on libc only
+  (`ldd` shows 5 system libs, no `libv8.so`).
+- Same first-build download of the prebuilt `librusty_v8.a` (~178 MB). Use the
+  proxy if it stalls: `http_proxy=http://localhost:1080`.
+- **Gotcha 1 — scopes are the whole API.** Everything wants `&mut v8::PinScope`;
+  create it with `v8::scope!(let scope, isolate)` and, inside, capture
+  exceptions with `v8::tc_scope!(let tc, scope)`. Both macros pin + init for
+  you — hand-rolling `TryCatch::new(...)` does *not* work, and the type
+  signatures are what you'll fight first.
+- **Gotcha 2 — `String::new` returns `Option`.** `None` means the source is too
+  long for V8's string limit; unwrap with a message rather than `unwrap()`.
+- **Gotcha 3 — results come back as `v8::Value`.** For our sweep,
+  `value.to_rust_string_lossy(scope)` is enough. `serde_v8` exists precisely to
+  skip this, so if you need structured values, deno_core is the better trade.
+- **Gotcha 4 — no teardown in the probe.** A long-lived app must
+  `v8::V8::dispose()` / `dispose_platform()`; the probe skips it deliberately
+  to keep the happy path free of `unsafe`.
+- No Node built-ins (`fs`, `path`, `crypto`) — the bundle's optional
+  `crypto.getRandomValues` is skipped, so **always call `setSeed` explicitly**
+  (the app already does).
+
+**Choose `deno_core` instead when** you want ops (Rust functions callable from
+JS), Promise/async support, ES module loading, or startup snapshots — i.e. when
+you're building a general JS runtime rather than calling three synchronous
+functions. Our earlier recommendation of deno_core was made before testing
+`v8` direct; on these numbers the leaner crate wins for this workload.
+
+### `deno_core` — the same V8, with an event loop on top
 
 ```toml
 deno_core = "0.412"
@@ -386,14 +447,15 @@ tools/rust-embed/
 ├── probe-quickjs/          rquickjs
 ├── probe-boa/              boa (+ documents the substr gap)
 ├── probe-deno/             deno_core (+ tokio gotcha)
+├── probe-v8/               v8 direct — no deno_core, no tokio
 └── probe-libnode/          edon/libnode (LIBNODE= required)
 ```
 
-Expected: `engines identical: 3   problems: 0` (4 with `LIBNODE` set), all
+Expected: `engines identical: 4   problems: 0` (5 with `LIBNODE` set), all
 dumps `7750f9e8e1eaf18540c43a8ec7f6d574`, every engine reporting
 `generated OK=206 empty=0 images=177 failures=0 total=206`.
 
-Verified 2026-10-08: node / quickjs / boa / deno all byte-identical.
+Verified 2026-10-08: node / quickjs / boa / deno / v8 all byte-identical.
 Don't run two slow probes concurrently — they contend and one may be killed
 mid-sweep.
 
@@ -423,8 +485,9 @@ not notice. That boundary was drawn for the GJS option (PLAN.md §3) and it does
 the same job here.
 
 **Rule 4 survives either way.** A 4×4 scramble takes ~1.2 s; whatever engine
-produces it must stay off the UI thread (`deno_core` on a worker thread, or the
-existing `worker_threads` shape reimplemented with a Rust thread + channel).
+produces it must stay off the UI thread (a `v8` `Isolate` on a worker thread,
+or the existing `worker_threads` shape reimplemented with a Rust thread +
+channel).
 
 ### Blueprint (`.blp`) — free win in a rewrite, not worth it now
 
@@ -481,7 +544,8 @@ happens; don't retrofit it into the node-gtk app.
    dependencies (AUR/M15 packaging), or `node-gtk` becoming unmaintainable.
    If the trigger is the latter, embedding keeps `core/` and `scramble/` and
    rewrites only `ui/` — strictly less work than a full port.
-2. **Which engine?** `deno_core` on today's evidence. Re-measure — V8's
+2. **Which engine?** `v8` direct on today's evidence (8 crates, no tokio);
+   `deno_core` if you later want ops, Promises or ES modules. Re-measure — V8's
    download is the main build-time risk, and `boa` may have gained `substr`.
 3. **Do you need seed parity with the JS version at all?** If not, the hardest
    600 sites in §6(b) become ordinary (if slower) work.

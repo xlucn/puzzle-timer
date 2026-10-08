@@ -2,7 +2,7 @@
 # run.sh — build every engine probe, sweep all 206 types in each, and diff
 # every dump against the Node reference. Byte-identical output is the pass bar.
 #
-#   ./run.sh                 # node + quickjs + boa + deno
+#   ./run.sh                 # node + quickjs + boa + deno + rusty_v8
 #   LIBNODE=/path/libnode.so ./run.sh   # ...also libnode/edon
 #
 # See ../RUST-PORT.md for what these numbers meant the last time they ran.
@@ -39,11 +39,12 @@ probe() { cargo build --release -q -p "probe-$1" && "./target/release/probe-$1";
 run quickjs probe quickjs
 run boa     probe boa
 run deno    probe deno
+run v8      probe v8
 if [[ -n "${LIBNODE:-}" ]]; then run libnode probe libnode; fi
 
 # --- verdict ----------------------------------------------------------------
 printf '\n=== diff vs node ===\n'
-for f in quickjs boa deno libnode; do
+for f in quickjs boa deno v8 libnode; do
   [[ -f "$OUT/$f.dump" ]] || continue
   if diff -q "$OUT/reference.dump" "$OUT/$f.dump" >/dev/null; then
     note "$f" "IDENTICAL (all 206 types byte-for-byte)"; pass=$((pass + 1))

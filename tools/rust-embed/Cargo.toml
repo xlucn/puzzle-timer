@@ -15,6 +15,7 @@ members = [
     "probe-quickjs",
     "probe-boa",
     "probe-deno",
+    "probe-v8",
     "probe-libnode",
 ]
 
