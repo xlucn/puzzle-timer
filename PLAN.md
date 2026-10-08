@@ -88,7 +88,7 @@ where that order is convention rather than dependency):
 | `cstimer_module` npm | **Chosen.** Official (author `cs0x7f`), v0.1.5 released 2026-02, pure JS, GPL-3.0, 206 scramble types + SVG images. |
 | GJS (GNOME's JS runtime) | **Rejected**, despite better long-term maintainability (GNOME-backed, no ABI churn). See evidence in §5. |
 | Electron / WebView wrapper | Rejected — user wants native GTK only, no web stack. |
-| Python + PyGObject / Rust | Rejected — awkward fit for the JS scramble module. |
+| Python + PyGObject / Rust | Rejected — awkward fit for the JS scramble module. **Revisited 2026-10-08:** embedding the module in a Rust JS engine works and is byte-identical across 206 types, so Rust is no longer ruled out on *this* ground — see [RUST-PORT.md](./RUST-PORT.md). Python alone stays rejected (measured ~190× slower). |
 
 **License:** GPL-3.0-or-later (LICENSE file). Required by `cstimer_module` and
 permitted for porting
@@ -407,6 +407,30 @@ session key becomes empty rather than being left alone. Consequences:
 dropped), and csTimer's own settings return to defaults (it shows a delta
 confirmation first, and there is nothing we could put in `properties` to stop
 it). Import *from* csTimer reads only, so it is the safe direction.
+
+### Rust: embedding the scrambler vs. porting it (researched 2026-10-08)
+
+**Not scheduled** — recorded so the work isn't repeated. Full findings,
+numbers and a re-runnable harness: **[RUST-PORT.md](./RUST-PORT.md)** and
+`tools/rust-embed/run.sh`.
+
+- Four JS engines (deno_core/V8, edon/libnode, rquickjs/QuickJS, boa) were
+  driven through all 206 types. **Every one produced byte-identical output to
+  Node** (dump md5 `7750f9e8…`), so a Rust app can embed the module rather
+  than port it.
+- The host shim is ~10 lines: fake `global`/`process`/`require` so the bundle's
+  `isInNode` test passes, plus the two csTimer lang strings. Under real libnode
+  no shim is needed.
+- **`deno_core` is the recommended engine** — Node-class speed (8.0 s sweep vs
+  Node's 7.5 s), MIT, V8 statically linked. QuickJS/boa are 24×/55× slower and
+  would blow the 1.2 s 4×4 budget that motivates rule 4.
+- Porting the dependency instead means ~18 900 lines, of which 3 992 are
+  GWT-transpiled Java, plus ~600 sites where JS int32 semantics must be matched
+  exactly to keep seed parity. Hours vs. weeks.
+- `gtk4-rs` 0.11.5 / `libadwaita` 0.9.2 under gtk-rs are actively maintained —
+  a Rust rewrite would improve on `node-gtk`'s single-maintainer risk, and the
+  `src/scramble/` boundary (318 lines) means the engine swap touches only that
+  directory.
 
 ---
 

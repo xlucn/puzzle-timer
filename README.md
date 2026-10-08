@@ -106,8 +106,10 @@ loop automatically.
 │   ├── platform/        # Node-only: persistence, CSPRNG, audio out
 │   └── ui/              # GTK widgets — the only place that imports gi:*
 ├── tools/               # UI test harness (see tools/README.md)
+│   └── rust-embed/       # research only: run cstimer_module in a Rust JS engine
 ├── style.css            # custom CSS (hot-reloads live under `npm run dev`)
 ├── PLAN.md              # architecture, decisions, milestone evidence
+├── RUST-PORT.md         # research: embedding the scrambler in Rust vs porting it
 ├── AGENTS.md            # project rules (auto-loaded by contributing agents)
 ├── tsconfig.json
 └── package.json

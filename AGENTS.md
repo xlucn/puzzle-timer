@@ -317,3 +317,9 @@ csTimer backup import/export used to be listed above as dropped; it was
 reinstated by that decision, and charts came off the long-term list with it.
 
 Only **M14** may reopen packaging any further (Flatpak, deb, AppStream).
+
+**Rust port: researched, not scheduled.** [RUST-PORT.md](./RUST-PORT.md)
+holds the evidence (four JS engines all reproduce Node's 206 scrambles
+byte-for-byte, so the module can be *embedded* rather than ported) and
+`tools/rust-embed/run.sh` re-runs it. Do not start a port or a Rust rewrite
+without being asked — it is not a milestone.

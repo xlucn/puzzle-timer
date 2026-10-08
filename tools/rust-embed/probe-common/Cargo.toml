@@ -1,0 +1,12 @@
+[package]
+name = "probe-common"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+name = "probe_common"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json = "1"

@@ -1,0 +1,13 @@
+[package]
+name = "probe-quickjs"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "probe-quickjs"
+path = "src/main.rs"
+
+[dependencies]
+probe-common = { path = "../probe-common" }
+rquickjs = { version = "0.14", features = ["parallel"] }

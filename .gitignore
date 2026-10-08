@@ -5,6 +5,10 @@ node_modules/
 # build output
 dist/
 
+# rust-embed probe harness (tools/rust-embed) — 2 GB of V8/QJS artifacts,
+# all regenerable with `cargo build --release`
+tools/rust-embed/target/
+
 # misc
 *.log
 .DS_Store

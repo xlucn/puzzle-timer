@@ -1,0 +1,13 @@
+[package]
+name = "probe-libnode"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "probe-libnode"
+path = "src/main.rs"
+
+[dependencies]
+probe-common = { path = "../probe-common" }
+edon = "0.0.27"

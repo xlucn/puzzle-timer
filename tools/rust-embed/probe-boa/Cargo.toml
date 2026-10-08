@@ -1,0 +1,13 @@
+[package]
+name = "probe-boa"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "probe-boa"
+path = "src/main.rs"
+
+[dependencies]
+probe-common = { path = "../probe-common" }
+boa_engine = "0.22"

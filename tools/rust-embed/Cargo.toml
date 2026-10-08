@@ -1,0 +1,29 @@
+# Rust embedding probes for `cstimer_module`
+#
+# One workspace, one binary per candidate JS engine, plus a shared crate that
+# holds the host shim and the sweep script — so every engine runs *identical*
+# JavaScript against *identical* inputs and can be diffed byte-for-byte.
+#
+# Findings, numbers and the embed-vs-port verdict: ../RUST-PORT.md
+#
+# Run everything:  ./run.sh
+
+[workspace]
+resolver = "2"
+members = [
+    "probe-common",
+    "probe-quickjs",
+    "probe-boa",
+    "probe-deno",
+    "probe-libnode",
+]
+
+# Probe-only workspace: nothing here ships with the app.
+[workspace.package]
+edition = "2024"
+publish = false
+
+[profile.release]
+# V8 and the sweeps are CPU-bound; keep the default opt level but allow
+# a larger codegen unit so cold builds don't take forever.
+codegen-units = 16
