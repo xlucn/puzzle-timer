@@ -13,8 +13,7 @@
  *   layoutFor(width, height)     which *tier* the window is in: sidebar as a
  *                                drawer or side by side, the scramble
  *                                selectors in the header or in their own row,
- *                                how big the timer / scramble / diagram get,
- *                                how wide the sidebar may grow.
+ *                                how big the timer / scramble / diagram get.
  *
  * (The timer used to get offset aside for the diagram — `timerMargins` and
  * the phone-form `phoneFormFor` predicate lived here. Dropped 2026-10-05:
@@ -45,7 +44,7 @@ export const BREAKPOINTS = {
   selectorRowMax: 600,
   /** 601–800 → tier B: the sidebar becomes an overlay drawer. */
   drawerMax: 800,
-  /** 1200–1599 → tier M: the sidebar may grow, the timer steps up. */
+  /** 1200–1599 → tier M: the timer steps up and the scramble slot widens. */
   mediumMin: 1200,
   /** ≥ 1600 → tier L: everything takes the room it is given. */
   largeMin: 1600,
@@ -99,7 +98,10 @@ export interface LayoutTier {
   scrambleChars: number
   /** `maxContentHeight` of the scramble slot, in px. */
   scrambleMaxHeight: number
-  /** `maxSidebarWidth` — the sidebar may grow with the window (M6). */
+  /**
+   * `maxSidebarWidth` — the sidebar's cap; pinned at 320 for every tier
+   * (the growth steps 380/440 were removed, user call 2026-10-09).
+   */
   sidebarMax: number
   /** Diagram cap, px — the picture is scaled to fit before it is shown. */
   diagramMaxWidth: number
@@ -147,7 +149,7 @@ export function layoutFor(width: number, height: number): LayoutTier {
           : 'm',
     scrambleChars: 60,
     scrambleMaxHeight: h <= BREAKPOINTS.shortMax ? 100 : 160,
-    sidebarMax: 320, // the M2 default, still right for a normal window
+    sidebarMax: 320, // the M2 default — and, since 2026-10-09, every tier's cap
     diagramMaxWidth: 440,
     diagramMaxHeight: 150,
   }
@@ -157,7 +159,6 @@ export function layoutFor(width: number, height: number): LayoutTier {
   const roomy = h > BREAKPOINTS.shortMax
 
   if (w >= BREAKPOINTS.mediumMin) {
-    tier.sidebarMax = 380
     tier.scrambleChars = 76
     if (roomy) {
       tier.diagramMaxWidth = 500
@@ -165,7 +166,6 @@ export function layoutFor(width: number, height: number): LayoutTier {
     }
   }
   if (w >= BREAKPOINTS.largeMin) {
-    tier.sidebarMax = 440
     tier.scrambleChars = 88
     if (roomy) {
       tier.diagramMaxWidth = 560

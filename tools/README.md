@@ -269,7 +269,7 @@ DISPLAY=:99 xdotool windowsize --sync $W 550 480   # selectors leave for their o
 DISPLAY=:99 xdotool key ctrl+b                     # drawer opens   (log: activate → true)
 DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-sidebar=false)
 DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
-DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar 440, timer l
+DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (cap since 2026-10-09), timer l
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
 # which is why the log prints `890x530 (win 530)` for a 900x540 window.
 

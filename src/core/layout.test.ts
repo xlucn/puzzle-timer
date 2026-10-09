@@ -26,11 +26,13 @@ describe('layoutFor — width tiers', () => {
     expect(layoutFor(900, 540).timerSize).toBe('m')
   })
 
-  it('grows the sidebar in steps instead of pinning it at 320', () => {
+  it('pins the sidebar at 320 at every width (user call, 2026-10-09)', () => {
+    expect(layoutFor(smallMax, 540).sidebarMax).toBe(320)
     expect(layoutFor(1199, 800).sidebarMax).toBe(320)
-    expect(layoutFor(mediumMin, 800).sidebarMax).toBe(380)
-    expect(layoutFor(largeMin - 1, 800).sidebarMax).toBe(380)
-    expect(layoutFor(largeMin, 800).sidebarMax).toBe(440)
+    expect(layoutFor(mediumMin, 800).sidebarMax).toBe(320)
+    expect(layoutFor(largeMin - 1, 800).sidebarMax).toBe(320)
+    expect(layoutFor(largeMin, 800).sidebarMax).toBe(320)
+    expect(layoutFor(3000, 1600).sidebarMax).toBe(320)
   })
 
   it('gives the timer and the scramble more room on a large window', () => {

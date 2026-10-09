@@ -1363,10 +1363,13 @@ picture's size log and bottom-bar lift, since it was the timer nudge.
   header's selector became one button whose label ellipsizes (icon button +
   ellipsizing `Adw.WindowTitle` since 2026-10-08), so
   `headerSlack` and the demand measurement went with it.
-- **Growing sidebar / scaling**: `maxSidebarWidth` 320 → 380 (≥1200) → 440
-  (≥1600); timer `s`/`m`/`l` (also `s` below 480 wide *or* 480 tall);
-  scramble slot 60/76/88 chars, 100/160/220 px tall; diagram cap 440×150 →
-  500×170 → 560×190 (the last two only when tall).
+- **Growing sidebar / scaling**: timer `s`/`m`/`l` (also `s` below 480 wide
+  *or* 480 tall); scramble slot 60/76/88 chars, 100/160/220 px tall; diagram
+  cap 440×150 → 500×170 → 560×190 (the last two only when tall). The sidebar
+  width used to scale with the tiers too (`maxSidebarWidth` 320 → 380 at
+  ≥1200 → 440 at ≥1600) — *superseded 2026-10-09 (user call)*: 320 is the
+  cap at every width, the growth steps are gone, and `sidebarMax` is now a
+  constant the tiers merely carry.
 - **The nudge** (user rule, 2026-10-02, **halved to a quarter the same
   day**): the timer block sits a quarter of a diagram's height *up* and a
   quarter of its width *left* of where it would otherwise centre — and
@@ -1530,7 +1533,8 @@ Evidence:
   items deferred from here are **M6's and now landed**: the long
   category/type selections that outgrow the header (they move to their own
   row instead, §6 M6), the drawer breakpoint (≤800), and the sidebar width
-  caps (320 → 380 → 440). About / Keyboard Shortcuts / Quit sit in the
+  caps (320 → 380 → 440; *capped at 320 everywhere since 2026-10-09*, see
+  §6 M6 scaling). About / Keyboard Shortcuts / Quit sit in the
   sidebar app menu — unreachable while the sidebar is closed, which is why
   `<Ctrl+Q>` stays the quit path that always works (`<Ctrl+B>` reopens the
   list, and `Escape` closes the drawer).
