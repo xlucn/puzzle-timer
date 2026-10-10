@@ -317,7 +317,8 @@ cargo build --release -p probe-jsc --no-default-features --features jsc4
 **Pick JSC when the package's download size is the constraint**, and prefer
 `jsc6` — on a GNOME desktop `gnome-shell` already requires `webkitgtk-6.0`, so
 the dependency costs nothing there, where `webkit2gtk-4.1` would be a genuinely
-new 141 MiB install on a machine that only has gtk4 apps. Pick `v8` direct
+new 141 MiB install on a machine that only has gtk4 apps. Under **Flatpak** the
+argument stops being conditional altogether — see below. Pick `v8` direct
 when you'd rather own the engine and ship one self-contained binary.
 
 ### Packaging size — what each engine actually costs
@@ -368,6 +369,77 @@ plus a WebKit dependency that is free exactly where this app is most at home**.
 **Verdict:** `v8` direct for a self-contained binary; JSC if you're counting
 every megabyte of the download and can assume WebKit. Everything else is
 worse on size *and* slower.
+
+### Flatpak — where JSC's advantage becomes unconditional
+
+The packaging argument above is a *host* argument: what a user already has
+installed. Flatpak removes that variable entirely, and in JSC's favour —
+but only for one flavour.
+
+**WebKitGTK 2.54.1 with GTK4 ships in the GNOME runtime.** Verified against
+`gnome-build-meta` (the manifest that builds the runtime; no GNOME runtime is
+installed locally, only freedesktop, so this is the source of truth rather
+than a local `flatpak run`):
+
+```
+elements/sdk/webkitgtk.bst     kind: cmake, webkitgtk-2.54.1.tar.xz,
+                               -DUSE_GTK4=ON, and no `cleanup:` stripping
+                               devel files
+elements/sdk-platform.bst:51   - sdk/webkitgtk.bst      ← the runtime image
+elements/sdk.bst               kind: stack, depends: [sdk-platform.bst, …]
+                               ← the SDK stacks on the runtime
+```
+
+So the library is in `org.gnome.Platform` (where you link) *and* the headers
+and `javascriptcoregtk-6.0.pc` should be in `org.gnome.Sdk` (which includes
+the platform), with nothing in the element deleting them.
+
+**This inverts the host calculus.** Inside the sandbox the app cannot see the
+user's `gnome-shell`, so "free on a GNOME desktop" is worth nothing — what
+matters is only the runtime:
+
+| | host / AUR | Flatpak |
+|---|---|---|
+| JSC library | 138 MiB if not already present | **0** — in a runtime you need anyway |
+| your binary | 0.35 MB | 0.35 MB |
+| static `v8` alternative | 44.3 MB in your package | 44.3 MB **in your download, unshared** |
+
+A runtime is fetched once and shared by every app; a statically-linked V8 is
+re-downloaded with each app. The gap therefore *widens* under Flatpak rather
+than narrowing.
+
+**Only `jsc6` is available.** `elements/sdk/` contains `webkitgtk.bst` and no
+`webkit2gtk.bst`, so the runtime ships the GTK4/6.0 flavour alone — the
+`jsc4` feature would fail to link against the SDK. Conveniently `jsc6` is
+already the default, and there is no `depends=` to write: the runtime provides
+the library.
+
+**No WebKit sandbox complications.** The usual Flatpak-plus-WebKit pain —
+web-process bubblewrap, `--talk-name` grants, subprocess spawning — all comes
+from `WebKitWebView`. Plain JavaScriptCore is a library: no child processes,
+no extra `finish-args`.
+
+Caveats for the day this is used:
+
+- **`org.gnome.Platform`, not `org.freedesktop.Platform`** — the freedesktop
+  base has no WebKit. A GTK4 app uses the GNOME runtime anyway, so this costs
+  nothing.
+- **The runtime pins the WebKit version.** Master builds 2.54.1; a runtime
+  branch bump changes the minor, though the soname
+  `libjavascriptcoregtk-6.0.so.1` is stable across them.
+- **`.pc` presence is inferred, not observed.** Check it inside the SDK before
+  relying on `pkg-config`:
+
+  ```bash
+  flatpak run --command=pkg-config org.gnome.Sdk//NN \
+    --exists javascriptcoregtk-6.0 && echo present
+  ```
+
+  If it is missing, the probe already declares the eight functions itself, so
+  only `-ljavascriptcoregtk-6.0` is needed and no header at all.
+
+Flatpak itself stays gated behind **M15** (AGENTS.md: only M15 may reopen
+packaging beyond AUR/M16), so this is evidence for later, not work now.
 
 ### `deno_core` — the same V8, with an event loop on top
 
@@ -714,5 +786,11 @@ happens; don't retrofit it into the node-gtk app.
 4. **Licence review** before shipping: `cstimer_module` is GPL-3.0; `edon`'s
    libnode bundle needs a dependency-level check, and JSC's `.so` carries a
    long license list (Apache/BSD/LGPL/MPL) worth recording in M16.
-5. **Python stays rejected** unless someone measures a JIT strategy that
+5. **Packaging target decides the engine.** AUR/host → either `v8` or `jsc6`,
+   since `jsc6` is free only where GNOME is installed. **Flatpak → `jsc6`
+   unconditionally**: the GNOME runtime ships `libjavascriptcoregtk-6.0` in
+   both `org.gnome.Platform` and `org.gnome.Sdk` (§5, "Flatpak"), a runtime a
+   GTK4 app needs anyway, so it costs zero bytes and no `depends`. `jsc4`
+   does not exist in the runtime.
+6. **Python stays rejected** unless someone measures a JIT strategy that
    integrates with GTK bindings.

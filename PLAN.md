@@ -444,6 +444,13 @@ numbers and a re-runnable harness: **[RUST-PORT.md](./RUST-PORT.md)** and
   directly, so on a GNOME desktop it costs no extra download (and it pulls
   gtk4, our own toolkit); the `jsc4` alternative would add a 141 MiB install
   *and* a gtk3. Full table and trade-offs in RUST-PORT.md.
+- **Under Flatpak the JSC argument stops being conditional** (RUST-PORT.md
+  §5): `gnome-build-meta` ships WebKitGTK with `-DUSE_GTK4=ON` into
+  `elements/sdk-platform.bst`, so `libjavascriptcoregtk-6.0` is in both
+  `org.gnome.Platform` and `org.gnome.Sdk` — a runtime a GTK4 app needs
+  anyway. Zero extra bytes, no `depends`, no `finish-args`; the 6.0 flavour
+  is the *only* one the runtime has. Recorded for whenever M15 reopens
+  packaging; no work implied now.
 - Porting the dependency instead means ~18 900 lines, of which 3 992 are
   GWT-transpiled Java, plus ~600 sites where JS int32 semantics must be matched
   exactly to keep seed parity. Hours vs. weeks.
