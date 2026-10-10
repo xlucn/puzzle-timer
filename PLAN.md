@@ -425,16 +425,25 @@ it). Import *from* csTimer reads only, so it is the safe direction.
 numbers and a re-runnable harness: **[RUST-PORT.md](./RUST-PORT.md)** and
 `tools/rust-embed/run.sh`.
 
-- Four JS engines (deno_core/V8, edon/libnode, rquickjs/QuickJS, boa) were
-  driven through all 206 types. **Every one produced byte-identical output to
-  Node** (dump md5 `7750f9e8…`), so a Rust app can embed the module rather
-  than port it.
+- Six JS engines (rusty_v8 direct, JavaScriptCore, deno_core/V8,
+  edon/libnode, rquickjs/QuickJS, boa) were driven through all 206 types.
+  **Every one produced byte-identical output to Node** (dump md5
+  `7750f9e8…`), so a Rust app can embed the module rather than port it.
 - The host shim is ~10 lines: fake `global`/`process`/`require` so the bundle's
   `isInNode` test passes, plus the two csTimer lang strings. Under real libnode
   no shim is needed.
-- **`deno_core` is the recommended engine** — Node-class speed (8.0 s sweep vs
-  Node's 7.5 s), MIT, V8 statically linked. QuickJS/boa are 24×/55× slower and
-  would blow the 1.2 s 4×4 budget that motivates rule 4.
+- **`v8` (rusty_v8) used directly is the recommended engine** — Node-class
+  speed (8.1–9.1 s sweep vs Node's 7.5–8.4 s), 8 crates, no tokio, MIT, V8
+  statically linked. `deno_core` is the same V8 with an op system and event
+  loop on top (322 crates + tokio) — only worth it if you need ops, Promises
+  or ES modules. QuickJS/boa are 24×/55× slower and would blow the 1.2 s 4×4
+  budget that motivates rule 4.
+- **Packaging size** (§5 of RUST-PORT.md): a static-V8 binary is 44.3 MB;
+  JavaScriptCore links its C API into a **0.35 MB** binary with zero crates.
+  Prefer the `jsc6` flavour — `gnome-shell` depends on `webkitgtk-6.0`
+  directly, so on a GNOME desktop it costs no extra download (and it pulls
+  gtk4, our own toolkit); the `jsc4` alternative would add a 141 MiB install
+  *and* a gtk3. Full table and trade-offs in RUST-PORT.md.
 - Porting the dependency instead means ~18 900 lines, of which 3 992 are
   GWT-transpiled Java, plus ~600 sites where JS int32 semantics must be matched
   exactly to keep seed parity. Hours vs. weeks.

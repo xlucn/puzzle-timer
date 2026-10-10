@@ -14,7 +14,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 | `breakpoint_probe.mjs` | M6 plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window |
-| `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside four Rust JS engines and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; run `rust-embed/run.sh`. Needs a Rust toolchain, not GTK. |
+| `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines (rquickjs, boa, deno_core, rusty_v8, JavaScriptCore, libnode) and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK. |
 
 ## Requirements
 

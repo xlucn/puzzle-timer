@@ -1,0 +1,27 @@
+[package]
+name = "probe-jsc"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "probe-jsc"
+path = "src/main.rs"
+
+[features]
+default = ["jsc6"]
+# webkitgtk-6.0 — the flavour gnome-shell depends on directly, so it is
+# guaranteed present on a GNOME desktop. Headers ship only the GObject
+# `jsc/` API, but we declare the classic C API ourselves, so only the
+# link name matters.
+jsc6 = []
+# webkit2gtk-4.1 — the flavour pulled in by WebKitGTK3 apps (epiphany
+# legacy, poedit, …). Ships JavaScriptCore/JavaScript.h, which is how the
+# C signatures were verified. Select with `--no-default-features --features jsc4`.
+jsc4 = []
+
+[dependencies]
+probe-common = { path = "../probe-common" }
+
+# No crate: JavaScriptCore's C API is stable and exported by a system
+# library, so it is declared directly in main.rs. One dependency total.

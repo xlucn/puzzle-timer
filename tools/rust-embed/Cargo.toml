@@ -16,6 +16,7 @@ members = [
     "probe-boa",
     "probe-deno",
     "probe-v8",
+    "probe-jsc",
     "probe-libnode",
 ]
 

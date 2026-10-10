@@ -1622,6 +1622,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "probe-jsc"
+version = "0.0.0"
+dependencies = [
+ "probe-common",
+]
+
+[[package]]
 name = "probe-libnode"
 version = "0.0.0"
 dependencies = [

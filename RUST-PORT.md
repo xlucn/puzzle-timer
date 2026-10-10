@@ -17,11 +17,14 @@ reason *"awkward fit for the JS scramble module"*. Two questions follow:
 
 **Answers, both measured:**
 
-1. **Yes, easily.** Five engines were tested end-to-end. Every one of them runs
+1. **Yes, easily.** Six engines were tested end-to-end. Every one of them runs
    the real bundle and produces **byte-identical output for all 206 scramble
    types**. The host shim is ~10 lines of JavaScript. The recommended engine is
    the **`v8` crate (rusty_v8) used directly** — 8 crates in the dependency
-   graph, no tokio, Node-class speed (§5).
+   graph, no tokio, Node-class speed (§5). If *packaging size* is what you're
+   optimising, JavaScriptCore links as a **0.35 MB** binary — free on a GNOME
+   desktop, where `gnome-shell` already pulls in its library (§5, "Packaging
+   size"), though it is a ~138 MiB dependency anywhere else.
 2. **Hard-ish, ~19k lines**, with 4k of it machine-transpiled from Java and
    ~600 sites where JS integer semantics must be reproduced exactly to keep
    seed parity. Doable, but it is weeks of work against a few hours for option 1.
@@ -39,7 +42,7 @@ main architectural risk. So a future Rust rewrite buys better GUI bindings
 
 ---
 
-## 2. The five engines, tested
+## 2. The six engines, tested
 
 Each probe loads the real `node_modules/cstimer_module/cstimer_module.js`,
 drives all 206 types with the app's own default lengths (`src/core/scrambleTypes.ts`),
@@ -49,12 +52,13 @@ stream aligned with Node, and dumps `id<TAB>json-string` per type.
 | engine | crate | version tested | verdict |
 |---|---|---|---|
 | **V8** direct | `v8` (rusty_v8) | 150.4.0 | ✅ **recommended** — Node-class speed, 8-crate graph, no tokio |
+| **JavaScriptCore** | none (system C API) | 2.54.1 | ✅ **for size** — 0.35 MB binary, 2 deps, ~10% off V8; but see §5 |
 | **V8** via `deno_core` | `deno_core` | 0.412 | ✅ works — same speed, richer API, but 322 crates + tokio |
 | **Node.js** via libnode | `edon` | 0.0.27 | ✅ works — truest semantics, but you ship a 143 MB `.so` |
 | **QuickJS** | `rquickjs` | 0.14 | ⚠️ correct, ~23× slower — fine for 3×3, not for 4×4+ |
 | **boa** | `boa_engine` | 0.22 | ❌ correct *after a polyfill*, ~49× slower |
 
-### Correctness — all five identical to Node
+### Correctness — all six identical to Node
 
 ```
 === diff vs node ===
@@ -62,15 +66,16 @@ stream aligned with Node, and dumps `id<TAB>json-string` per type.
   boa        IDENTICAL (all 206 types byte-for-byte)
   deno       IDENTICAL (all 206 types byte-for-byte)
   v8         IDENTICAL (all 206 types byte-for-byte)
+  jsc        IDENTICAL (all 206 types byte-for-byte)
   libnode    IDENTICAL (all 206 types byte-for-byte)
 
-engines identical: 4   problems: 0     # 5 with LIBNODE set
+engines identical: 5   problems: 0     # 6 with LIBNODE set
 ```
 
 Every dump hashes to the same value as Node's:
 
 ```
-7750f9e8e1eaf18540c43a8ec7f6d574  (206 lines, all five engines + node)
+7750f9e8e1eaf18540c43a8ec7f6d574  (206 lines, all six engines + node)
 ```
 
 and all report `generated OK=206 empty=0 images=177 failures=0 total=206`.
@@ -147,15 +152,17 @@ Measured twice (initial research run, then the committed harness) — expect
 | engine | sweep | vs node |
 |---|---|---|
 | **node 26.10** (baseline) | **7.5 – 8.4 s** | 1× |
-| **rusty_v8 direct** | **8.9 – 9.1 s** | ~1× |
+| **rusty_v8 direct** | **8.1 – 9.1 s** | ~1× |
 | **deno_core (V8)** | **8.0 – 9.1 s** | ~1× |
+| **JavaScriptCore (JSC)** | **8.7 – 9.2 s** | ~1.1× |
 | **rquickjs (QuickJS)** | **187 – 192 s** | ~24× |
 | **boa** | **415 – 526 s** | ~55× |
 
-The two V8 rows are the same engine on the same machine; their ranges overlap,
-so the difference between them is noise, not a deno_core overhead. Slowest
-types are always the random-state ones: `mgmso`, `444wca`, `ftoso`,
-`444bld`, `444ud3c`.
+The three V8/JSC rows are JIT engines on the same machine; their ranges
+overlap or nearly touch, so the ordering among them is noise, not a real
+ranking. The two interpreter rows are 20–55× slower — that gap is
+architecture (no JIT), not tuning. Slowest types are always the random-state
+ones: `mgmso`, `444wca`, `ftoso`, `444bld`, `444ud3c`.
 
 ### Per-type, first call (builds pruning tables) / warm call
 
@@ -169,7 +176,9 @@ types are always the random-state ones: `mgmso`, `444wca`, `ftoso`,
 
 `deno_core`'s numbers are **the same class as Node** — occasionally faster, since
 it skips `worker_threads` and the structured clone. `v8` direct is the same
-engine and tracks it within noise (both engines swept in 8.0 – 9.1 s).
+engine and tracks it within noise (both engines swept in 8.0 – 9.1 s). JSC's
+per-type first/warm split wasn't measured separately — its sweep is close
+enough to V8 that it wouldn't change the picture.
 
 **Against this project's own budget:** AGENTS.md rule 4 exists because *"a 4×4
 WCA scramble takes ~1.2 s and would freeze the UI"*. QuickJS's **warm** 4×4 is
@@ -249,6 +258,116 @@ JS), Promise/async support, ES module loading, or startup snapshots — i.e. whe
 you're building a general JS runtime rather than calling three synchronous
 functions. Our earlier recommendation of deno_core was made before testing
 `v8` direct; on these numbers the leaner crate wins for this workload.
+
+### JavaScriptCore (JSC) — the packaging play
+
+Safari's engine, and the only fast engine besides V8 that ships as a **system
+library** on a GNOME box. Its C API has been stable for ~15 years, so this
+probe binds it with a bare `unsafe extern "C"` block — **zero crates** beyond
+`probe-common`.
+
+**There are two flavours on Arch, and they are not interchangeable blindly:**
+
+| | `javascriptcoregtk-6.0` | `javascriptcoregtk-4.1` |
+|---|---|---|
+| shipped by | `webkitgtk-6.0` | `webkit2gtk-4.1` |
+| installed size | **138.59 MiB** | 141.18 MiB |
+| pulled in by | **`gnome-shell` directly** | WebKitGTK3 apps only (`poedit`, `geany-plugins` here) |
+| headers ship | GObject API (`jsc/`) | **classic C API** (`JavaScriptCore/`) |
+| `.so` exports the C API | **yes** (verified) | yes |
+| probe feature | `jsc6` — **default** | `jsc4` |
+
+```bash
+cargo build --release -p probe-jsc                    # jsc6 → webkitgtk-6.0
+cargo build --release -p probe-jsc --no-default-features --features jsc4
+```
+
+| | JSC | `v8` direct |
+|---|---|---|
+| stripped binary | **0.35 MB** | 44.32 MB |
+| crates in graph | **2** (ours + `probe-common`) | 8 |
+| engine ships in your package | **no** — links the system `.so` | yes, 44 MB |
+| sweep | 8.7 – 9.3 s | 8.1 – 9.1 s |
+| correct on 206 types | **yes, identical md5** (both flavours) | yes |
+
+- **Gotcha 1 — the signature is 6 parameters, not 5.**
+  `JSEvaluateScript(ctx, script, thisObject, sourceURL, startingLineNumber,
+  exception)` — dropping `thisObject` shifts every later argument, so an `int`
+  lands in a `JSStringRef` slot and JSC segfaults inside
+  `WTF::String::isolatedCopy()`. That is exactly the crash this probe hit;
+  the fix was reading `JSBase.h` instead of trusting memory.
+- **Gotcha 2 — no `TryCatch` equivalent.** Exceptions arrive as an out-param
+  `JSValueRef*`. Simpler than rusty_v8's `tc_scope!`, but you must render the
+  exception yourself with `JSValueToStringCopy`.
+- **Gotcha 3 — the 6.0 flavour has no classic C header**, only the GObject
+  `jsc/` API. That does not matter here: the probe declares the eight
+  functions itself, so only the `-l` name is load-bearing (all eight symbols
+  are exported by both `.so`s at WebKit 2.54.1 — verified with `nm -D`). If
+  you would rather compile against a header than redeclare, use `jsc4`.
+- **Gotcha 4 — you take the system library's ABI.** A WebKit bump changes the
+  `.so` and you rebuild. Same *class* of problem as `node-gtk`'s
+  per-Node-ABI prebuilds, but a package manager handles it instead of you.
+- **Gotcha 5 — licensing surface.** The `.so` carries a long license list
+  (Apache-2.0, BSD-*, LGPL-2.1, MPL-1.1/2.0, ISC, …). Your app stays
+  GPL-3.0-or-later and dynamically linking keeps that clean, but it belongs
+  in M16's licence review.
+- **Gotcha 6 — `unsafe`.** Every call is raw FFI. The surface here is small
+  (eight functions), but it is unchecked.
+
+**Pick JSC when the package's download size is the constraint**, and prefer
+`jsc6` — on a GNOME desktop `gnome-shell` already requires `webkitgtk-6.0`, so
+the dependency costs nothing there, where `webkit2gtk-4.1` would be a genuinely
+new 141 MiB install on a machine that only has gtk4 apps. Pick `v8` direct
+when you'd rather own the engine and ship one self-contained binary.
+
+### Packaging size — what each engine actually costs
+
+Sizes are stripped probe binaries, which isolates the engine: the real app
+would add GTK bindings on top of every row equally.
+
+| engine | your binary | engine also shipped | total added to the package |
+|---|---|---|---|
+| **JavaScriptCore** | **0.35 MB** | 0 (system `.so`) | **0.35 MB** + a `depends` entry |
+| **QuickJS** (`rquickjs`) | 1.68 MB | 0 (static) | 1.68 MB |
+| **boa** | 12.49 MB | 0 (static) | 12.49 MB |
+| **`v8` direct** | 44.32 MB | 0 (static) | 44.32 MB |
+| **`deno_core`** | 48.18 MB | 0 (static) | 48.18 MB |
+| **libnode** | 0.75 MB | **143 MB `libnode.so`** | ~144 MB |
+| *(current app)* | — | `nodejs` 60.71 MiB system pkg | 13 MiB npm tree |
+
+Two ways to read the JSC row:
+
+- **Optimistic:** 127× smaller than `v8` and 138× smaller than `deno_core`.
+  0.35 MB of *your* package versus ~44–48 MB.
+- **Honest:** the `.so` comes from a WebKit package, and neither is in this
+  app's dependency closure — `pactree -d1` shows `gtk4`, `libadwaita`,
+  `gobject-introspection` and `nodejs` each have **zero** WebKit
+  dependencies. But *which* package changes the calculus a lot:
+
+  | PKGBUILD dep | installed size | when it's already there | toolkit it pulls |
+  |---|---|---|---|
+  | `webkitgtk-6.0` (**`jsc6`, default**) | 138.59 MiB | **always on a GNOME desktop** — `pactree -d1 gnome-shell` → `webkitgtk-6.0` | **gtk4** — the toolkit we already depend on |
+  | `webkit2gtk-4.1` (`jsc4`) | 141.18 MiB | only if a WebKitGTK3 app is installed (here: `poedit`, `geany-plugins`) | **gtk3** — a second toolkit alongside ours |
+
+  So `jsc6` costs **nothing on GNOME**, and elsewhere adds WebKit plus
+  gstreamer/icu/mesa but *no extra toolkit*. `jsc4` costs 141 MiB where it
+  isn't present **and** drags gtk3 next to our gtk4 — both verified from
+  `pacman -Qi … Depends On`.
+
+So the real trade is **44 MB you always ship** (static V8) versus **0.35 MB
+plus a WebKit dependency that is free exactly where this app is most at home**.
+
+- **Ties on speed:** both are JIT engines, both swept ~8–9 s (§4).
+- **`libnode` is never competitive on size** — 143 MB of `.so` beats every
+  other option, and `edon` can't static-link it (the maintainer's README says
+  attempts have failed).
+- **The current Node app ships 13 MiB** of npm tree and leans on `nodejs`
+  (60.71 MiB) being installed — the same "system runtime" model as JSC, just
+  with a smaller shared package.
+
+**Verdict:** `v8` direct for a self-contained binary; JSC if you're counting
+every megabyte of the download and can assume WebKit. Everything else is
+worse on size *and* slower.
 
 ### `deno_core` — the same V8, with an event loop on top
 
@@ -427,35 +546,73 @@ All evidence is regenerable from the repo:
 # regenerate the 206-type list from the app's own catalogue
 node --import tsx tools/rust-embed/gen-types.mjs
 
-# build + run node, quickjs, boa, deno; diff every dump against node
+# default: the three JIT engines — node, deno, v8, jsc (~40 s)
 tools/rust-embed/run.sh
+
+# add the two interpreters; quickjs ~3 min, boa ~7-9 min (~11 min total)
+SLOW=1 tools/rust-embed/run.sh
 
 # optional: the libnode route (needs a downloaded libnode.so)
 LIBNODE=/path/to/libnode.so tools/rust-embed/run.sh
 ```
 
+**Slow engines are opt-in** — they are 20–55× slower and their results are
+already recorded, so the default run stays fast enough to use routinely. Turn
+`SLOW=1` on when an engine bumps (e.g. boa gaining `String.prototype.substr`),
+since a conformance change is exactly what the sweep catches and a 10-type
+smoke test would not.
+
+`run.sh` checks itself: it compares against an **expected** count derived from
+the flags (3 default, +2 for `SLOW`, +1 for `LIBNODE`) and exits non-zero on
+any mismatch, so a silent probe failure can't read as a pass.
+
 Layout:
 
 ```
 tools/rust-embed/
-├── Cargo.toml              workspace (5 members)
-├── run.sh                  builds, sweeps, diffs, prints a verdict
+├── Cargo.toml              workspace (7 members)
+├── run.sh                  builds, sweeps, diffs, self-checks the count
 ├── gen-types.mjs           types.json ← src/core/scrambleTypes.ts
 ├── types.json              206 × {id, len} (generated)
 ├── node-reference.cjs      the reference dump (real Node + real require)
 ├── probe-common/src/lib.rs shim, sweep script, path resolution
-├── probe-quickjs/          rquickjs
-├── probe-boa/              boa (+ documents the substr gap)
+├── probe-quickjs/          rquickjs                    [SLOW=1]
+├── probe-boa/              boa, documents substr gap   [SLOW=1]
 ├── probe-deno/             deno_core (+ tokio gotcha)
 ├── probe-v8/               v8 direct — no deno_core, no tokio
-└── probe-libnode/          edon/libnode (LIBNODE= required)
+├── probe-jsc/              JSC C API — no crates, 0.35 MB
+└── probe-libnode/          edon/libnode                [LIBNODE=]
 ```
 
-Expected: `engines identical: 4   problems: 0` (5 with `LIBNODE` set), all
-dumps `7750f9e8e1eaf18540c43a8ec7f6d574`, every engine reporting
-`generated OK=206 empty=0 images=177 failures=0 total=206`.
+`probe-jsc` links one of two system libraries via a cargo feature:
 
-Verified 2026-10-08: node / quickjs / boa / deno / v8 all byte-identical.
+```bash
+cargo build --release -p probe-jsc                 # jsc6 (default): webkitgtk-6.0
+cargo build --release -p probe-jsc \
+  --no-default-features --features jsc4            # webkit2gtk-4.1
+```
+
+Both `.so`s export the same eight symbols at the same WebKit version (2.54.1),
+and the probe declares the C API itself — so the **only** difference is the link
+name and therefore which package your PKGBUILD depends on. `jsc6` is the
+default because `gnome-shell` depends on `webkitgtk-6.0` directly, which makes
+it free on a GNOME desktop; `jsc4` needs `webkit2gtk-4.1`, which only WebKitGTK3
+apps pull in. Selecting both, or neither, is a `compile_error!`.
+
+Expected output:
+
+```
+engines identical: 3 (expected 3)   problems: 0     # default run
+engines identical: 5 (expected 5)   problems: 0     # SLOW=1
+engines identical: 4 (expected 4)   problems: 0     # LIBNODE=…
+engines identical: 6 (expected 6)   problems: 0     # SLOW=1 LIBNODE=…
+```
+
+Every run's dumps hash to `7750f9e8e1eaf18540c43a8ec7f6d574`, every engine
+reporting `generated OK=206 empty=0 images=177 failures=0 total=206`.
+
+Verified 2026-10-08 (v8), 2026-10-10 (jsc): node / quickjs / boa / deno /
+v8 / jsc all byte-identical, against both `jsc6` and `jsc4`.
 Don't run two slow probes concurrently — they contend and one may be killed
 mid-sweep.
 
@@ -541,15 +698,21 @@ happens; don't retrofit it into the node-gtk app.
 ## 9. Open questions for the day it happens
 
 1. **Why port at all?** Only plausible triggers: dropping Node from the runtime
-   dependencies (AUR/M15 packaging), or `node-gtk` becoming unmaintainable.
+   dependencies (AUR/M16 packaging), or `node-gtk` becoming unmaintainable.
    If the trigger is the latter, embedding keeps `core/` and `scramble/` and
    rewrites only `ui/` — strictly less work than a full port.
-2. **Which engine?** `v8` direct on today's evidence (8 crates, no tokio);
-   `deno_core` if you later want ops, Promises or ES modules. Re-measure — V8's
-   download is the main build-time risk, and `boa` may have gained `substr`.
+2. **Which engine?** `v8` direct when you want one self-contained binary
+   (8 crates, no tokio); JSC when download size rules — prefer `jsc6`, since
+   `gnome-shell` already requires `webkitgtk-6.0` and it pulls in gtk4, our
+   own toolkit, so on a GNOME desktop the 0.35 MB binary costs no extra
+   download at all (`jsc4` would add a 141 MiB install *and* a gtk3); use
+   `jsc4` only where WebKitGTK3 is already present. `deno_core` if you later
+   want ops, Promises or ES modules. Re-measure — V8's download is the main
+   build-time risk, and `boa` may have gained `substr`.
 3. **Do you need seed parity with the JS version at all?** If not, the hardest
    600 sites in §6(b) become ordinary (if slower) work.
 4. **Licence review** before shipping: `cstimer_module` is GPL-3.0; `edon`'s
-   libnode bundle needs a dependency-level check.
+   libnode bundle needs a dependency-level check, and JSC's `.so` carries a
+   long license list (Apache/BSD/LGPL/MPL) worth recording in M16.
 5. **Python stays rejected** unless someone measures a JIT strategy that
    integrates with GTK bindings.
