@@ -49,6 +49,7 @@
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
+import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 import Pango from 'gi:Pango-1.0'
 
@@ -69,6 +70,14 @@ type Widget = InstanceType<typeof Gtk.Widget>
  * toplevel the comment dialog is presented on.
  */
 type Window = InstanceType<typeof Adw.ApplicationWindow>
+
+// A scramble longer than this becomes an ExpanderRow instead of a plain
+// row (user call, 2026-10-11). Measured through cstimer_module: 555wca
+// tops out at 198 chars in five samples — the tall row that still read
+// fine — while 666wca starts at 269, 777wca at 355 and the 234567 relay
+// runs 943–1072, i.e. 17 to 19 wrapped lines, which would push the
+// dialog off any window. 200 keeps everything already seen as it was.
+const EXPAND_SCRAMBLE_ABOVE = 200
 
 export interface TimesListOptions {
   /** Whose session is on show: the sidebar always follows the active one. */
@@ -336,149 +345,297 @@ export function createTimesList(options: TimesListOptions) {
   /**
    * The edit dialog: penalty (OK / +2 / DNF) and comment in one form — the
    * only way to grade a solve (user call, 2026-10-01), opened from the
-   * footer's Edit button, a double-click on the row, or Ctrl+E. The header
-   * spells the record out completely — number, scored time, and the moment
-   * year to second on one line. The comment is a real multi-line box
-   * (TextView, ~5 lines tall) capped at MAX_COMMENT_LENGTH: the cap lands
-   * on the save path as a slice, since a TextView has no maxLength property
-   * the way an Entry does; saving an empty comment clears it — that is what
-   * "no comment" should cost. The session is captured at open: switching
-   * sessions while the dialog sits there must not retarget the write onto a
-   * different session's solve.
+   * footer's Edit button, a double-click on the row, or Ctrl+E. A normal
+   * dialog with a header bar (user call, 2026-10-10, superseding the
+   * AdwAlertDialog): the bar carries the title — "Edit solve #id", the
+   * number having left the record line for it (2026-10-11) — a suggested
+   * Save packed at its left, and — for free, from AdwDialog's header
+   * integration — the close button that, exactly like Escape, discards;
+   * only Save ever writes. Above the card the scored time stands as a
+   * centered number (title-1) that follows the penalty toggle
+   * live — the effective time, DNF reading "DNF(solved time)" (user call,
+   * 2026-10-11) — and the rows are one libadwaita list
+   * (user call, 2026-10-10, superseding the 2026-01-01 multi-line box):
+   * the Date row first — stamp as subtitle, `property`-classed so the
+   * value is the emphasized half rather than the title, stamp copyable —
+   * then the scramble: a plain row below EXPAND_SCRAMBLE_ABOVE, an
+   * ExpanderRow above it (one ellipsized line collapsed, the full text
+   * in a bounded scroller when expanded), either way with a copy of this
+   * solve's scramble; the penalty ActionRow below the scramble, and the
+   * comment EntryRow last, whose title is the placeholder and whose text
+   * is capped at
+   * MAX_COMMENT_LENGTH in the widget as well as on the save path; saving
+   * an empty comment clears it — that is what "no comment" should cost.
+   * The session is captured at open: switching sessions while the dialog
+   * sits there must not retarget the write onto a different session's
+   * solve.
    */
   const openEdit = (solve: Solve): void => {
     const session = current
-    const identity = `#${session.indexOf(solve.id) + 1}  ·  ${formatSolve(solve.timeMs, solve.penalty)}  ·  ${formatFullTimestamp(solve.createdAtMs)}`
+    // The number lives in the title now — "Edit solve #id" (user call,
+    // 2026-10-11) — the scored time stays on the line above the list, and
+    // the moment is the Date row below.
+    const solveNumber = session.indexOf(solve.id) + 1
+    const datetime = formatFullTimestamp(solve.createdAtMs)
+    // What the big number reads for a given penalty (user call,
+    // 2026-10-11): the effective time per formatSolve — and DNF keeps the
+    // solved time in view as "DNF(12.34)". Used at open and re-read on
+    // every step of the toggle, so the number always matches the group.
+    const timeText = (penalty: Penalty | undefined): string =>
+      penalty === 'dnf' ? `DNF(${formatSolve(solve.timeMs)})` : formatSolve(solve.timeMs, penalty)
 
-    // A radio group, not a dropdown (user call, 2026-10-01): OK / +2 / DNF
-    // are all three visible at a glance and one click away. GTK4 has no
-    // GtkRadioButton — grouped GtkCheckButtons *are* the radio group
-    // (Gtk.CheckButton.set_group); they render as radio circles. The labels
-    // carry mnemonics (Alt+O / Alt+2 / Alt+D) so the penalty can also be
-    // switched by key — the test path (AGENTS.md: never aim a mouse at it).
-    const penaltyGroup = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 18 })
-    const okRadio = new Gtk.CheckButton({ label: '_OK', useUnderline: true })
-    const plus2Radio = new Gtk.CheckButton({ label: '+_2', useUnderline: true })
-    const dnfRadio = new Gtk.CheckButton({ label: '_DNF', useUnderline: true })
-    plus2Radio.setGroup(okRadio)
-    dnfRadio.setGroup(okRadio)
-    // Group first, then activate: checking one of a group unchecks the rest.
-    okRadio.active = solve.penalty === undefined
-    plus2Radio.active = solve.penalty === 'plus2'
-    dnfRadio.active = solve.penalty === 'dnf'
-    penaltyGroup.append(okRadio)
-    penaltyGroup.append(plus2Radio)
-    penaltyGroup.append(dnfRadio)
-
-    // A real text box, not a one-line entry (user call, 2026-10-01): wrap
-    // words, five-ish lines, scroll beyond that (the save path slices the
-    // text at MAX_COMMENT_LENGTH, so the box itself needs no length
-    // machinery — only room). The Frame draws the box; GTK4's TextView has
-    // no entry-style chrome of its own.
-    const commentView = new Gtk.TextView({
-      wrapMode: Gtk.WrapMode.WORD_CHAR,
-      topMargin: 6,
-      bottomMargin: 6,
-      leftMargin: 8,
-      rightMargin: 8,
-      heightRequest: 96,
-    })
-    commentView.getBuffer().setText(solve.comment ?? '', -1)
-    const commentScroll = new Gtk.ScrolledWindow({
-      child: commentView,
-      hscrollbarPolicy: Gtk.PolicyType.NEVER,
-      vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
-      hexpand: true,
-    })
-    const commentBox = new Gtk.Frame({ child: commentScroll })
-
-    // Label-then-control rows; widthChars keeps the two labels equal so the
-    // controls line up under each other.
-    const row = (labelText: string, control: any): InstanceType<typeof Gtk.Box> => {
-      const line = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 12 })
-      const label = new Gtk.Label({ label: labelText, xalign: 0, widthChars: 8 })
-      line.append(label)
-      line.append(control)
-      return line
+    // A segmented control, not a dropdown and not a radio group (user call,
+    // 2026-10-10): OK / +2 / DNF are all three visible at a glance and one
+    // click away, and Adw.ToggleGroup owns the single-selection rule — the
+    // old Gtk.CheckButton.set_group dance is gone; each choice is an
+    // Adw.Toggle addressed by *name*, so the save path survives a reordering
+    // of the three. The group keeps its natural width as the ActionRow's
+    // suffix — the row's halign is what fills the row (user call,
+    // 2026-10-10), not an hexpand on the group — and valign: CENTER is
+    // the same choice in height (user call, 2026-10-10): GTK's default
+    // is fill, which would hand the group the row's height instead of
+    // its own. The labels keep their mnemonics (Alt+O / Alt+2 / Alt+D —
+    // useUnderline reaches the group's internal GtkButtons,
+    // adw-toggle-group.c) so the penalty can also be switched by key: the
+    // test path (AGENTS.md: never aim a mouse at it).
+    const penaltyGroup = new Adw.ToggleGroup({ valign: Gtk.Align.CENTER })
+    penaltyGroup.add(new Adw.Toggle({ label: '_OK', name: 'ok', useUnderline: true }))
+    penaltyGroup.add(new Adw.Toggle({ label: '+_2', name: 'plus2', useUnderline: true }))
+    penaltyGroup.add(new Adw.Toggle({ label: '_DNF', name: 'dnf', useUnderline: true }))
+    // Toggles first, selection second: naming a toggle the group does not
+    // hold yet sets nothing (adw-toggle-group.c), and solve.penalty's values
+    // are the toggle names by construction ('plus2' | 'dnf' | undefined→'ok').
+    penaltyGroup.activeName = solve.penalty ?? 'ok'
+    // Read back by name, not index — the group's order is not the save
+    // format's business, and 'ok' (no penalty) is the absence of a name
+    // match just as it was the absence of a checked radio. Shared by the
+    // save path and the live time label.
+    const penaltyFromGroup = (): Penalty | undefined => {
+      const activeName = penaltyGroup.getActiveName()
+      return activeName === 'plus2' || activeName === 'dnf' ? activeName : undefined
     }
-    // The scramble the solve was done on (Solve.scramble since M2) — shown,
-    // not editable: it is history, and knowing which scramble a bad time was
-    // on is half of what a comment is for (user call, 2026-10-01). Wrapped
-    // and capped at 40 chars so a full 5x5 scramble cannot stretch the
-    // dialog across the screen; omitted entirely when a solve has none.
-    const scrambleRow =
-      solve.scramble.length > 0
-        ? row(
-            'Scramble',
-            new Gtk.Label({
+    const penaltyRow = new Adw.ActionRow({ title: 'Penalty', halign: Gtk.Align.FILL })
+    penaltyRow.addSuffix(penaltyGroup)
+
+    // Single-line, in the same list as the penalty (user call, 2026-10-10 —
+    // superseding the 2026-01-01 "real multi-line box" call): the row's
+    // title doubles as its placeholder, and maxLength caps the text natively
+    // (what the TextView enforced only as a save-path slice). Setting .text
+    // truncates a hand-edited over-long comment at the cap, so the save
+    // path keeps its slice as the read-side guard.
+    // Deliberately NO activatesDefault (user call, 2026-10-11): Enter in
+    // the comment must not save-and-close the dialog — only the Save button
+    // does that. The row's property was the sole gate anyway: the internal
+    // text never carries activates-default (adw-entry-row.ui doesn't set
+    // it), so dropping it disconnects Return from the dialog's default
+    // completely — the text widget consumes Return itself, as before.
+    const commentRow = new Adw.EntryRow({
+      title: 'Comment',
+      text: solve.comment ?? '',
+      maxLength: MAX_COMMENT_LENGTH,
+    })
+    // The clipboard path is the header copy button's verbatim (main.ts,
+    // probed 2026-10-07): Gdk's set_text is unintrospectable, so the text
+    // goes as bytes under a content provider. Both row copies — the stamp
+    // and the scramble — go through this one writer.
+    const copyToClipboard = (text: string): void => {
+      const bytes = GLib.Bytes.new(Array.from(new TextEncoder().encode(text)))
+      options.window
+        .getDisplay()
+        .getClipboard()
+        .setContent(Gdk.ContentProvider.newForBytes('text/plain;charset=utf-8', bytes))
+    }
+    // The suffix both copies share (user call, 2026-10-11): same icon and
+    // flat look, valign CENTER so the button stays compact and centers
+    // itself against a wrapped subtitle's height.
+    const copySuffix = (text: string, tooltipText: string) => {
+      const button = new Gtk.Button({
+        iconName: 'edit-copy-symbolic',
+        tooltipText,
+        cssClasses: ['flat'],
+        valign: Gtk.Align.CENTER,
+      })
+      button.on('clicked', () => copyToClipboard(text))
+      return button
+    }
+
+    // The scramble as a row before the comment (user call, 2026-10-11) —
+    // still shown, not editable: it is history, and knowing which scramble
+    // a bad time was on is half of what a comment is for (user call,
+    // 2026-10-01) — now carrying a copy of *this solve's* scramble rather
+    // than the timer's. Above EXPAND_SCRAMBLE_ABOVE the row becomes an
+    // ExpanderRow (user call, 2026-10-11): collapsed shows one ellipsized
+    // line — subtitleLines: 1, libadwaita's native cap — and expanding
+    // reveals the whole scramble in a bounded scroller, so the dialog
+    // grows by 160px on demand instead of by a relay's 17 lines. The
+    // `property` class cannot follow it in: its selectors need box.header
+    // directly on the row and the expander nests its header, so the
+    // collapsed subtitle keeps Adwaita's dim preview styling. The copy
+    // suffix stays either way — it always carries the full text. Omitted
+    // entirely when a solve has none.
+    const scrambleRow = (() => {
+      if (solve.scramble.length === 0) return null
+
+      if (solve.scramble.length <= EXPAND_SCRAMBLE_ABOVE) {
+        const row = new Adw.ActionRow({
+          title: 'Scramble',
+          subtitle: solve.scramble,
+          halign: Gtk.Align.FILL,
+          cssClasses: ['property'],
+        })
+        row.addSuffix(copySuffix(solve.scramble, 'Copy the scramble'))
+        return row
+      }
+
+      const row = new Adw.ExpanderRow({
+        title: 'Scramble',
+        subtitle: solve.scramble,
+        subtitleLines: 1,
+        halign: Gtk.Align.FILL,
+      })
+      row.addSuffix(copySuffix(solve.scramble, 'Copy the scramble'))
+      row.addRow(
+        new Gtk.ListBoxRow({
+          child: new Gtk.ScrolledWindow({
+            // Bounded on purpose: ~9 lines — a whole 7x7 (≤365 chars)
+            // fits without scrolling, the 234567 relay scrolls — and the
+            // dialog grows by at most this when the row expands.
+            heightRequest: 160,
+            child: new Gtk.Label({
               label: solve.scramble,
-              xalign: 0,
               wrap: true,
-              maxWidthChars: 40,
+              xalign: 0,
+              marginStart: 12,
+              marginEnd: 12,
+              marginTop: 6,
+              marginBottom: 6,
             }),
-          )
-        : null
+          }),
+        }),
+      )
+      return row
+    })()
 
-    const form = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 })
-    form.append(row('Penalty', penaltyGroup))
-    form.append(row('Comment', commentBox))
-    if (scrambleRow !== null) form.append(scrambleRow)
-
-    const dialog = new Adw.AlertDialog({
-      heading: 'Edit solve',
-      body: identity,
-      extraChild: form,
-      // Pin the initial focus in the constructor: libadwaita otherwise
-      // focuses the default response button when the dialog maps.
-      focusWidget: commentView,
+    // The moment as the list's first row (user call, 2026-10-11): title
+    // "Date", subtitle the value, and the stamp gets the same copy suffix
+    // (user call, 2026-10-11). The `property` class is Adwaita's
+    // label/value row — it shrinks and dims the title while restoring the
+    // subtitle to full size and opacity, so the value is the emphasized
+    // half instead of the title (adw stylesheet: row.property > … >
+    // .title / .subtitle). halign FILL, as on the penalty row: the row
+    // spans the card.
+    const dateRow = new Adw.ActionRow({
+      title: 'Date',
+      subtitle: datetime,
+      halign: Gtk.Align.FILL,
+      cssClasses: ['property'],
     })
-    dialog.addResponse('cancel', 'Cancel')
-    dialog.addResponse('save', 'Save')
-    dialog.setResponseAppearance('save', Adw.ResponseAppearance.SUGGESTED)
-    dialog.setDefaultResponse('save')
-    dialog.setCloseResponse('cancel')
-    dialog.on('response', (response) => {
-      if (response !== 'save') return
-      const penalty: Penalty | undefined = dnfRadio.active
-        ? 'dnf'
-        : plus2Radio.active
-          ? 'plus2'
-          : undefined
-      session.setPenalty(solve.id, penalty)
-      const bounds = commentView.getBuffer().getBounds()
-      const text = commentView.getBuffer().getText(bounds[0], bounds[1], false).trim().slice(0, MAX_COMMENT_LENGTH)
+    dateRow.addSuffix(copySuffix(datetime, 'Copy the date'))
+
+    // The rows live in one list (user call, 2026-10-10, extended
+    // 2026-10-11): the native libadwaita form — ActionRow and EntryRow are
+    // both Gtk.ListBoxRows — the display-only Date and Scramble rows first
+    // (each with its copy suffix), then the penalty below the scramble
+    // (user call, 2026-10-11) and the comment last: what you *do* sits
+    // under what you read. `boxed-list` draws the card it sits in
+    // (background, 12px corners, row rules — the picker's list has the
+    // same class); `list` alone would be only GtkListBox's CSS node,
+    // which every list already is. Selection is off: rows are controls
+    // here, not selectable items.
+    const formList = new Gtk.ListBox({
+      cssClasses: ['boxed-list'],
+      selectionMode: Gtk.SelectionMode.NONE,
+    })
+    formList.append(dateRow)
+    if (scrambleRow !== null) formList.append(scrambleRow)
+    formList.append(penaltyRow)
+    formList.append(commentRow)
+
+    // The scored time, centered over the card (user call, 2026-10-11):
+    // title-1 — Adwaita's largest built-in heading (~26px, weight 800),
+    // so no custom styles — with `numeric` keeping the digits tabular as
+    // the number changes. The solve's number has moved into the title
+    // and the moment into the Date row; this is the record's headline.
+    // It follows the penalty toggle live (user call, 2026-10-11): the
+    // number is always the *effective* time of the penalty on screen —
+    // DNF reading "DNF(solved time)".
+    const timeLabel = new Gtk.Label({
+      label: timeText(solve.penalty),
+      halign: Gtk.Align.CENTER,
+      cssClasses: ['title-1', 'numeric'],
+    })
+    // set_active_toggle notifies `active` on every selection change
+    // (adw-toggle-group.c) — click or programmatic, one hook covers both,
+    // and the mapping is name-based like the save path's.
+    penaltyGroup.on('notify::active', () => {
+      timeLabel.label = timeText(penaltyFromGroup())
+    })
+
+    // 12px around the boxed list — the same inset the type picker's list
+    // has (AGENTS.md): the frame floats inside the dialog instead of
+    // touching its edge. 6px on top, where the header bar already supplies
+    // the rest of the gap.
+    const form = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      spacing: 12,
+      marginStart: 12,
+      marginEnd: 12,
+      marginTop: 6,
+      marginBottom: 12,
+    })
+    form.append(timeLabel)
+    form.append(formList)
+
+    // Save at the left of the header bar (user call, 2026-10-10), suggested
+    // as the alert dialog's save response was. Adw.HeaderBar adds the dialog
+    // close button at the right for free, and Escape closes through
+    // adw-dialog.c's own shortcut — both discard, exactly as the old
+    // close-response 'cancel' did; the button below is the only writer.
+    const saveButton = new Gtk.Button({
+      label: 'Save',
+      cssClasses: ['suggested-action'],
+    })
+    const header = new Adw.HeaderBar()
+    header.packStart(saveButton)
+
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
+    box.append(header)
+    box.append(form)
+
+    const dialog = new Adw.Dialog({
+      // A plain HeaderBar picks the dialog's title up itself when it roots
+      // (adw-header-bar.c: update_title reads adw_dialog_get_title), so the
+      // string lives here and nowhere else — the solve's number included
+      // (user call, 2026-10-11).
+      title: `Edit solve #${solveNumber}`,
+      child: box,
+      // Fixed width, as the stats dialog's: the scramble row's subtitle
+      // wraps, but a GtkLabel's natural width is its text on one line —
+      // uncapped, a long scramble would stretch the dialog across the
+      // screen (the old line's maxWidthChars: 40 was this same cap).
+      contentWidth: 480,
+      // Deliberately no focusWidget (user call, 2026-10-11): the dialog
+      // opens without grabbing the comment line — Tab or Alt+O/2/D gets
+      // you there when you want it. Still no claim-dance either: the race
+      // that needed it was AdwAlertDialog's default response button
+      // (observed 2026-10-02), and a plain AdwDialog has none.
+      // defaultWidget stays so Return still resolves to Save from *outside*
+      // the comment entry (the dialog's own binding) — with focus on Save,
+      // the button focused at open, Enter presses that very button. The
+      // comment row no longer routes Enter here (user call, 2026-10-11:
+      // only the save button closes the dialog).
+      defaultWidget: saveButton,
+    })
+    saveButton.on('clicked', () => {
+      session.setPenalty(solve.id, penaltyFromGroup())
+      // getText over the .text property: same string, clearer intent. The
+      // trim is the real filter — an empty comment means "no comment" — and
+      // the slice is the read-side guard under MAX_COMMENT_LENGTH.
+      const text = commentRow.getText().trim().slice(0, MAX_COMMENT_LENGTH)
       session.setComment(solve.id, text.length > 0 ? text : undefined)
-    })
-    // Enter submits the form — the old Entry had that for free via
-    // activatesDefault, but a TextView consumes Enter as a newline. Bind it
-    // back with the usual form convention: plain Enter saves, Shift+Enter
-    // breaks a line. CAPTURE phase, so the TextView never sees the plain
-    // Enter; emitting 'response' runs the handler above and libadwaita's own
-    // handler closes the dialog (AlertDialog has no public response() call —
-    // the signal is the only way in).
-    const enterKeys = new Gtk.EventControllerKey({ propagationPhase: Gtk.PropagationPhase.CAPTURE })
-    enterKeys.on('key-pressed', (keyval, _keycode, state) => {
-      const isEnter = keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter
-      if (!isEnter || (state & Gdk.ModifierType.SHIFT_MASK) !== 0) return false
-      // emit runs the handler above (the write) but not libadwaita's own
-      // close — AlertDialog's response() is private — so close explicitly.
-      dialog.emit('response', 'save')
       dialog.close()
-      return true
     })
-    commentView.addController(enterKeys)
     dialog.present(options.window)
-    // Belt and braces for the same race: libadwaita focuses the default
-    // response button at map time and has been observed to win (focus sat on
-    // Save, so the next Enter saved mid-edit — 2026-10-02). Claim on map,
-    // again once the dialog has settled, and once from a direct timeout
-    // (same dance, same reason as the rename dialog in sessionMenu.ts).
-    const claim = () => commentView.grabFocus()
-    dialog.on('map', () => {
-      setTimeout(claim, 0)
-      setTimeout(claim, 120)
-    })
-    setTimeout(claim, 0)
   }
 
   /**

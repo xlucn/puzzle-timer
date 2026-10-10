@@ -909,7 +909,8 @@ keyboard rather than becoming a second input model.
 - **Audit: every action needs a touch path.** Almost all have one already
   (footer Edit/Delete, every menu, the header toggles). The gaps:
   `Ctrl+1/2/3` grading has no button — it stays reachable through Edit →
-  the penalty radios, which is enough — and Escape's jobs: closing dialogs
+  the penalty group (radios until 2026-10-10, now an `Adw.ToggleGroup` in an
+  `Adw.ActionRow`), which is enough — and Escape's jobs: closing dialogs
   and the drawer both have visible equivalents already, inspection does not.
 
 **B — the narrow window still owes one fix**
@@ -1276,12 +1277,91 @@ under the timer, a `Statistics` `Adw.Dialog` (per-session aggregates + target),
 both behind the content header's app-functions ⋮ — the section the handoff
 flagged as empty — with `<Ctrl+T>` for the dialog.
 
-**Edit dialog (stage 4).** `Adw.Dialog` over the selected solve: radio
-`ok`/`+2`/`DNF` (with mnemonics), a comment `Gtk.TextView`, the solve's
-scramble and full timestamp; the dialog re-claims focus on `map` (the M3
-`default-response` trick) so typing lands in the comment box, not on the
-default button. `<Ctrl+E>` opens it; `<Ctrl+1/2/3>` grade the selection
-directly.
+**Edit dialog (stage 4).** `Adw.Dialog` over the selected solve: penalty
+and comment in one form — *superseded 2026-10-10 (user calls)*: the radio
+`ok`/`+2`/`DNF` (with mnemonics) became an `Adw.ToggleGroup` in an
+`Adw.ActionRow` (`halign: FILL`, the group at natural width, selection by
+toggle *name*), the comment `Gtk.TextView` became an `Adw.EntryRow` (title
+doubles as placeholder, `maxLength` caps in the widget, `activatesDefault`
+restores Enter-saves and deleted the key-controller workaround), and both
+rows live in a `Gtk.ListBox` — the penalty row's `halign: FILL`, not an
+`hexpand` on the group, is what fills the row. Unchanged through all of
+this: the solve's scramble and full timestamp shown read-only; the dialog
+re-claims focus on `map` (the M3 `default-response` trick) so typing lands
+in the comment box, not on the default button. `<Ctrl+E>` opens it;
+`<Ctrl+1/2/3>` grade the selection directly. — *superseded again later
+that day (user call: "a normal dialog with a header bar, save button on
+the left of the headerbar")*: the container is now a **plain**
+`Adw.Dialog` + `Adw.HeaderBar` — title `Edit solve` in the bar (a plain
+HeaderBar reads `adw_dialog_get_title` when it roots, so the string lives
+in one place), a suggested `Save` **packed at the bar's left**, and the
+dialog's own close button free at the right; close and Escape both
+discard, exactly as the old close-response `cancel`, and only the button
+writes. The heading/body pair became title + first content line (the
+identity wraps, never ellipsizes; 12px insets around the boxed list,
+matching the picker). Enter saves through `AdwDialog`'s `default-widget`
+plus the EntryRow's `activatesDefault` (`default.activate`), and the
+map-time focus claim-dance *superseded above* is deleted:
+`focusWidget: commentRow` is native here (`map_tick_cb` grabs it) — the
+dance existed only because `AdwAlertDialog` fought for its default
+response button (observed 2026-10-02), and there is no response button
+in a plain dialog. Probe: 26/26 (structure, title plumbing,
+Save-left/close-right geometry, native focus, Enter→save, close-without-
+save). — *revised 2026-10-11 (user call: "don't focus commentRow by
+default")*: the `focusWidget` goes too — the dialog opens on AdwDialog's
+natural default focus, which lands on **Save** (first focusable child;
+the sheet close buttons are `can-focus: FALSE`), so Enter-from-open saves;
+Tab or the Alt+O/2/D mnemonics reach the form. Probe 28/28, including
+both "focus NOT in commentRow" assertions. — *the form re-shaped again
+the same day, one user call per wave*: the inert `list` class became
+`boxed-list` (the card — background, 12px corners, row rules; `list` is
+only GtkListBox's CSS node) and `penaltyGroup` got `valign: CENTER`
+(GTK's default `fill` would hand it the row's height); the moment became
+the list's first row — an `Adw.ActionRow` titled **Date**, stamp as
+subtitle, `property`-classed so the value is the emphasized half rather
+than the title, later given a copy suffix; the solve number moved into
+the title (`Edit solve #id`), leaving the scored time alone above the
+card as a big centered number (`timer-display` `size-s` + `numeric`); the
+dialog got `contentWidth: 480` (the probe proved the long scramble
+subtitle's natural at 870 is clamped to exactly 480 — the AdwDialog
+widget's full-host allocation is just the overlay layer); the scramble
+line became an ActionRow **before the comment** with a copy suffix
+holding *this solve's* scramble (`property`-classed too; both copies
+share one `copyToClipboard`/`copySuffix` path from main.ts's probed
+clipboard plumbing, copy buttons `valign: CENTER` after a fill
+correction); and the penalty moved below the scramble — final order
+Date → Scramble → Penalty → Comment, display rows over the controls.
+Probe 36/36. — *and* the big number tracks the penalty toggle live: it
+re-reads on `notify::active` (fired by `set_active_toggle` for clicks and
+programmatic sets alike) through the shared name-based
+`penaltyFromGroup()`, showing the *effective* time — `14.34+` for +2 —
+and DNF keeping the solved time in view as `DNF(12.34)` (user calls,
+2026-10-11). Probe 39/39, against the real `formatSolve`. The size then
+stepped 72 → `title-1` — Adwaita's largest built-in heading (~26px,
+weight 800), no new styles (a bespoke 48px rule was drafted first and
+dropped for the class-only option) (user call, 2026-10-11), `numeric`
+retained for the live rewrites. — *and the tall-row problem solved by
+the user's own design*: above `EXPAND_SCRAMBLE_ABOVE` (200 — measured
+through cstimer_module: 555wca ≤198 chars stays a plain row, 666wca
+starts at 269, 777wca at 355, the 234567 relay runs 943–1072, i.e. 17–19
+wrapped lines ≈ a 640px row) the Scramble row becomes an
+`Adw.ExpanderRow`: collapsed shows one ellipsized line (`subtitleLines: 1`
+— adw-expander-row.c forwards to its internal ActionRow), expanding
+reveals the whole scramble in a 160px `Gtk.ScrolledWindow`, so the
+dialog grows by a bounded 165px on demand — measured 329px collapsed →
+494px expanded, inside the 640 floor. The copy suffix rides both shapes
+(the expander has `addSuffix`), `property` cannot follow it in (its
+selectors need `box.header` directly on the row; the expander nests its
+header), and `addRow` clears the `empty` class itself. Probe 47/47.
+— *and* Enter no longer saves from the comment row (user call,
+2026-10-11: "shouldn't close the whole dialog with enter, only with the
+save button"): `activatesDefault` is off the EntryRow — the template
+never set activates-default on the internal text either (adw-entry-row.ui),
+so the row's property was the sole gate, and the text widget consumes
+Return itself — while `defaultWidget` stays, so Return still resolves to
+Save from *outside* the entry (focus opens on Save, so Enter there presses
+that very button). The probe drives the save path dialog-side
+(`default.activate`) and asserts the row's property false.
 
 **WCA inspection (stage 5).** A sixth timer state, `inspecting`: the first
 ready→release starts the 15 s countdown (`formatInspection`, orange, clamped),
