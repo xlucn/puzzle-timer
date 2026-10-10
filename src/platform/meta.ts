@@ -1,5 +1,5 @@
 /*
- * meta.ts — app metadata read from package.json (AGENTS.md M12: "One
+ * meta.ts — app metadata read from package.json (AGENTS.md M13: "One
  * version, one place").
  *
  * Node-only (AGENTS.md rule 2): `fs` lives in src/platform/. The About

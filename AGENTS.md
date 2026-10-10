@@ -68,14 +68,14 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   duplicated `IMAGE_MAX_WIDTH/HEIGHT` is the existing example, and M7 deletes
   it.
 - **Every action needs a touch path, and touch must not become a second
-  input model** (M13; PLAN.md decision 15): gestures call the *same* entry
+  input model** (M14; PLAN.md decision 15): gestures call the *same* entry
   points the keyboard does — `timer.keyDown('space', …)` /
   `keyDown('escape', …)`, and the same `remove()` → undo toast → `restore()`
   — so there stays one state machine, one deletion path and one undo. Check
   an action is reachable with no modifier keys and no accelerator before
   shipping it: Shift/Ctrl-click and Escape are the two things a phone does
   not have.
-- **Four relative paths are load-bearing for the packaged layout (M15):**
+- **Four relative paths are load-bearing for the packaged layout (M16):**
   `styles.addFile('../style.css', …)` in `src/main.ts`, the
   `.ts`/`.js` worker branch in `src/scramble/service.ts`, `meta.ts`'s
   `../../package.json`, and the bare `node-gtk/register` specifier — which
@@ -91,16 +91,16 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently in the UI: the chip renders empty in
   `Adw.ShortcutsDialog` and nothing says why — check a new entry with
-  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02). M9 adds
+  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02). M10 adds
   `app.importData` / `app.exportData` on `<Ctrl+O>` / `<Ctrl+Shift+S>` (both
   free as of 2026-10-05): re-run the check and update the count when they
   land.
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
-  The same rule covers csTimer's **data-file format** (M9 —
+  The same rule covers csTimer's **data-file format** (M10 —
   `src/core/csTimerFormat.ts`, evidence in PLAN.md §5) and its **chart math**
-  (M11). Attribute csTimer and `cstimer_module` in the About dialog.
-- **Every user-visible string goes through `t()`** (M8, `src/core/i18n.ts`) —
+  (M12). Attribute csTimer and `cstimer_module` in the About dialog.
+- **Every user-visible string goes through `t()`** (M9, `src/core/i18n.ts`) —
   no bare literals in `src/ui/`, in the menus, in the toasts or in the
   tooltips. The catalogs are TS modules, not JSON: `src/locales/en.ts` is the
   source of truth and every other locale is typed
@@ -108,8 +108,8 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   **compile error**, never a raw key on screen. Times stay in `formatTime`
   (centiseconds are not localised) and the narrow list/edit timestamps stay
   numeric — `Intl.DateTimeFormat` is for dates with room around them (the
-  M10 PB history).
-- **One version, one place** (M12): the app version comes from
+  M11 PB history).
+- **One version, one place** (M13): the app version comes from
   `package.json`, read through `src/platform/meta.ts` — never a literal in
   `main.ts` (the About dialog's hardcoded `'0.1.0'` is exactly the bug that
   rule prevents). The About dialog is `Adw.AboutDialog`
@@ -280,7 +280,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   anyway (tools/README traps 4–5). If an action has no key yet, add one —
   `app.setAccelsForAction(...)` in `src/main.ts` plus an
   `Adw.ShortcutsDialog` entry in `src/ui/shortcuts.ts` — before testing it.
-- **Gestures are drivable the same way** (M13): XTEST gives a long-press as
+- **Gestures are drivable the same way** (M14): XTEST gives a long-press as
   button-down → sleep → button-up, and a swipe as button-down plus motion,
   so touch work is testable with no touch device at all. The rule above
   still holds — it is about *driving* the app, not about what input the app
@@ -310,20 +310,22 @@ npm run generate-types
 ## Out of scope (agreed, do not add unprompted)
 
 Bluetooth smart cubes, virtual cube, solvers, and packaging **beyond the AUR
-package scheduled as M15**.
+package scheduled as M16**.
 Stackmat is a **long-term** goal (see PLAN.md), not current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; don't redesign them, follow the
 milestone blocks):
-**M7** size preferences → **M8** i18n → **M9** csTimer import/export →
-**M10** records & statistics → **M11** charts → **M12** release readiness →
-**M13** touch input → **M14** phone-runtime verdict → **M15** AUR package
-(added 2026-10-06; blocked on M12 — PLAN.md §6 has the draft PKGBUILD and
+**M7** size preferences → **M8** scramble type options (added 2026-10-10;
+independent of the rest, and its length control is deliberately **not**
+persisted — see PLAN.md §6) → **M9** i18n → **M10** csTimer import/export →
+**M11** records & statistics → **M12** charts → **M13** release readiness →
+**M14** touch input → **M15** phone-runtime verdict → **M16** AUR package
+(added 2026-10-06; blocked on M13 — PLAN.md §6 has the draft PKGBUILD and
 the size measurements).
 csTimer backup import/export used to be listed above as dropped; it was
 reinstated by that decision, and charts came off the long-term list with it.
 
-Only **M14** may reopen packaging any further (Flatpak, deb, AppStream).
+Only **M15** may reopen packaging any further (Flatpak, deb, AppStream).
 
 **Rust port: researched, not scheduled.** [RUST-PORT.md](./RUST-PORT.md)
 holds the evidence (four JS engines all reproduce Node's 206 scrambles

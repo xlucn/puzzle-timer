@@ -11,67 +11,76 @@ able to continue at the current milestone.
 
 **MVP (M0–M5):** timers, scrambles, sessions, statistics.
 
-**Scheduled next (M7–M15, decided 2026-10-05; M15 added 2026-10-06).** Order: size preferences
-first (small and self-contained), then **i18n**, so every string the later
-milestones add is written translated instead of swept afterwards (§7 notes
-where that order is convention rather than dependency):
+**Scheduled next (M7–M16, decided 2026-10-05; M16 added 2026-10-06, M8
+added 2026-10-10).** Order: size preferences first (small and
+self-contained), then the scramble options (also small, and independent of
+everything else), then **i18n** — which still lands ahead of every
+string-heavy feature, so those are written translated instead of swept
+afterwards (§7 notes where that order is convention rather than dependency):
 
 - **M7 — size preferences.** Timer readout, scramble text and scramble
   diagram sizes, each a *scale* handed to `layoutFor()` rather than a
   replacement for its tiers (decision 14).
-- **M8 — i18n.** A `t()` over typed catalogs (`src/locales/en.ts` is the
+- **M8 — scramble type options.** csTimer's per-type controls: the scramble
+  **length / count** (number of scrambles for MBLD, move counts for
+  random-move types), **neutral orientation**, **pre-scramble** rotations and
+  the `444wca → 444m` fast alias. The **case filter is documented as blocked
+  upstream** — `cstimer_module` does not export `getExtra`/`rndState`, so it
+  would take an upstream change or a re-implementation of the case-filter
+  tables. Independent of every other milestone; evidence and design calls in
+  §6.
+- **M9 — i18n.** A `t()` over typed catalogs (`src/locales/en.ts` is the
   source of truth, `zh-CN.ts` is `Record<keyof typeof en, …>` so the compiler
   lists every missing translation), a `language` preference
   (`system | en | zh-CN`, restart to apply), and `Intl` for dates and counts.
-- **M9 — csTimer-compatible import/export.** One JSON codec, both
+- **M10 — csTimer-compatible import/export.** One JSON codec, both
   directions (was "dropped as not needed" on 2026-09-30; reinstated by
   decision 2026-10-05). Format evidence in §5, decisions 11–12 in §4.
-- **M10 — records and statistics**: PB history (value, date, how long it
+- **M11 — records and statistics**: PB history (value, date, how long it
   stood), σ / best / worst / range, ao50/ao100/ao1000, per-day activity
   (solves/day, current + longest streak, best day). The Statistics dialog
   grows tabs (`Adw.ViewStack`).
-- **M11 — charts** (time trend, distribution), moved out of the long-term
+- **M12 — charts** (time trend, distribution), moved out of the long-term
   list below by the same decision: `Gtk.DrawingArea` + Cairo line/path
   drawing; math ported from csTimer's `src/js/stats/trend.js` and
   `src/js/stats/distribution.js` (GPL — port the math, not the DOM). Stats
   already live in `core/`, so charts are rendering-only on top.
-- **M12 — release readiness.** Start versioning and prepare a public source
+- **M13 — release readiness.** Start versioning and prepare a public source
   release: one version source of truth (`package.json`), a CHANGELOG, an
   About dialog that matches reality (it currently shows a *hardcoded*
   `0.1.0`, the wrong licence enum, and a **deprecated** widget), a user-first
   README that states plainly how AI/LLM assistance was used, plus an icon and
-  a public name. The last two are gated on open decisions — see §6 M12.
-- **M13 — touch input, and the narrow-window leftovers.** Today the app
+  a public name. The last two are gated on open decisions — see §6 M13.
+- **M14 — touch input, and the narrow-window leftovers.** Today the app
   cannot start a solve without a Space key: there is **not one gesture or
   touch controller in `src/`**. Touch-hold on the timer mirrors Space exactly
   (decision 15), long press and swipe drive the solve list, and a **re-measure
   of the 360×360 diagram/timer overlap** — the nudge whose clamp caused it was
-  dropped on 2026-10-05, so it may already be gone (see §6 M13). Entirely
+  dropped on 2026-10-05, so it may already be gone (see §6 M14). Entirely
   desktop-verifiable with the existing harness — see §6.
-- **M14 — phone runtime (an evaluation, not a port).** The verdict on
+- **M15 — phone runtime (an evaluation, not a port).** The verdict on
   whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
   node-gtk native binding build, audio without `pw-play`. Its deliverable is
   a written result plus a scoped packaging milestone — or a documented "not
-  viable". **M14 decides whether packaging reopens any *further* — M15 has
+  viable". **M15 decides whether packaging reopens any *further* — M16 has
   already opened the AUR slice.**
-- **M15 — AUR package.** A PKGBUILD that precompiles with Arch's own
+- **M16 — AUR package.** A PKGBUILD that precompiles with Arch's own
   `typescript` (in [extra]) and ships only `dist/` plus the two npm runtime
   dependencies: about **13 MiB installed against today's 39 MiB**
   `npm install --omit=dev` tree — because `node-gtk` declares `node-gyp` and
   `@mapbox/node-pre-gyp` as *production* deps and drags 113 lockfile packages
-  in behind them. **Blocked on M12** (a package needs a name, an icon, a
+  in behind them. **Blocked on M13** (a package needs a name, an icon, a
   `.desktop` file and a tag for `source=()` to point at); the draft PKGBUILD
   and every measurement are in §6.
-
 **Explicitly out of scope for now:**
 - Bluetooth smart cube support (decided: not in v1)
 - Virtual cube, solvers, batch generators, cross-session stats
 - Packaging/distribution (personal use only for now) — **one exception,
-  decided 2026-10-06: an AUR package, scheduled as M15.** A PKGBUILD is just
+  decided 2026-10-06: an AUR package, scheduled as M16.** A PKGBUILD is just
   a recipe over a source tarball: no infrastructure, no publishing pipeline,
   and it doubles as proof that a stranger can build this from a tag.
   Everything else (Flatpak, deb, AppStream publishing) stays closed until
-  **M14** reports yes.
+  **M15** reports yes.
 
 **Long-term goals (added by decision, not scheduled):**
 - **Stackmat support** — `serialport` npm package + udev rule; protocol logic
@@ -271,9 +280,9 @@ src/
     `bestWindow()` currently sorts every window it inspects; adding ao1000
     would mean ~40 M comparisons over a few thousand solves, and
     `sessionStats()` runs on dialog open, where a 0.5 s freeze is not
-    acceptable. M10 rewrites it as an **incrementally maintained sorted window**
+    acceptable. M11 rewrites it as an **incrementally maintained sorted window**
     (binary-search insert/remove; `meanWindow` stays the plain-array
-    reference implementation the tests speak to). Charts (M11) keep the split
+    reference implementation the tests speak to). Charts (M12) keep the split
     the rest of the app uses — binning and series math in `core/`, drawing in
     `ui/` — and no Cairo text (rule 6), so axis labels are `Gtk.Label`/Pango
     overlays.
@@ -440,7 +449,7 @@ numbers and a re-runnable harness: **[RUST-PORT.md](./RUST-PORT.md)** and
 
 Each milestone ends with a runnable app.
 
-Blocks are ordered **what's next first**: the scheduled M7–M15 come before
+Blocks are ordered **what's next first**: the scheduled M7–M16 come before
 the landed M0–M6 log, so the milestone to pick up is the first block after
 the table.
 
@@ -454,14 +463,15 @@ the table.
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
 | **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
 | **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×360 floor still holds |
-| **M8** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese |
-| **M9** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
-| **M10** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
-| **M11** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
-| **M12** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
-| **M13** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
-| **M14** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
-| **M15** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/cstimer-gtk` launches from outside the source tree |
+| **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change |
+| **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese |
+| **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
+| **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
+| **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
+| **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
+| **M14** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
+| **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
+| **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/cstimer-gtk` launches from outside the source tree |
 
 **Post-MVP backlog:** stackmat (§1), then packaging if ever needed.
 
@@ -501,11 +511,75 @@ Small and self-contained — deliberately the first thing scheduled (user call,
 900×540 that the digits read the size asked for and the diagram still clears
 the timer.
 
-### M8 — scheduled (i18n)
+### M8 — scheduled (scramble type options)
 
-Order settled 2026-10-05: i18n goes **before every feature that adds
-strings** (M9 and M10), so they are written translated instead of swept
-afterwards.
+Added 2026-10-10 — csTimer's per-type scramble options. **Independent of every
+other milestone**: it needs nothing from them and none of them needs it, so it
+can be picked up whenever.
+
+**What csTimer offers** (read out of `src/js/scramble/scramble.js`): the
+options popover beside the type selector holds the **scramble length**
+(`scrLen`, enabled by `scrdata[..][2] > 0` — the same test as our
+`defaultLength > 0`) and the **case filter** (`scrFlt`, checkboxes over
+`getExtra(type, 0)`); the same file registers `scrNeut` (neutral orientation
+`n/1/2/6`), `preScr` (training rotations) and `scrFast` (aliases `444wca` →
+`444m`). There is **no `scrLen` property** in that registration list — the
+length is re-read from the type's `scrdata` entry whenever the type changes
+and is never saved.
+
+**What `cstimer_module` can reach.** `getScramble` forwards every argument
+verbatim — `scramblers[type].apply(scramblers[type], arguments)` — so the
+callback is csTimer's own `(type, len, state, neutLevel)`:
+
+- ✅ **length / count** — measured on this machine: `getScramble('r3ni', 2)`
+  returns two numbered scrambles (`1)` `2)`) and `3` returns three, so for
+  MBLD `len` *is* the number of scrambles; `getScramble('333o', 10)` returns
+  ten moves (25 → 25), so for random-move types it is the move count. Our
+  pipeline already carries it end to end — `main.ts` → `scrambleLength(type)`
+  → `service.scramble(type, length)` → `protocol { length }` → the worker.
+  **Only the control is missing, not a single wire.**
+- ✅ **neutral orientation** — the 4th argument. Needs a probe that the
+  bundled scrambler honours it: same seed, `333` with `n`/`1`/`2`/`6`, and
+  the outputs must differ.
+- ✅ **pre-scramble rotations** and the **fast alias** — pure text on our
+  side, no module involvement.
+- ❌ **case filter — blocked upstream, not a bug.** `getExtra` and
+  `scrMgr.rndState` are bundle-internal; the module exports exactly five
+  functions (`getScrambleTypes`, `getScramble`, `setSeed`, `setGlobal`,
+  `getImage`) and `setGlobal` is just `kernel.setProp`. Doing it properly
+  needs an upstream export, or a faithful re-implementation of the
+  case-filter tables. Recorded here so nobody re-opens it as a defect.
+
+**Design calls (user, 2026-10-10):**
+
+- **Scope: everything reachable** — length/count, neutral orientation,
+  pre-scramble and the fast alias; the case filter stays blocked.
+- **The length resets on type change**, mirroring csTimer exactly: it is
+  re-read from the type's `defaultLength` whenever the type changes and is
+  **not persisted** — so no `Preferences` field and no `SessionEntry` field.
+  Anyone adding one later is working against this call.
+- **Only types with `defaultLength > 0` show the control** — the same test
+  csTimer uses to enable `scrLen`. That covers MBLD (`r3ni`, 5), the relay
+  `r3` (5), `easyc`/`easyxc` (3/4) and every random-move type.
+
+**Where it lives:** the type-picker dialog is the natural home — csTimer puts
+it beside the selector, and that dialog is already where the type is chosen.
+Changing it must invalidate the **prefetched** scramble too, not just the
+visible one (`src/core/scrambleFeed.ts`), or the next solve starts on a
+scramble generated with the old length.
+
+**Checkpoint for the user:** pick `WCA > 3x3 mbld`, set the count to 3 and
+get exactly three numbered scrambles; switch to `3x3x3` and watch the control
+reset and disappear (`333` has `defaultLength: 0`).
+
+### M9 — scheduled (i18n)
+
+Order settled 2026-10-05: i18n goes **before every string-heavy feature**
+(M10 and M11), so those are written translated instead of swept afterwards.
+M8 (scramble options) sits *ahead* of it — pulled forward 2026-10-10 — so
+its handful of new labels are swept by this milestone rather than born
+translated. That is deliberate: M8 is small enough that sweeping it costs
+nothing, and waiting behind i18n would have delayed it for no gain.
 
 - **Runtime** — `src/core/i18n.ts` (pure: no `gi:*`, no Node): `setLocale(tag)`,
   `t(key, params?)`, plurals via `Intl.PluralRules`, `formatCount()` and
@@ -525,7 +599,7 @@ afterwards.
 - **Timestamps stay as they are** — `formatTimestamp`/`formatFullTimestamp`
   are deliberately compact and numeric (already locale-neutral, and the list
   column is narrow); `Intl.DateTimeFormat` is used for the new PB-history
-  dates in M10, where there is room.
+  dates in M11, where there is room.
 - **Probe first** — does GTK's own "Open"/"Cancel" localise under node-gtk?
   node-gtk never calls `setlocale`/`bindtextdomain` (grepped, no matches), so
   stock widget strings may stay English regardless of our catalogs. If so,
@@ -534,7 +608,7 @@ afterwards.
 **Checkpoint for the user:** switch Language to 中文, restart, read back the
 sidebar app menu, the app-functions menu, Preferences and Statistics.
 
-### M9 — scheduled (csTimer import/export)
+### M10 — scheduled (csTimer import/export)
 
 - **Codec** — `src/core/csTimerFormat.ts`: `parse(text) → { sessions, warnings }`
   and `format(sessions) → text`, following §5's format table exactly.
@@ -561,7 +635,7 @@ sidebar app menu, the app-functions menu, Preferences and Statistics.
 **Checkpoint for the user:** import a csTimer file and watch the sessions
 appear; export it back and open the result in csTimer.
 
-### M10 — scheduled (records and statistics)
+### M11 — scheduled (records and statistics)
 
 - **`core/stats.ts`** — add `ao50`, `ao100`, `ao1000` to `SPECS` (the trim
   rules stay csTimer's `[1,1]`), spread (σ over finite effective times,
@@ -576,14 +650,14 @@ appear; export it back and open the result in csTimer.
   streak, best day, rolling counts. Day boundaries come from `Date` getters
   (local time, no `gi:`/Node needed).
 - **`ui/statsPanel.ts`** — `Adw.ViewStack` + `Adw.ViewSwitcher` tabs:
-  Summary (today's table), Records, Activity. Charts tab arrives with M11.
+  Summary (today's table), Records, Activity. Charts tab arrives with M12.
 - **`ui/statsStrip.ts`** and the list's ao5/ao12 columns are **unchanged** —
   the new windows are dialog-only.
 
 **Checkpoint for the user:** the Records tab dates and "held for" figures
 against what you remember of your own PBs.
 
-### M11 — scheduled (charts)
+### M12 — scheduled (charts)
 
 - **Math in `core/`** — distribution bins and trend series, ported from
   csTimer's `src/js/stats/distribution.js` and `src/js/stats/trend.js`
@@ -595,7 +669,7 @@ against what you remember of your own PBs.
 - **Probe first** — `setDrawFunc` and a Cairo path under node-gtk have never
   been exercised here either.
 
-### M12 — scheduled (release readiness)
+### M13 — scheduled (release readiness)
 
 Two halves. **A is decision-free and may be pulled forward at any time** —
 it is what makes the release publishable; B is gated on the two open
@@ -696,7 +770,7 @@ decisions at the end of this block.
     分秒, 还原.
   - `APP_NAME` (`'csTimer GTK'`) is display only — window title, menus,
     sidebar, About. Free to change, any time — and it now has a target,
-    `'Puzzle Timer'` (under M8 it becomes `t('app.name')` either way).
+    `'Puzzle Timer'` (under M9 it becomes `t('app.name')` either way).
   - `package.json.name` — free, and should become `puzzle-timer` to match the
     repo. The file also still lacks a `repository` field and still carries the
     scaffold's placeholder `description`, both of which the repo now makes
@@ -745,7 +819,7 @@ decisions at the end of this block.
     headless like the rest of `tools/`:
     `node tools/icon/ga-icon.mjs [out.svg] [elevationDegrees]`. It defaults
     to writing `ga-cube.svg` beside itself. Its **output is not committed
-    yet** — the artwork lands with M12, along with the icon name.
+    yet** — the artwork lands with M13, along with the icon name.
   - **Plumbing:** a scalable SVG, `Gtk.IconTheme.add_search_path()` into the
     repo (a source checkout has no install prefix to drop hicolor icons
     into), a `.desktop` file with `Icon=`, and the icon name in `main.ts`.
@@ -774,7 +848,7 @@ read the way you want it to.
 
 
 
-### M13 — scheduled (touch input, and the narrow-window leftovers)
+### M14 — scheduled (touch input, and the narrow-window leftovers)
 
 Desktop-verifiable with the harness that already exists — no touch device
 needed (testing note below). The governing decision is 15: touch mirrors the
@@ -855,7 +929,7 @@ keyboard rather than becoming a second input model.
 with no keyboard anywhere near it; swipe a row to delete and undo from the
 toast; then resize to 360×360 and confirm the diagram is off the digits.
 
-### M14 — scheduled (phone runtime — an evaluation, not a port)
+### M15 — scheduled (phone runtime — an evaluation, not a port)
 
 A decision gate. Nothing here may change the architecture on its own.
 
@@ -873,17 +947,17 @@ A decision gate. Nothing here may change the architecture on its own.
 
 **Checkpoint for the user:** the verdict.
 
-### M15 — scheduled (AUR package)
+### M16 — scheduled (AUR package)
 
 Opened 2026-10-06 — the one exception to the packaging line in §1. **Blocked
-on M12**: a package needs a name, an icon, a `.desktop` file, and a tag for
+on M13**: a package needs a name, an icon, a `.desktop` file, and a tag for
 `source=()` to point at.
 
 **Second blocker, noted 2026-10-07: the repo is private.** `makepkg` fetches
 every `source=()` entry over plain HTTP, so
 `github.com/xlucn/puzzle-timer` as it stands is unbuildable for anyone but
 its owner — and for you too, inside a clean chroot or a container that has no
-SSH keys. M15 needs the repo **public at tag time**, or the release tarball
+SSH keys. M16 needs the repo **public at tag time**, or the release tarball
 hosted somewhere public. Make that call deliberately before submitting, not
 discovered at submission; note that it cuts against the reason the repo is
 private.
@@ -943,7 +1017,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
 arch=('x86_64')
-url="https://github.com/<you>/cstimer-gtk"        # ← needs M12's public name
+url="https://github.com/<you>/cstimer-gtk"        # ← needs M13's public name
 license=('GPL-3.0-or-later')
 depends=('nodejs' 'gtk4' 'libadwaita' 'gobject-introspection')
 makedepends=('typescript' 'npm' 'node-gyp' 'gcc' 'make' 'python')
@@ -978,7 +1052,7 @@ package() {
   cp -r node_modules/node-gtk/lib node_modules/node-gtk/package.json \
         "$pkgdir$d/node_modules/node-gtk/"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  # .desktop + icon + metainfo land here with M12
+  # .desktop + icon + metainfo land here with M13
   printf '#!/bin/sh\ncd %s && exec node --import node-gtk/register dist/main.js\n' "$d" |
     install -Dm750 /dev/stdin "$pkgdir/usr/bin/$pkgname"
 }
@@ -1462,41 +1536,45 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M7–M15 scheduled 2026-10-05 (M15 added 2026-10-06)** — size preferences
-  → i18n → csTimer import/export → records & statistics → charts → release
-  readiness → touch input → the phone-runtime verdict → **AUR package**, in
-  that order (the scope block in §1, the dated blocks in §6). M7 is
-  deliberately
+- **M7–M16 scheduled 2026-10-05 (M16 added 2026-10-06, M8 added
+  2026-10-10)** — size preferences → **scramble type options** → i18n →
+  csTimer import/export → records & statistics → charts → release readiness →
+  touch input → the phone-runtime verdict → **AUR package**, in that order
+  (the scope block in §1, the dated blocks in §6). M7 is deliberately
   first: three size scales, self-contained. Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
-  (decision 14), i18n comes before every feature that adds strings so M9's
-  and M10's are written translated rather than swept later (decision 11), and
-  csTimer compatibility is one pure codec plus the two
-  `properties`/`sessionN` findings in §5 (decision 12). Open before M9: a
+  (decision 14), i18n comes before every *string-heavy* feature so M10's and
+  M11's are written translated rather than swept later (decision 11) — M8
+  sits ahead of it, and having its handful of labels swept is the accepted
+  cost of pulling it forward — and csTimer compatibility is one pure codec
+  plus the two
+  `properties`/`sessionN` findings in §5 (decision 12). Open before M10: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  Open before M12: only the **icon** now — its *direction* is decided and
-  recorded in the M12 block (cube alone in a PLL Ga state, no timer, 25°
+  Open before M13: only the **icon** now — its *direction* is decided and
+  recorded in the M13 block (cube alone in a PLL Ga state, no timer, 25°
   elevation, computed by a generator rather than drawn), but the artwork
   itself, its **symbolic variant**, the baseline alignment and the icon name
   are still to do. The **public name is settled**: `Puzzle Timer` was adopted
   2026-10-07 with the repo `xlucn/puzzle-timer`, so what is left of that
-  decision is the rename checklist in the M12 block — `package.json`,
+  decision is the rename checklist in the M13 block — `package.json`,
   `APP_NAME`, the README and About links, and the app id, which must land
-  before the first tag. M12's first half (versioning, CHANGELOG, About, README,
+  before the first tag. M13's first half (versioning, CHANGELOG, About, README,
   the AI disclosure) needs no icon and no name call, so it may be pulled
   forward.
-  **M15 (AUR) has two blockers**, both written into its §6 block: M12 (name,
+  **M16 (AUR) has two blockers**, both written into its §6 block: M13 (name,
   icon, `.desktop`, a tag) and the repo's **privacy** — `makepkg` fetches over
   plain HTTP, so the sources must be public at tag time. The draft PKGBUILD
   and the size measurements live there too, along with the first two things to
   test: Arch's `typescript` 6.0.3 against our declared `^5.5.0`, and whether
   the built `dist/` runs at all.
-  Open before M7 and M8: nothing. Probes that gate M9, M11 and M13
+  Open before M7, M8 and M9: nothing — M8's one open question (whether the
+  bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
+  its own block. Probes that gate M10, M12 and M14
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
-  out at the top of their milestone blocks. **Ordering caveat:** M13 (touch)
-  lands after M12 (the release) by arrival order, not by dependency — if the
+  out at the top of their milestone blocks. **Ordering caveat:** M14 (touch)
+  lands after M13 (the release) by arrival order, not by dependency — if the
   first public tag should work without a keyboard, swap them.
 - **M6 landed 2026-10-02** — adaptive layout is in and verified (the dated
   block in §6 has the decisions and the measurements). What a cold session
@@ -1506,9 +1584,9 @@ Evidence:
   behind during a resize. `npm test` = **219 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
   **Next milestone: M7 (size preferences)** — see the bullet above. The older
-  "M7+ should be picked, not assumed" note now applies only beyond M15: M7–M15
-  are scheduled above. The still-unscheduled backlog beyond M15 is stackmat
-  and the rest of packaging (Flatpak, deb), which only M14 can reopen (§1).
+  "M7+ should be picked, not assumed" note now applies only beyond M16: M7–M16
+  are scheduled above. The still-unscheduled backlog beyond M16 is stackmat
+  and the rest of packaging (Flatpak, deb), which only M15 can reopen (§1).
   Still open from earlier user calls: the diagram's thin outlines read
   low-contrast on the dark theme (accepted for now, noted in a code
   comment), and one startup-only `AdwToastOverlay exceeds` warning with the
@@ -1704,7 +1782,7 @@ Evidence:
   limit, not a ToolbarView bar overlap. **That measurement was taken with the
   nudge in place** — the nudge lifted the timer toward the bottom-right
   picture, and was dropped 2026-10-05, so this no longer describes the
-  current geometry. Re-measure before acting on it: M13 carries the item.
+  current geometry. Re-measure before acting on it: M14 carries the item.
   The `390x350` above is the old floor's
   number, kept for what it proved.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
