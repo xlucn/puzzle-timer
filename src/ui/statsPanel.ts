@@ -1,18 +1,15 @@
 /*
  * statsPanel.ts — the Statistics dialog behind the app menu.
  *
- * The full table the strip under the timer deliberately leaves out: current
- * / best / PB target per record — Single, mo3, ao5, ao12 — plus the session
- * mean with its DNF count. Every number comes from src/core/stats.ts,
- * computed on the effective (penalised) times, so this view and the strip
- * cannot disagree.
+ * The full table the strip under the timer leaves out: current / best / PB
+ * target per record — Single, mo3, ao5, ao12 — plus the session mean with
+ * its DNF count. Every number comes from src/core/stats.ts, so this view
+ * and the strip cannot disagree.
  *
  * Layout note (probed against libadwaita 1.9.4): an Adw.Dialog does NOT
  * render its own title — only `child`, so the content carries its own
- * Adw.HeaderBar for the title. That HeaderBar gets a close button for free
- * inside a dialog (AdwDialog docs: it "adjusts the decoration layout to
- * ensure it always has a close button"), so no button of ours is needed —
- * and adw-dialog.c binds Escape to close natively.
+ * Adw.HeaderBar. That HeaderBar gets a close button for free inside a
+ * dialog, and Escape closes natively.
  *
  * The figures are computed when the dialog opens: it blocks input to the
  * window behind it, so nothing can change while it is on screen.
@@ -164,20 +161,14 @@ export function createStatsPanel(options: StatsPanelOptions) {
     )
     box.append(content)
 
-    // Adaptive width: a fixed dialog width, not followsContentSize — with
-    // followsContentSize the dialog width always *equals* the content, so a
-    // width breakpoint could never tell a roomy window from a squeezed one
-    // (it would fire permanently). With a fixed 480 the gap between dialog
-    // and content natural (365) is the "there is room" signal. Measured
-    // (probe, parent 900/460/440/380/360): the breakpoint reads the dialog's
-    // *content* box, so it stays loose while that box is >450 (parent ≳510
-    // floating; contentWidth caps at 480) and tightens below — at which point
-    // the table (spacing 12, margins 12, natural 293) fits every rung down to
-    // the 360px floor with ~67px slack, where the loose table (365) overflowed
-    // by 29px. libadwaita also auto-swaps floating ↔ bottom sheet at parent
-    // ≤450 on its own.
-    // A breakpoint-bearing AdwDialog has no implicit minimum size (AdwDialog
-    // docs), so ask for one explicitly.
+    // Adaptive width: a fixed contentWidth, not followsContentSize — with
+    // the latter the dialog width always *equals* the content, so a width
+    // breakpoint could never tell a roomy window from a squeezed one (it
+    // would fire permanently). The gap between dialog (480) and content
+    // natural (~365) is the "there is room" signal; the breakpoint reads the
+    // content box and tightens spacing/margins below 450, which is what
+    // keeps the table inside a 360px window. A breakpoint-bearing AdwDialog
+    // has no implicit minimum size (AdwDialog docs) — ask for one.
     const dialog = new Adw.Dialog({
       child: box,
       contentWidth: 480,

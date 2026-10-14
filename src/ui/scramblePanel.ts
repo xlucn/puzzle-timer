@@ -4,29 +4,24 @@
  * Component module (see timerLabel.ts): the top level registers styles and
  * exports a factory, so `styles.add()` hot-reloads the CSS under `npm run dev`.
  *
- * Three things can be true at once, and this is the display rule:
- *   scramble   → show it (wrapped, display only — copying it is the header's
- *                copy button / Ctrl+C), with its
- *                diagram floating in the view's bottom-right corner when the
- *                type has one (main.ts places it, see `image`);
- *   generating → the previous scramble stays on screen as a dimmed ghost
- *                (`.pending`) with the spinner + status line over it: the
- *                slot keeps the *text's* height, so the timer holds still
- *                while the next scramble generates — dropping the text
- *                would collapse a tall slot and jump the timer (first load
- *                has no ghost and shows the bare slot);
- *   error      → the reason, in @error_color, over the ghost the same way
- *                (or in the bare slot when there is nothing to ghost). A
- *                failure of the *warm* scramble is reported under the
+ * Display rule for the three possible states:
+ *   scramble   → show it (wrapped, display only — copy is the header's
+ *                button / Ctrl+C), diagram floating in the view's
+ *                bottom-right corner when the type has one (main.ts places
+ *                it, see `image`);
+ *   generating → the previous scramble stays as a dimmed ghost (`.pending`)
+ *                with the spinner + status over it: the slot keeps the
+ *                *text's* height, so the timer holds still (first load has
+ *                no ghost and shows the bare slot);
+ *   error      → the reason, in @error_color, over the ghost the same way.
+ *                A failure of the *warm* scramble reports under the
  *                scramble currently on screen — the solve in front of you
  *                is still usable, you just know the next one is not ready.
  *
- * The image follows the same ghost rule as the text: it is looked up from
- * the scramble on screen (or its ghost), so it swaps in the same frame the
- * text does. While the feed is busy, the last image stays up with its
- * ghost; the lookup is a Map read, so re-renders are free. The panel does
- * not *place* the picture — it is handed to an overlay (main.ts), so its
- * presence or size can never move the text or the timer.
+ * The image follows the same ghost rule, looked up from the scramble on
+ * screen (or its ghost), so it swaps in the same frame the text does. The
+ * panel does not *place* the picture — it is handed to an overlay
+ * (main.ts), so its presence or size can never move the text or the timer.
  */
 import Adw from 'gi:Adw-1'
 import GLib from 'gi:GLib-2.0'
@@ -88,28 +83,27 @@ const PANEL_MARGIN_BOTTOM = 4
 
 /**
  * SVG → a Gtk.Svg paintable whose intrinsic size is the cap-fitted box, or
- * null when it cannot be parsed (never throws: a broken picture must not cost
- * the scramble that came with it).
+ * null when it cannot be parsed (never throws: a broken picture must not
+ * cost the scramble that came with it).
  *
- * `Gtk.Svg` (GTK 4.22+) replaces the old Rsvg → GdkPixbuf → Gdk.Texture
- * pipeline: GTK's own renderer rasterizes at paint time, so the diagram is
- * crisp at any scale/DPR instead of inheriting the pre-scaled texture's
- * resolution — and the app drops its Rsvg/GdkPixbuf imports.
+ * `Gtk.Svg` (GTK 4.22+) rasterizes at paint time, so the diagram is crisp
+ * at any scale — and replaces the old Rsvg → GdkPixbuf → Texture pipeline.
  *
  * The tier caps have to live in the SVG itself: Gtk.Picture's width/height
  * requests only raise the *minimum*, so the paintable's intrinsic size wins
- * (probe: request 201×150, allocated 396×296 — the cap would be gone). So
- * the root viewport is re-declared at the fitted size, with a viewBox in the
- * original coordinates when the generator omitted one (csTimer's SVGs are
- * absolute-coordinate) — the content then scales into the box, keeping its
- * aspect, and every measure downstream (Picture, diagramSize's allocation)
- * sees the capped size.
+ * (probe: request 201×150, allocated 396×296). The root viewport is
+ * re-declared at the fitted size, with a viewBox in the original
+ * coordinates when the generator omitted one — the content scales into the
+ * box keeping its aspect.
  *
- * Parse errors land on Gtk.Svg's `error` signal (docs: logging is fine) and
- * are logged; a *failed* parse reports GtkSvg's 200×200 default instead of
- * the declared size, which can never equal the fitted box — every tier keeps
- * the height under 200 — so that mismatch reads as "no picture", matching
- * the old never-renders-garbage contract.
+ * Two csTimer-SVG quirks are rewritten on the way in: literal `undefined`
+ * colours (a headless module never loads the kernel preferences that would
+ * fill them — subbed with csTimer's own defaults, black on #ffdddd), and
+ * the `font:` shorthand, which Gtk.Svg's minimal CSS declines (expanded to
+ * the longhand). Anything else that warns is logged once per message: a
+ * partial render beats no scramble, and every tier keeps the height under
+ * Gtk.Svg's 200×200 failed-parse default, so a size mismatch reads as "no
+ * picture".
  */
 function svgPaintable(
   svg: string,
@@ -137,22 +131,14 @@ function svgPaintable(
         .replace(/\bheight="[^"]*"/, `height="${height}"`) +
       (/\bviewBox="/.test(root[1]) ? '' : ` viewBox="0 0 ${intrinsicWidth} ${intrinsicHeight}"`)
     let rewritten = svg.replace(root[0], `<svg${fitted}>`)
-    // csTimer's text labels take their colours from kernel preferences
-    // (`col-font`/`col-board`) that a headless module never loads, so the
-    // generator writes literal `undefined` — no renderer parses that (probe:
-    // Gtk.Svg, rsvg and browsers all decline it, falling back to black/no
-    // stroke). Sub in csTimer's own defaults (kernel.js: col-font #000000,
-    // col-board #ffdddd): black text outlined in the board colour — the
-    // bright border that keeps labels legible over the cube image, which is
-    // what `paint-order:stroke;stroke-width:3px` was always for.
+    // csTimer writes literal `undefined` for colours the headless module
+    // never loads — sub csTimer's own defaults (black text, board-colour
+    // outline so labels stay legible over the cube).
     rewritten = rewritten
       .replace(/\bfill:undefined\b/g, 'fill:#000000')
       .replace(/\bstroke:undefined\b/g, 'stroke:#ffdddd')
-    // csTimer's text labels use the `font:` shorthand (`font:20px Arial`),
-    // which Gtk.Svg's minimal CSS support declines ("No property named
-    // font") — the size/family would silently fall back. librsvg applies it
-    // (probe: identical output to the longhand), so expand it here rather
-    // than let the text render at the wrong size.
+    // Gtk.Svg declines the `font:` shorthand ("No property named font") —
+    // expand it so the text does not silently render at the wrong size.
     rewritten = rewritten.replace(
       /\bfont:\s*(\d+(?:\.\d+)?)px\s+([\w-]+)/g,
       'font-size:$1px;font-family:$2',
@@ -233,12 +219,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     maxContentHeight: TEXT_MAX_HEIGHT,
   })
 
-  // Adw.Spinner (1.6+), not Gtk.Spinner: it needs no start()/stop() — it
-  // animates only while mapped (adw-spinner-paintable.c), so its visibility
-  // *is* the start/stop. That matters in the error state: the statusRow stays
-  // visible while not generating, and a mapped AdwSpinner would spin over a
-  // failure — hence the spinner hides itself there (Gtk.Spinner had to be
-  // explicitly stopped for the same reason, by a different mechanism).
+  // Adw.Spinner, not Gtk.Spinner: it animates only while mapped, so its
+  // visibility *is* the start/stop — that matters in the error state, where
+  // the statusRow stays visible and a mapped spinner would spin over a
+  // failure (hence the spinner hides itself there).
   const spinner = new Adw.Spinner({ visible: false })
   const status = new Gtk.Label({
     // Resting state = built-in caption (size) + dim-label (dim); the error
@@ -250,26 +234,18 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     visible: false,
   })
 
-  // The diagram: same source as the text, same frame — but placed as an
-  // *overlay* child of the view (main.ts), tucked into the bottom-right
-  // corner. Overlay children are not counted in the parent's size request, so
-  // the picture cannot move the text or the timer at any window size, and
-  // switching the image off reflows nothing. Its size is the *cap-fitted
-  // request's* (see IMAGE_MAX_*), constant within a type; `canShrink` +
-  // CONTAIN take it down again when the window narrows instead of clipping.
-  //
-  // No card behind it: the SVGs come transparent from cstimer_module, and a
-  // white backdrop behind them reads as a stray box on the window. Trade-off:
-  // the diagrams are drawn with black outlines, so on a dark theme the
-  // outlines go low-contrast — worth revisiting if it reads badly (e.g. a
-  // scheme-aware card).
+  // The diagram: same source as the text, same frame, but placed as an
+  // *overlay* child of the view (main.ts) — overlay children take no
+  // size-request space, so the picture cannot move the text or the timer.
+  // No card behind it: the SVGs arrive transparent, and a white backdrop
+  // reads as a stray box. Trade-off: black outlines go low-contrast on the
+  // dark theme — worth a scheme-aware card if it reads badly.
   const picture = new Gtk.Picture({
     alternativeText: 'Scramble diagram',
     canShrink: true,
     contentFit: Gtk.ContentFit.CONTAIN,
-    // The corner: END/END anchors it (the FILL default would stretch it
-    // over whatever room the overlay has), with a small inset from the
-    // window edges. It never overlaps the stats strip — that row is
+    // END/END anchors it in the corner (FILL would stretch it over the
+    // overlay's room). It never overlaps the stats strip — that row is
     // centred and stops well left of the diagram's left edge.
     halign: Gtk.Align.END,
     valign: Gtk.Align.END,
@@ -306,13 +282,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     marginStart: 18,
     marginEnd: 18,
   })
-  // The status row rides *in* the text's slot (an overlay), never under it.
-  // Stacked, the panel asked for the slot plus spacing plus the row —
-  // measured, 86 against a one-line scramble's 64 — so the timer jumped
-  // ~22 px down every time the gear spun. GTK4 does not count overlay
-  // children in the size request, so the panel keeps the slot's height
-  // alone: the ghost text's height while updating, or the empty scrolled
-  // window's own 46 px reservation on first load (for an 18 px row).
+  // The status row rides *in* the text's slot (an overlay), never under it:
+  // stacked, the panel asked for the slot plus the row — 86px against a
+  // one-line scramble's 64 — so the timer jumped every time the gear spun.
+  // GTK4 does not count overlay children in the size request.
   const overlay = new Gtk.Overlay({ child: scroll })
   overlay.addOverlay(statusRow)
 
@@ -428,9 +401,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     },
     /**
      * The diagram cap for this tier. The paintable's viewport was written
-     * against the old cap, so the cache is dropped and the last state
-     * redrawn — the picture changes size, never its position, and the text
-     * and timer are untouched (overlay children take no layout space).
+     * against the old cap, so the cache is dropped and redrawn — the
+     * picture changes size, never its position.
      */
     setDiagramMax(width: number, height: number): void {
       if (width === diagramMaxWidth && height === diagramMaxHeight) return
@@ -440,14 +412,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       if (lastState !== null) render(lastState)
     },
     /**
-     * The diagram's size *as drawn*: the picture is an overlay child, so its
-     * allocation is its own natural size (the paintable's cap-fitted
-     * viewport) or, in a cramped window, whatever room the overlay has —
-     * either way it is where the image actually is, and nothing in the
-     * layout can influence it (overlay children take no layout space). Zero
-     * before the first allocation, which the caller reads as "not yet" and
-     * the frame clock's after-paint corrects on the next frame. main.ts logs
-     * it on every change: it is the number most likely to reveal clipping.
+     * The diagram's size *as drawn* — where the image actually is, since
+     * overlay children take no layout space. Zero before the first
+     * allocation; main.ts logs it on every change, it is the number most
+     * likely to reveal clipping.
      */
     diagramSize: (): { width: number; height: number } => ({
       width: picture.getSize(Gtk.Orientation.HORIZONTAL),

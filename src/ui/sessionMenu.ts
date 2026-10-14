@@ -5,21 +5,11 @@
  * session's name, with a Gio.Menu underneath that lists every session as a
  * radio item — GTK checks the active one itself, because the action is
  * stateful and the menu item's target is compared with the action's state —
- * followed by a second section holding New / Rename / Delete. A dropdown
- * plus a row of separate buttons would have put the same three actions in a
- * second place to hunt for.
- *
- * Placement: a full-width row in the sidebar, between the sidebar's header
- * (app name + app menu) and the solve list — it labels the list below it, so
- * it lives with the list. It is *not* in the content header, which means
- * Ctrl+S can be pressed while the sidebar is closed; `ensureVisible` lets
- * the open path reveal the sidebar first, because a popover cannot anchor to
- * an unmapped widget.
+ * followed by a second section holding New / Rename / Delete.
  *
  * Everything here is UI only: dialogs call `library.create/rename/remove`
- * and the library announces the change. Persistence (index write, session
- * file removal) belongs to whoever owns the store — src/main.ts subscribes to
- * the same library.
+ * and the library announces the change. Persistence belongs to whoever
+ * owns the store — src/main.ts subscribes to the same library.
  */
 import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
@@ -115,16 +105,10 @@ export function createSessionMenu(options: SessionMenuOptions) {
       if (response === 'accept') settings.onSubmit(entry.getText())
     })
     dialog.present(window)
-    // AdwAlertDialog gives the default response the dialog's default widget
-    // (GIR: "The button corresponding to this response will be set as the
-    // default widget of self"), and that button claims focus when the dialog
-    // maps. A rename's accept button is sensitive from the start, so without
-    // this the caret lands on Rename instead of in the name — while New works
-    // only because an empty name keeps Create insensitive. The entry is where
-    // typing must go, so take focus back once the dialog has been shown: the
-    // map fires on a later main-loop turn than present(), and the timer it
-    // schedules fires later still, i.e. after GTK's own focus pass. Renaming
-    // replaces rather than appends, so the current name arrives selected.
+    // AdwAlertDialog's default response button claims focus on map, so the
+    // caret would land on the accept button instead of in the entry. Take
+    // focus back after GTK's own focus pass (map + a timer beat present()),
+    // with the current name selected so typing replaces it.
     const claim = () => {
       entry.grabFocus()
       if (settings.initial.length > 0) entry.selectRegion(0, -1)

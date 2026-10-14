@@ -53,6 +53,15 @@ time, not as a development diary.
 
 - **Present tense, current state.** Explain what the code does and the one
   key reason it is that way.
+- **Say only what the code cannot.** Do not narrate what the code or its
+  syntax already shows — a `packStart()` call says where a button lives, a
+  function name says what it does. Position, wiring and feature restatement
+  are noise; the comment earns its place with the *why*, a constraint, or a
+  gotcha. Fewest words that carry it.
+- **Gotchas and workarounds are one line**, stating the fact, not the
+  investigation: `// set_text is unintrospectable in the Gdk binding, so
+  // the clipboard takes a content provider instead` — not a catalogue of
+  the gir attributes that were checked.
 - **No history.** No dates, no "(user call, …)" attribution, no milestone
   tags (`M3`, `M6`, …), no "superseded / used to be / removed on …"
   narratives. The history lives in git and in `PLAN.md`; if a past decision

@@ -121,11 +121,12 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   Reword one and you reword both — they are the same statement in two places.
 - **Code comments are for peer developers, not a development diary**
   ([CONTRIBUTING.md](./CONTRIBUTING.md) has the full policy): present tense,
-  what the code does plus the one key reason it is that way. Keep gotchas
-  that are still true (GTK/node-gtk quirks, measured facts) — without the
-  date. Never write dates, "(user call, …)" attribution, milestone tags
-  (`M3`, `M6`, …), or "superseded / used to be / removed on …" narratives:
-  history belongs in git and [PLAN.md](./PLAN.md).
+  only what the code cannot say itself — the *why*, a constraint, or a
+  one-line gotcha, in the fewest words. Never narrate position, wiring or
+  what a call obviously does, and never write dates, "(user call, …)"
+  attribution, milestone tags (`M3`, `M6`, …), or "superseded / used to be /
+  removed on …" narratives: history belongs in git and
+  [PLAN.md](./PLAN.md).
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
   argument — a handler takes exactly the signal's own parameters — and what it
   returns becomes the signal's return value (that is how a `boolean`-returning

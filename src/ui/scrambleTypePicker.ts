@@ -2,51 +2,42 @@
  * scrambleTypePicker.ts — the scramble-type chooser: one dialog, two doors.
  *
  * The dialog is the only place a type is *chosen*. Both layouts open it
- * through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts): packed in
- * the header while the window is wide, and in ToolbarView's bottom bar at
- * ≤540px together with refresh and copy. The button is reparented rather
- * than duplicated, and its text lives in the header's WindowTitle
- * (src/ui/scrambleTypeTitle.ts), so one dialog and one `onChange` path cover
- * every layout.
+ * through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts), reparented
+ * between the header and the bottom bar — and the type name lives in the
+ * header's WindowTitle (src/ui/scrambleTypeTitle.ts), so one dialog and one
+ * `onChange` path cover every layout.
  *
  * The dialog is an `Adw.NavigationSplitView` used the way the widget is meant
  * to be used:
  *
  *   - Two `Adw.NavigationPage`s — "Category" sidebar, types content — each
  *     with its own `Adw.ToolbarView` + `Adw.HeaderBar`. The split view shows
- *     the page titles, and when collapsed it shows its own back button on the
- *     content page. No custom up button, no manual title chrome.
- *   - The sidebar is an `Adw.Sidebar`: it owns the navigation-sidebar list
- *     look, the selection pill, scrolling, and — flipped to
- *     `Adw.SidebarMode.PAGE` by the same breakpoint — the boxed-lists page it
- *     becomes when collapsed (the documented Adw.Sidebar pattern).
- *   - Collapse is an `Adw.Breakpoint` (`max-width: 540px`) on the dialog,
- *     applied to `collapsed` through the breakpoint's apply/unapply signals
- *     (node-gtk can't box the GValue `addSetter` needs — AGENTS.md). The
- *     dialog follows its own content size, so it is naturally narrow (one
- *     column) until the content makes it wider than 540px.
- *   - The sidebar is built once; the type list holds only the *browsed*
- *     category's rows (~19), refilled by a single `renderTypes()` when
- *     `browse` changes. `setFilterFunc` is not an option: it re-evaluates its
- *     predicate for every row on each change through the node-gtk boundary —
- *     206 rows ≈ 79ms even with a trivial predicate (measured), versus ≈3ms
- *     to rebuild the visible rows. Still exactly one render path, keyed on
- *     `browse` alone — layout state never reaches it. Selecting a category,
- *     collapsed, pushes to the content page; the split view's back button
- *     pops it.
+ *     the page titles, and when collapsed its own back button on the content
+ *     page. No custom up button, no manual title chrome.
+ *   - The sidebar is an `Adw.Sidebar`: navigation-sidebar look, selection
+ *     pill, scrolling, and — flipped to `Adw.SidebarMode.PAGE` by the same
+ *     breakpoint — the boxed-lists page it becomes when collapsed (the
+ *     documented Adw.Sidebar pattern).
+ *   - Collapse is an `Adw.Breakpoint` (`max-width: 540px`, shared with
+ *     BREAKPOINTS.selectorRowMax) applied to `collapsed` through the
+ *     breakpoint's apply/unapply signals (node-gtk can't box the GValue
+ *     `addSetter` needs — AGENTS.md).
+ *   - The type list holds only the *browsed* category's rows (~19), refilled
+ *     by one `renderTypes()` when `browse` changes. `setFilterFunc` is not
+ *     an option: every invalidation crosses the node-gtk boundary per row —
+ *     206 rows ≈ 79ms even with a trivial predicate, versus ≈3ms to rebuild
+ *     the visible rows. Exactly one render path, keyed on `browse` alone.
  *
- * A type row shows just the type name (`ScrambleChoice.label`): the category
- * is the selected row on the left and the content page's title, so repeating
- * it on every row would be noise. There is no search entry — the two-level
- * browse covers the catalogue.
+ * A type row shows just the type name: the category is the selected row on
+ * the left and the content page's title, so repeating it per row would be
+ * noise. There is no search entry — the two-level browse covers the
+ * catalogue.
  *
- * This module owns no presentation widget: it provides `{ open, selectType }`
- * for the shared button to call. `selectType` is silent and idempotent, so a
+ * This module owns no presentation widget: `{ open, selectType }` for the
+ * shared button to call. `selectType` is silent and idempotent, so a
  * session switch updates which category the dialog opens on without
- * re-announcing the choice.
- *
- * The dialog is built fresh on every open (house pattern: Preferences,
- * Shortcuts) — an AdwDialog is gone when it closes.
+ * re-announcing the choice. The dialog is built fresh on every open (house
+ * pattern: Preferences, Shortcuts) — an AdwDialog is gone when it closes.
  */
 import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
@@ -63,14 +54,11 @@ type Window = InstanceType<typeof Adw.ApplicationWindow>
 type ListBoxRow = InstanceType<typeof Gtk.ListBoxRow>
 
 /**
- * A type row carrying its own id — the easy way to keep the payload with the
- * row instead of a side Map.
- *
- * This is plain JS wrapper extension, not `registerClass`: the native object
- * stays a stock `AdwActionRow`, only the JS class is extended. Probed working
- * (construction, `instanceof`, signal round-trip identity, 500-row churn —
- * see AGENTS.md invariant 5). If that probe ever fails, fall back to a
- * `Map<ListBoxRow, string>`.
+ * A type row carrying its own id — the easy way to keep the payload with
+ * the row instead of a side Map. Plain JS wrapper extension, not
+ * `registerClass`: the native object stays a stock `AdwActionRow`, only the
+ * JS class is extended (AGENTS.md invariant 5 — if that probe ever fails,
+ * fall back to a `Map<ListBoxRow, string>`).
  */
 class TypeRow extends Adw.ActionRow {
   typeId?: string
@@ -97,9 +85,8 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     const dialog = new Adw.Dialog({
       title: 'Scramble type',
       // A default size, not a managed one: the dialog clamps itself to the
-      // parent window, and the 540px breakpoint collapses the split whenever
-      // the allocated width is too narrow. No surface listener, no manual
-      // contentWidth chasing — the dialog uses the space available to it.
+      // parent window and the breakpoint below collapses the split when the
+      // allocated width is too narrow.
       contentWidth: 720,
       contentHeight: 480,
       // A dialog with a breakpoint has no implicit minimum size (AdwDialog
@@ -109,16 +96,12 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     })
 
     // --- Categories (sidebar) ------------------------------------------------
-    // Adw.Sidebar owns the whole look: sidebar mode is a navigation-sidebar
-    // list with a persistent selection pill, page mode a boxed-lists
-    // PreferencesPage — and it scrolls internally (probe: GtkScrolledWindow
-    // in both modes), so no scroller or CSS class of ours.
-    //
-    // One Adw.SidebarSection per csTimer higher class (===WCA=== etc. in
-    // scrdata): the section title and the separator between sections are the
-    // widget's own. Probe-verified item indices are FLAT across sections, so
-    // `browse` (a group index) remains the item index unchanged — sections
-    // are contiguous slices of SCRAMBLE_GROUPS appended in order.
+    // Adw.Sidebar owns the whole look (both modes scroll internally), so no
+    // scroller or CSS class of ours. One Adw.SidebarSection per csTimer
+    // higher class (===WCA=== etc. in scrdata): section titles and
+    // separators are the widget's own. Item indices are FLAT across
+    // sections, so `browse` (a group index) remains the item index —
+    // sections are contiguous slices of SCRAMBLE_GROUPS in order.
     const sidebar = new Adw.Sidebar()
     SCRAMBLE_SECTIONS.forEach((section) => {
       const sidebarSection = new Adw.SidebarSection({ title: section.name })
@@ -216,13 +199,8 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     /**
      * Fill the type list with the browsed category's types — the one render
      * path, keyed on `browse` alone (layout state never reaches it).
-     *
-     * Rebuilt rather than filtered: `Gtk.ListBox.setFilterFunc` re-evaluates
-     * its predicate for *every* row on each invalidation, and each evaluation
-     * crosses the node-gtk boundary — 206 rows cost ≈79ms even with a trivial
-     * `() => true` predicate, which was most of the slow popup and made each
-     * category click pay it, twice over (notify fires before activated). The
-     * browsed category has ~19 rows; clear-and-refill costs ≈3ms.
+     * Rebuilt rather than filtered: see the filter-func note in the file
+     * header.
      */
     const renderTypes = (): void => {
       let old = typeList.getRowAtIndex(0)
