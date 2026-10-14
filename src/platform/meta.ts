@@ -1,6 +1,6 @@
 /*
- * meta.ts — app metadata read from package.json (AGENTS.md M13: "One
- * version, one place").
+ * meta.ts — app metadata read from package.json (AGENTS.md: "one version,
+ * one place").
  *
  * Node-only (AGENTS.md rule 2): `fs` lives in src/platform/. The About
  * dialog's version comes from here — a literal in main.ts would drift from
