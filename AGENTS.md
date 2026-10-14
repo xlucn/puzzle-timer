@@ -91,7 +91,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently in the UI: the chip renders empty in
   `Adw.ShortcutsDialog` and nothing says why — check a new entry with
-  `Gtk.acceleratorParse` (all 18 currently return ok, 2026-10-02). M10 adds
+  `Gtk.acceleratorParse` (all 19 currently return ok, 2026-10-11). M10 adds
   `app.importData` / `app.exportData` on `<Ctrl+O>` / `<Ctrl+Shift+S>` (both
   free as of 2026-10-05): re-run the check and update the count when they
   land.
@@ -244,14 +244,17 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 - Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`
-  opens it; `Down`+`Return` activates Keyboard Shortcuts), `Shift+Tab`×7 →
+  opens it; `Down`×3 + `Return` activates Keyboard Shortcuts — focus
+  starts on the menu's first item, and the order since 2026-10-11 is
+  Statistics, then Preferences / About / Shortcuts / Quit), `Shift+Tab`×6 →
   the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
   arrow keys scroll a tall one, the label itself is not focusable —,
-  app-functions ⋮, image, type, copy, refresh; the header segment is measured
-  2026-10-08 — forward order is refresh → copy → select → image → ⋮, the
+  image, type, copy, refresh; the header segment is measured
+  2026-10-08 — forward order is refresh → copy → select → image, the
   image toggle is a stop since that day, and the centred title
-  (`Adw.WindowTitle`) is not focusable; a pre-M4 ×7 reached the same count
-  via a category dropdown that M4 merged) — `Return` closes the sidebar, and `<Ctrl+S>`
+  (`Adw.WindowTitle`) is not focusable; the content header's app-functions
+  ⋮ was a stop until it joined this menu, 2026-10-11, and a pre-M4 ×7
+  counted a category dropdown that M4 merged) — `Return` closes the sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
   path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
   separate toplevel — `Adw.ShortcutsDialog` draws inside the app's own

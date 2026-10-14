@@ -7,10 +7,10 @@
  * window is narrow enough for it to be a drawer), copy the scramble
  * (Ctrl+C), Delete and the penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
- * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T), and
- * Preferences / Quit (Ctrl+, / Ctrl+Q). It opens from
- * the sidebar's app menu ("Keyboard Shortcuts") — no accelerator of its own,
- * the dialog *is* the accelerator documentation.
+ * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T),
+ * Preferences / Quit (Ctrl+, / Ctrl+Q), and this dialog itself (Ctrl+?,
+ * user call 2026-10-11). It opens from the sidebar's app menu
+ * ("Keyboard Shortcuts") or that accelerator.
  *
  * This replaces Gtk.ShortcutsWindow, deprecated since GTK 4.18 — libadwaita
  * gained the same idea in AdwShortcutsDialog (1.9, what this box ships):
@@ -93,6 +93,9 @@ export function createShortcutsDialog(): ShortcutsDialog {
     ['Open the statistics dialog', '<Ctrl>T'],
   ])
   section('General', [
+    // <Ctrl>question is the gdk keyval name for '?': a literal '?' does
+    // not parse and would render an empty chip (the keyval rule above).
+    ['Open the keyboard reference', '<Ctrl>question'],
     ['Open preferences', '<Ctrl>comma'],
     ['Quit', '<Ctrl>Q'],
   ])

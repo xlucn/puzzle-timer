@@ -28,11 +28,13 @@
  * and solve policy live in src/core/, which knows nothing about GTK.
  *
  * Layout F (2026-10-01): the sidebar owns the app chrome — its header holds
- * the app name and the app menu (About / Keyboard Shortcuts / Quit), the
- * session switch sits under it, and the solve list under that. The content
- * header keeps only the timer's controls: sidebar toggle, category/type
- * switchers, refresh, the app-functions menu (Statistics, M4; Preferences,
- * M5), and the window controls.
+ * the app name and the app menu, the session switch sits under it, and the
+ * solve list under that. The content header keeps only the timer's controls:
+ * sidebar toggle, category/type switchers, refresh, the image toggle, and
+ * the window controls. The app menu is the app's one menu since 2026-10-11
+ * (user call, merging the content header's App functions button into it):
+ * Statistics, then a separator, then Preferences / About / Keyboard
+ * Shortcuts / Quit.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -138,7 +140,8 @@ app.on('activate', () => {
   // docs explicitly tell you to override ("the minimum size must be larger
   // than the smallest UI state"): measured 2026-10-08, at 400 the header's
   // own minimum (~282 — window controls, sidebar toggle, the centred type
-  // title, app menu; selectors in the bottom row) already claims most of the
+  // title, and the app-functions button since moved into the sidebar menu;
+  // selectors in the bottom row) already claims most of the
   // width, and below 360 no tier in src/core/layout.ts could keep the layout
   // deliberate.
   window.widthRequest = BREAKPOINTS.minWidth
@@ -152,23 +155,6 @@ app.on('activate', () => {
   // slot does show a title since 2026-10-08: the scramble type as
   // title/subtitle, assigned once below as the titleWidget.
   const header = new Adw.HeaderBar({ showTitle: false })
-
-  // App functions, packed at the end before the window controls: the
-  // Preferences and Statistics dialogs (M5 added Preferences; the dialog
-  // itself is src/ui/preferences.ts — it owns every setting, the WCA
-  // inspection toggle included, user call 2026-10-02). About / Keyboard
-  // Shortcuts / Quit are application-level, so they live in the sidebar's
-  // app menu instead (user call, layout F).
-  const appFunctions = new Gio.Menu()
-  appFunctions.append('Preferences', 'app.preferences')
-  appFunctions.append('Statistics', 'app.statistics')
-  header.packEnd(
-    new Gtk.MenuButton({
-      iconName: 'open-menu-symbolic',
-      menuModel: appFunctions,
-      tooltipText: 'App functions',
-    }),
-  )
 
   // Wired to the split view further down; a ToggleButton so the pressed state
   // tracks the sidebar even when it is closed some other way. Packed at the
@@ -315,13 +301,26 @@ app.on('activate', () => {
     ensureVisible: () => sidebarToggle.setActive(true),
   })
 
-  // The app menu travels with the sidebar's header (layout F): About, the
-  // keyboard reference and Quit — application-level actions, which is what
-  // a primary menu is for.
+  // The one app menu, in the sidebar (user call, 2026-10-11): the content
+  // header's App functions button merges into it — Statistics first (its
+  // dialog is src/ui/statsPanel.ts), then a second section, which is what
+  // renders the separator, holding Preferences (M5; src/ui/preferences.ts
+  // owns every setting, the WCA inspection toggle included, user call
+  // 2026-10-02), the About dialog, the keyboard reference and Quit.
+  // Layout F (2026-10-01) had it hold only the last three —
+  // application-level actions, which is what a primary menu is for. The
+  // actions and their accels (Ctrl+T / Ctrl+, / Ctrl+Q) are untouched;
+  // only the entry point moved.
+  const statisticsSection = new Gio.Menu()
+  statisticsSection.append('Statistics', 'app.statistics')
+  const applicationSection = new Gio.Menu()
+  applicationSection.append('Preferences', 'app.preferences')
+  applicationSection.append(`About ${APP_NAME}`, 'app.about')
+  applicationSection.append('Keyboard Shortcuts', 'app.shortcuts')
+  applicationSection.append('Quit', 'app.quit')
   const appMenuModel = new Gio.Menu()
-  appMenuModel.append(`About ${APP_NAME}`, 'app.about')
-  appMenuModel.append('Keyboard Shortcuts', 'app.shortcuts')
-  appMenuModel.append('Quit', 'app.quit')
+  appMenuModel.appendSection(null, statisticsSection)
+  appMenuModel.appendSection(null, applicationSection)
   const appMenuButton = new Gtk.MenuButton({
     iconName: 'open-menu-symbolic',
     menuModel: appMenuModel,
@@ -707,8 +706,8 @@ app.on('activate', () => {
    * Moves the scramble controls between the header and the bottom bar.
    *
    * All three move together (user call, 2026-10-08) — the common GTK4
-   * adaptive pattern: narrow keeps the header to toggle, title and app
-   * menu, and gives the bar the actions. In both places they sit at natural
+   * adaptive pattern: narrow keeps the header to toggle and title, and
+   * gives the bar the actions. In both places they sit at natural
    * width — in the bar that left-packs them (user call, 2026-10-08), in the
    * header packStart already did — so nothing but the parent changes. The
    * image toggle rides along to the *right* end of each bar: it is packed
@@ -1042,14 +1041,17 @@ app.on('activate', () => {
   app.addAction(aboutAction)
 
   // The keyboard reference (src/ui/shortcuts.ts), opened from the sidebar's
-  // app menu. Built fresh on open, like Preferences: an AdwDialog is gone
-  // when it closes, so there is nothing to cache — and construction stays
-  // inside the action, so a node-gtk failure around it costs this menu item
-  // rather than the startup path. No accelerator of its own — the dialog
-  // *is* the accelerator documentation.
+  // app menu or Ctrl+? (user call, 2026-10-11). Built fresh on open, like
+  // Preferences: an AdwDialog is gone when it closes, so there is nothing
+  // to cache — and construction stays inside the action, so a node-gtk
+  // failure around it costs this menu item rather than the startup path.
   const shortcutsAction = Gio.SimpleAction.new('shortcuts', null)
   shortcutsAction.on('activate', () => createShortcutsDialog().present(window))
   app.addAction(shortcutsAction)
+  // <Control>question is the gdk keyval name for '?' — a literal '?' does
+  // not parse (AGENTS' keyval rule) — and GDK ignores the consumed Shift
+  // that produces it (gdkevents.c), so the physical Ctrl+? matches.
+  app.setAccelsForAction('app.shortcuts', ['<Control>question'])
 
   // The Statistics dialog (src/ui/statsPanel.ts): the full current/best/
   // target table behind the app-functions menu. The component registers its

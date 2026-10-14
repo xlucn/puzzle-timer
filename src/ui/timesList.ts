@@ -26,11 +26,12 @@
  * diff two sessions' rows together.
  *
  * Layout F (2026-10-01): this sidebar carries the app's top chrome too —
- * a HeaderBar with the app name and the app menu (About / Keyboard
- * Shortcuts / Quit), and under it a row with the session switch button
- * (src/ui/sessionMenu.ts) that names the list below. The content header
+ * a HeaderBar with the app name and the app menu, and under it a row with
+ * the session switch button (src/ui/sessionMenu.ts) that names the list
+ * below. The app menu is the app's one menu since 2026-10-11: Statistics,
+ * then Preferences / About / Keyboard Shortcuts / Quit. The content header
  * keeps the timer's controls: sidebar toggle, category/type switchers,
- * refresh, and the (currently empty) app-functions menu.
+ * refresh, and the image toggle.
  *
  * Interaction: clicking a row selects it (Shift/Ctrl-click builds a
  * selection, as GTK does for any multi-selection list), and a toolbar under
@@ -95,7 +96,7 @@ export interface TimesListOptions {
   onDelete: (solves: readonly Solve[]) => void
   /** App name, shown as the sidebar header's title. */
   appName: string
-  /** The app menu (About / Keyboard Shortcuts / Quit), at the header's end. */
+  /** The app's one menu — Statistics, then Preferences / About / Shortcuts / Quit — at the header's end. */
   appMenu: Widget
   /** The session switch button; a row between the header and the list. */
   sessionControl: Widget
