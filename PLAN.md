@@ -1820,7 +1820,7 @@ Evidence:
   and right-aligned in the bottom bar via `halign: END` + sole `hexpand`.
   It joins the `placeSelectors` move (four widgets, not three), and it is a
   focus stop: the wide chain gained one stop, `Shift+Tab`×7 (AGENTS
-  Layout-F anchors). Floor: header min 282, row min 156 → 198, both ≤ 360.
+  Focus anchors). Floor: header min 282, row min 156 → 198, both ≤ 360.
 - **Narrow: all four bar controls share the bottom bar (user call,
   2026-10-08)** — below 540 refresh, copy, select **and the image toggle**
   move together into `Adw.ToolbarView`'s **bottom toolbar**: the three

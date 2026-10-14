@@ -27,15 +27,14 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
 3. **Only `src/ui/` touches `gi:*`** (Gtk, Adw, GLib, Gio, Gdk, Gst).
 4. **Scramble generation never runs on the main thread.** A 4x4 WCA scramble
    takes ~1.2 s (measured) and would freeze the UI.
-5. **Custom widget subclassing: try it, probe it, fall back if it fails**
-   (user call, 2026-10-05 — replaces an earlier blanket ban). If
-   subclassing is the easy way, attempt it; verify with a *runtime* probe
+5. **Custom widget subclassing: try it, probe it, fall back if it fails.**
+   If subclassing is the easy way, attempt it; verify with a *runtime* probe
    before trusting it (typecheck proves nothing about GObject behavior); if
    it segfaults or signal payloads come back as bare wrappers, drop it for
    maps/closures and record the failure here. Plain JS wrapper extension
    (`class MyRow extends Adw.ActionRow` — no `registerClass`, no new GType;
-   the native object stays stock) passed the full probe on 2026-10-05:
-   construction with native props, `instanceof`, signal round-trip identity
+   the native object stays stock) passed the full probe: construction with
+   native props, `instanceof`, signal round-trip identity
    with a custom payload, 500-row churn, clean exit — `scrambleTypePicker.ts`
    uses it. Registering a *new* GType (`registerClass`) is still unproven
    here: probe first if ever needed.
@@ -53,7 +52,7 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
 - **Let adaptive widgets do their job — don't reimplement them.** Before
   writing manual layout/navigation code for an `Adw.*` adaptive widget, check
   what it already does (the `.d.ts` class docs spell it out). The hard-won
-  lesson from `scrambleTypePicker.ts` (2026-10-05): putting an
+  lesson from `scrambleTypePicker.ts`: putting an
   `Adw.NavigationSplitView` in the tree is not the same as *using* it. The
   native pattern is — `Adw.Breakpoint` drives `collapsed`; each
   `Adw.NavigationPage` carries its own `Adw.ToolbarView` + `Adw.HeaderBar` so
@@ -65,65 +64,61 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   manual titles, three render paths, a resize hook) was ~600 lines and still
   looked wrong; the native one is ~300 and correct. If you find yourself
   writing code the widget is documented to provide, stop and delete it.
-- **Size preferences scale the tier, they don't replace it** (M7): the three
+- **Size preferences scale the tier, they don't replace it**: the three
   scales are inputs to `layoutFor()` in `src/core/layout.ts`, which stays the
   only file allowed to hold a size threshold. Never add a size constant in
   `src/ui/` that a preference could disagree with — `scramblePanel.ts`'s
-  duplicated `IMAGE_MAX_WIDTH/HEIGHT` is the existing example, and M7 deletes
-  it.
+  duplicated `IMAGE_MAX_WIDTH/HEIGHT` is the existing example.
 - **Every action needs a touch path, and touch must not become a second
-  input model** (M14; PLAN.md decision 15): gestures call the *same* entry
+  input model** (PLAN.md decision 15): gestures call the *same* entry
   points the keyboard does — `timer.keyDown('space', …)` /
   `keyDown('escape', …)`, and the same `remove()` → undo toast → `restore()`
   — so there stays one state machine, one deletion path and one undo. Check
   an action is reachable with no modifier keys and no accelerator before
   shipping it: Shift/Ctrl-click and Escape are the two things a phone does
   not have.
-- **Four relative paths are load-bearing for the packaged layout (M16):**
+- **Four relative paths are load-bearing for the packaged layout:**
   `styles.addFile('../style.css', …)` in `src/main.ts`, the
   `.ts`/`.js` worker branch in `src/scramble/service.ts`, `meta.ts`'s
   `../../package.json`, and the bare `node-gtk/register` specifier — which
   resolves **from the cwd**, so the `/usr/bin` launcher has to `cd` first.
   `src/` and `dist/` are siblings by design: moving either breaks all of
-  them. All four were verified working from `dist/` on 2026-10-06.
+  them. All four were verified working from `dist/`.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**
-  (measured, 2026-10-01) — the right home for a spinner/status that must
+  (measured) — the right home for a spinner/status that must
   not shift layout: overlay it on the content it annotates
   (`scramblePanel.ts`), never stack it underneath.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently in the UI: the chip renders empty in
   `Adw.ShortcutsDialog` and nothing says why — check a new entry with
-  `Gtk.acceleratorParse` (all 19 currently return ok, 2026-10-11). M10 adds
-  `app.importData` / `app.exportData` on `<Ctrl+O>` / `<Ctrl+Shift+S>` (both
-  free as of 2026-10-05): re-run the check and update the count when they
-  land.
+  `Gtk.acceleratorParse` (every current entry parses). The upcoming
+  `app.importData` / `app.exportData` accelerators (`<Ctrl+O>` /
+  `<Ctrl+Shift+S>`) need the same check when they land.
 - Statistics rules (ao5/ao12/mo3 trimming, DNF-as-∞, penalties) may be ported
   from csTimer's GPL source (`cs0x7f/cstimer`): port the math, not the DOM.
-  The same rule covers csTimer's **data-file format** (M10 —
-  `src/core/csTimerFormat.ts`, evidence in PLAN.md §5) and its **chart math**
-  (M12). Attribute csTimer and `cstimer_module` in the About dialog.
-- **Every user-visible string goes through `t()`** (M9, `src/core/i18n.ts`) —
+  The same rule covers csTimer's **data-file format** and its **chart math**
+  (evidence in PLAN.md §5). Attribute csTimer and `cstimer_module` in the
+  About dialog.
+- **Every user-visible string goes through `t()`** (`src/core/i18n.ts`) —
   no bare literals in `src/ui/`, in the menus, in the toasts or in the
   tooltips. The catalogs are TS modules, not JSON: `src/locales/en.ts` is the
   source of truth and every other locale is typed
   `Record<keyof typeof en, Message>`, so a missing or misspelled key is a
   **compile error**, never a raw key on screen. Times stay in `formatTime`
   (centiseconds are not localised) and the narrow list/edit timestamps stay
-  numeric — `Intl.DateTimeFormat` is for dates with room around them (the
-  M11 PB history).
-- **One version, one place** (M13): the app version comes from
+  numeric — `Intl.DateTimeFormat` is for dates with room around them.
+- **One version, one place**: the app version comes from
   `package.json`, read through `src/platform/meta.ts` — never a literal in
-  `main.ts` (the About dialog's hardcoded `'0.1.0'` is exactly the bug that
-  rule prevents). The About dialog is `Adw.AboutDialog`
+  `main.ts` (a literal drifts from `package.json` the moment either is
+  bumped). The About dialog is `Adw.AboutDialog`
   (`Adw.AboutWindow` is deprecated), and its licence enum is
   `Gtk.License.GPL_3_0`, which means *3.0 or later* and matches
   `package.json`'s `GPL-3.0-or-later` (`GPL_3_0_ONLY` does not).
-- **Say plainly that AI/LLM assistance was used** (user call, 2026-10-05):
-  the README's *How this was written* section and the About dialog's
-  `comments` line both carry it. Reword one and you reword both — they are
-  the same statement in two places.
+- **Say plainly that AI/LLM assistance was used**: the README's *How this
+  was written* section and the About dialog's `comments` line both carry it.
+  Reword one and you reword both — they are the same statement in two places.
 - **Code comments are for peer developers, not a development diary**
   ([CONTRIBUTING.md](./CONTRIBUTING.md) has the full policy): present tense,
   what the code does plus the one key reason it is that way. Keep gotchas
@@ -145,30 +140,29 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   often returns a stale frame and a frozen-looking window proves nothing.
   See `tools/README.md`; trust the app's own state/logs for timing.
 
-## Commands (available after the M0 scaffold)
+## Commands (available after the scaffold)
 
 - `npm run dev` — start app with CSS hot-reload
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
 - `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
-  (198 tests — M6's layout rules, the removal of `headerSlack`, plus the
-  per-solve ao5/ao12 columns and the sidebar-section partition; older counts:
-  180 at M5, 207 before 2026-10-03, 219 before 2026-10-04, 217 before the
-  timer nudge was dropped 2026-10-05)
+  (pure logic: timer state machine, stats math, sessions, layout rules,
+  scramble feed, store)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
 - `node --import tsx --import node-gtk/register tools/prefs_probe.mjs` —
-  drives the real Preferences dialog headlessly (M5); expect `ALL PASS`.
+  drives the real Preferences dialog headlessly; expect `ALL PASS`.
   Bare `--import tsx` dies with `ERR_UNSUPPORTED_ESM_URL_SCHEME` on `gi:` —
   the `node-gtk/register` import is mandatory.
 - `node --import tsx --import node-gtk/register tools/breakpoint_probe.mjs`
-  — M6 plumbing on a nested display: breakpoints apply/unapply, all five
-  bands fire on every crossing, `Gdk.Surface::layout` reports each resize.
+  — adaptive-layout plumbing on a nested display: breakpoints apply/unapply,
+  all five bands fire on every crossing, `Gdk.Surface::layout` reports each
+  resize.
 
 ### Manual UI verification (not part of `npm test`)
 
-- **No visual checks unless explicitly told** (user call, 2026-10-05): do not
+- **No visual checks unless explicitly told**: do not
   take screenshots or judge pixels yourself — they cost many tokens and are
   slow, and a screenshot of this app proves little (see the XGetImage trap
   below). Verify structure and state instead (typecheck, `npm test`,
@@ -179,17 +173,17 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   then prefix the app start and every `xtest.py`/`maim` command with
   `DISPLAY=:99`. Synthetic XTEST on the live Wayland session summons GNOME's
   RemoteDesktop consent **even for key taps**, and the unanswered dialog steals
-  focus mid-run (probes, 2026-10-02) — on a nested X server XTEST is plain X11
+  focus mid-run — on a nested X server XTEST is plain X11
   and never asks. Full recipe: `tools/README.md` → "Recommended workflow".
 - `python3 tools/timer_walk.py` — walks the timer through all five states and
   screenshots each; the app must be running on X11
   (`GDK_BACKEND=x11 npm start`).
 - `python3 tools/xtest.py --help` — scripted key injection + capture.
-- Session UI by keyboard (M3's real accelerators — no clicking needed):
+- Session UI by keyboard (real accelerators — no clicking needed):
   `<Ctrl+S>` opens the session menu (focus starts on its **first** item, so
   `Down`+`Return` picks the second session), `<Ctrl+N>` new, `F2` rename,
   `<Ctrl>Delete` delete.
-- Adaptive-layout walk (M6, keyboard only — full recipe in `tools/README.md`
+- Adaptive-layout walk (keyboard only — full recipe in `tools/README.md`
   → Recipes): `xdotool windowsize --sync` takes **surface** px (the widget is
   10 smaller, CSD shadow), and the app logs every decision to stderr —
   `[layout] WxH … drawer/side-by-side, selectors …` plus `[sidebar]` on each
@@ -198,7 +192,7 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
   the 360×360 floor (360×640 gives `350x630`).
 - Type chooser (same keyboard-only rule): **both layouts open the same
-  dialog** (2026-10-04). Above 540 the current type shows as the header's
+  dialog**. Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)
   and the control is an **icon-only button packed after refresh/copy** —
   walk `Tab` until the focus ring is on it (focus is sticky, so there is no
@@ -216,62 +210,56 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   type list holds only the browsed category's rows, refilled by the one
   `renderTypes()` when `browse` changes — `Gtk.ListBox.setFilterFunc` over
   all 206 rows costs ≈79ms *per change* through the node-gtk boundary even
-  with a trivial predicate (≈0.4ms/row-crossing, measured 2026-10-06; it was
-  most of the slow popup and ran twice per category click), while rebuilding
+  with a trivial predicate (≈0.4ms/row-crossing), while rebuilding
   the ~19 visible rows costs ≈3ms. One render path keyed on `browse` alone —
   layout state never reaches it — and an `Adw.Breakpoint`
   (`max-width: 540px` on the dialog, which clamps to the parent) drives
   `collapsed`. When collapsed the content page's header shows the split view's
   own back button to the category page; selecting a category pushes to its
   types. Navigation, selection and activation are the widgets' own (no custom
-  key controllers). There is no search entry (dropped 2026-10-05); type rows
+  key controllers). There is no search entry; type rows
   show just the type name. A dialog using a breakpoint needs an explicit
   `width-request`/`height-request` minimum (AdwDialog docs) or it logs
   "does not have a minimum size" warnings. CSS: the sidebar's `ListBox` gets
   `navigation-sidebar` (flat rows + selection pill), but its `ScrolledWindow`
   must **not** carry the `view` class — `.view` paints an opaque
   `@view_bg_color` over the split view's muted `.sidebar-pane` background and
-  the rail reads as a plain white box (fixed 2026-10-05). Same on the content
+  the rail reads as a plain white box. Same on the content
   side: the `boxed-list` `ListBox` draws its own card, so it gets 12px margins
   on all four sides (the frame floats inside the pane) and its scroller drops
   `view` too, else the opaque slab hides the card's rounded frame.
 - **If a run looks frozen or the frames look wrong, restart the app and
-  redo the measurement** (user, 2026-10-02): `pkill -f 'main[.]ts'`, start
+  redo the measurement**: `pkill -f 'main[.]ts'`, start
   it again, re-drive the step. A stale Xephyr session, a stale capture and a
   genuinely wedged layout all look alike from outside; only a fresh run
   separates them — and the log is what says which. Watch for the pkill
   self-match trap: use a pattern like `main[.]ts` that cannot match your own
   command line.
-- **Start the app detached from the tool call** (measured 2026-10-03): a
+- **Start the app detached from the tool call**: a
   `(npm start … &)` inside a shell command stays in that command's process
   group, and the group is reaped when the call returns — node then dies with
   **no log line, no core and no journal entry**, which reads exactly like a
-  crash. Running the identical command by hand left the app alive (user's
-  control), and a `setsid` start survived across calls:
+  crash. A `setsid` start survives across calls:
   `setsid bash -c 'DISPLAY=:99 GDK_BACKEND=x11 npm start > LOG 2>&1' &`.
   If a death has no `[exit]`/stack of its own, suspect this first — and only
   trust a death *inside* a call (aliveness checks after each step) as an app
   bug.
-- Layout-F anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
+- Focus anchors (keyboard-only, no pointer): `<Ctrl+S>` then `Escape`
   leaves focus on the **session row** (a popover restores focus to its
   anchor button). From there: `Shift+Tab` → sidebar app menu (then `Return`
   opens it; `Down`×3 + `Return` activates Keyboard Shortcuts — focus
-  starts on the menu's first item, and the order since 2026-10-11 is
+  starts on the menu's first item, and the order is
   Statistics, then Preferences / About / Shortcuts / Quit), `Shift+Tab`×6 →
   the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
   arrow keys scroll a tall one, the label itself is not focusable —,
-  image, type, copy, refresh; the header segment is measured
-  2026-10-08 — forward order is refresh → copy → select → image, the
-  image toggle is a stop since that day, and the centred title
-  (`Adw.WindowTitle`) is not focusable; the content header's app-functions
-  ⋮ was a stop until it joined this menu, 2026-10-11, and a pre-M4 ×7
-  counted a category dropdown that M4 merged) — `Return` closes the sidebar, and `<Ctrl+S>`
+  image, type, copy, refresh; the header's forward order is
+  refresh → copy → select → image, and the centred title
+  (`Adw.WindowTitle`) is not focusable) — `Return` closes the sidebar, and `<Ctrl+S>`
   from that state must reveal it *and* pop the menu (the `ensureVisible`
   path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
   separate toplevel — `Adw.ShortcutsDialog` draws inside the app's own
-  surface (the `Gtk.ShortcutsWindow` it replaced was a toplevel, so the old
-  recipe of `xwininfo -root -tree | grep "Keyboard Shortcuts"` now finds
-  nothing): capture it with `maim -i 0x<app window id>` and close it with
+  surface, so `xwininfo -root -tree` finds nothing for it: capture it with
+  `maim -i 0x<app window id>` and close it with
   `Escape`.
 - `node --import tsx --import node-gtk/register tools/keyprobe.mjs` — logs raw
   key events, for key-plumbing bugs.
@@ -282,19 +270,18 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   still return the pre-action frame). To *see* a sub-second state (e.g. a
   scramble generating), widen the window — switch to `4x4x4` (~1.2 s) —
   rather than racing 3x3's ~50 ms; or hand it to the user to watch.
-- **Hand interactive testing over early.** "There is too much time debugging
-  the testers … find a solution quick, or I can help testing" (user, M2): if
+- **Hand interactive testing over early.** If
   synthetic clicks keep landing off-window or the physical mouse keeps
   winning, switch to key-driven checks — and if the user is at the machine,
   ask them to click and watch the result instead of wrestling the warp.
-- **Drive the UI by keybindings, never synthetic mouse clicks** (user,
-  2026-10-01): every menu/dialog action under test gets an accelerator, and
+- **Drive the UI by keybindings, never synthetic mouse clicks**: every
+  menu/dialog action under test gets an accelerator, and
   tests trigger it with keys. Clicks need GNOME's RemoteDesktop portal
   approval, fight the physical mouse, and menus/popups photograph black
   anyway (tools/README traps 4–5). If an action has no key yet, add one —
   `app.setAccelsForAction(...)` in `src/main.ts` plus an
   `Adw.ShortcutsDialog` entry in `src/ui/shortcuts.ts` — before testing it.
-- **Gestures are drivable the same way** (M14): XTEST gives a long-press as
+- **Gestures are drivable the same way**: XTEST gives a long-press as
   button-down → sleep → button-up, and a swipe as button-down plus motion,
   so touch work is testable with no touch device at all. The rule above
   still holds — it is about *driving* the app, not about what input the app
@@ -318,15 +305,13 @@ Stackmat is a **long-term** goal (see PLAN.md), not current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; don't redesign them, follow the
 milestone blocks):
-**M7** size preferences → **M8** scramble type options (added 2026-10-10;
-independent of the rest, and its length control is deliberately **not**
+**M7** size preferences → **M8** scramble type options (independent of the
+rest, and its length control is deliberately **not**
 persisted — see PLAN.md §6) → **M9** i18n → **M10** csTimer import/export →
 **M11** records & statistics → **M12** charts → **M13** release readiness →
 **M14** touch input → **M15** phone-runtime verdict → **M16** AUR package
-(added 2026-10-06; blocked on M13 — PLAN.md §6 has the draft PKGBUILD and
+(blocked on M13 — PLAN.md §6 has the draft PKGBUILD and
 the size measurements).
-csTimer backup import/export used to be listed above as dropped; it was
-reinstated by that decision, and charts came off the long-term list with it.
 
 Only **M15** may reopen packaging any further (Flatpak, deb, AppStream).
 
