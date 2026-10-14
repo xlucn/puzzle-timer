@@ -1,5 +1,5 @@
 /*
- * preferences.test.ts — the settings contract (M5).
+ * preferences.test.ts — the settings contract.
  *
  * The file is hand-editable, so every field is validated on its own: a bad
  * value must fall back to its default without taking the rest down.

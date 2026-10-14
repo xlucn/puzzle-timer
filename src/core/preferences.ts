@@ -1,5 +1,5 @@
 /*
- * preferences.ts — the user's settings (M5).
+ * preferences.ts — the user's settings.
  *
  * Architecture rule (AGENTS.md): pure TypeScript — no `gi:*`, no Node APIs.
  * This module owns the *shape*, the defaults and the validation of what comes

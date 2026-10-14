@@ -590,7 +590,7 @@ describe('Timer — WCA inspection', () => {
   })
 })
 
-describe('Timer — live hold threshold (M5 preferences)', () => {
+describe('Timer — live hold threshold changes', () => {
   it('applies a new threshold to the very next hold', () => {
     const timer = new Timer({ holdThresholdMs: 300, inspection: false })
     timer.setHoldThreshold(50)

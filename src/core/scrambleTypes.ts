@@ -364,12 +364,10 @@ const TYPE_BY_ID = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type]))
 /**
  * Both levels of the menu on one line: `Category - type`.
  *
- * The one-line form of a type's name. Since 2026-10-08 the header shows the
- * split form instead (`scrambleTypeTitle`, the two lines of an
- * `Adw.WindowTitle`) and the picker's rows show bare names, so what is left
- * here is the canonical single-line rendering: the split form is
- * unit-tested to reassemble into exactly this, and `tools/shrink_demo.mjs`
- * prints it. A name is only unique inside its group, so the group is not
+ * The canonical single-line rendering of a type's name: the header's split
+ * form (`scrambleTypeTitle`, the two lines of an `Adw.WindowTitle`) is
+ * unit-tested to reassemble into exactly this, and the picker's rows show
+ * bare names. A name is only unique inside its group, so the group is not
  * decoration.
  *
  * An unknown id (a hand-edited session index) comes back verbatim: the UI
@@ -385,12 +383,11 @@ export function scrambleTypeLabel(id: string): string {
 
 /**
  * The same two levels as separate lines for `Adw.WindowTitle`: category over
- * type name (user call, 2026-10-08). Reassembling with `' - '` reproduces
- * `scrambleTypeLabel` for every id — that equivalence is unit-tested, so the
- * header's two views of a type cannot drift apart. An unknown id comes back
- * as the category with an empty name; `Adw.WindowTitle` hides an empty
- * subtitle natively (adw-window-title.c), so the verbatim id still shows,
- * alone on one line.
+ * type name. Reassembling with `' - '` reproduces `scrambleTypeLabel` for
+ * every id — that equivalence is unit-tested, so the header's two views of a
+ * type cannot drift apart. An unknown id comes back as the category with an
+ * empty name; `Adw.WindowTitle` hides an empty subtitle natively
+ * (adw-window-title.c), so the verbatim id still shows, alone on one line.
  */
 export function scrambleTypeTitle(id: string): { category: string; name: string } {
   const type = TYPE_BY_ID.get(id)

@@ -89,9 +89,9 @@ export class Timer {
   private startedAt = 0
   private resultMs: number | null = null
 
-  // WCA inspection. `inspectionOn` is the toggle (memory-only until M5's
-  // preferences; starts per config, ON in the app); `inspectionStartedAt > 0`
-  // marks the inspection that belongs to the solve being armed/timed.
+  // WCA inspection. `inspectionOn` is the toggle (starts per config, ON in
+  // the app); `inspectionStartedAt > 0` marks the inspection that belongs to
+  // the solve being armed/timed.
   private inspectionOn: boolean
   private inspectionStartedAt = 0
   private holdFromInspection = false
@@ -145,11 +145,11 @@ export class Timer {
   }
 
   /**
-   * Live-update the hold threshold (preferences, M5): the value the dialog
-   * writes lands here directly, so the next hold uses it. Clamped to the
-   * same range the preferences normaliser enforces — a bad number must not
-   * be able to make the timer unarmable (a threshold above 0 with no upper
-   * bound would).
+   * Live-update the hold threshold: the value the preferences dialog writes
+   * lands here directly, so the next hold uses it. Clamped to the same range
+   * the preferences normaliser enforces — a bad number must not be able to
+   * make the timer unarmable (a threshold above 0 with no upper bound
+   * would).
    */
   setHoldThreshold(ms: number): void {
     const clamped = Number.isFinite(ms)

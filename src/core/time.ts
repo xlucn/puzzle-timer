@@ -16,8 +16,8 @@ export interface FormatOptions {
 
 /**
  * A WCA penalty on a solve. Absent everywhere it is optional (`Solve.penalty`)
- * means the solve is OK — session files from M2 stay valid, and a file that
- * never had a penalty carries no new bytes.
+ * means the solve is OK — a file that never had a penalty carries no extra
+ * bytes.
  *
  *   'plus2' — 2 seconds added (measured time + 2000 ms)
  *   'dnf'   — the attempt does not count; in statistics it behaves as ∞
@@ -89,18 +89,6 @@ export function formatAverage(ms: number): string {
 }
 
 /**
- * Format an elapsed time the way a speedcubing timer displays it:
- *
- *   formatTime(0)        → "0.00"
- *   formatTime(999.9)    → "0.99"      (truncated, never rounded up)
- *   formatTime(12345)    → "12.34"
- *   formatTime(62345)    → "1:02.34"
- *   formatTime(62345, { useMs: true }) → "1:02.345"
- *
- * Truncation (not rounding) matters: a timer must never display a time that
- * is faster than the measured one.
- */
-/**
  * Wall-clock stamp for the solve list:
  *
  *   formatTimestamp(sameDay,   now) → "14:32"
@@ -141,8 +129,8 @@ const pad2 = (value: number): string => String(value).padStart(2, '0')
  *   formatFullTimestamp(...) → "2026-10-01 22:49:58"
  *
  * Local time, no "today" elision: this is the record's exact moment, read
- * as data (formatTimestamp's day-only form serves the narrow list column,
- * not a dialog whose whole point is the details — user call, 2026-10-01).
+ * as data — formatTimestamp's day-only form serves the narrow list column,
+ * not a dialog whose whole point is the details.
  */
 export function formatFullTimestamp(epochMs: number): string {
   if (!Number.isFinite(epochMs)) return ''
@@ -166,6 +154,18 @@ export function formatInspection(elapsedMs: number): string {
   return String(Math.min(15, remaining))
 }
 
+/**
+ * Format an elapsed time the way a speedcubing timer displays it:
+ *
+ *   formatTime(0)        → "0.00"
+ *   formatTime(999.9)    → "0.99"      (truncated, never rounded up)
+ *   formatTime(12345)    → "12.34"
+ *   formatTime(62345)    → "1:02.34"
+ *   formatTime(62345, { useMs: true }) → "1:02.345"
+ *
+ * Truncation (not rounding) matters: a timer must never display a time that
+ * is faster than the measured one.
+ */
 export function formatTime(ms: number, options: FormatOptions = {}): string {
   const useMs = options.useMs ?? false
 

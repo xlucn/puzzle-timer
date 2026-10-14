@@ -1,5 +1,5 @@
 /*
- * layout.ts — the adaptive-layout rules (M6), as pure functions.
+ * layout.ts — the adaptive-layout rules, as pure functions.
  *
  * Architecture rule (see AGENTS.md): pure TypeScript — no `gi:*`, no Node
  * APIs. The *window* measures itself — `Adw.Breakpoint::apply`/`unapply` and
@@ -14,10 +14,6 @@
  *                                drawer or side by side, the scramble
  *                                selectors in the header or in their own row,
  *                                how big the timer / scramble / diagram get.
- *
- * (The timer used to get offset aside for the diagram — `timerMargins` and
- * the phone-form `phoneFormFor` predicate lived here. Dropped 2026-10-05:
- * the timer stays centred at all times, user call.)
  *
  * Units are **logical px** everywhere: GTK lays out in logical px and the
  * compositor scales them up (tools/README.md trap 6), so these numbers match
@@ -42,10 +38,9 @@ export const BREAKPOINTS = {
   smallMax: 480,
   /**
    * 481–540 → tier C: the selectors leave the header for their own row.
-   * 540 since 2026-10-11 (user call): the type picker's collapse
-   * breakpoint shares this constant (scrambleTypePicker.ts), and540 puts a
-   * phone in landscape — its dialog wider than 540 — on the picker's
-   * two-column side.
+   * 540 also drives the type picker's collapse breakpoint
+   * (scrambleTypePicker.ts): it puts a phone in landscape — its dialog wider
+   * than 540 — on the picker's two-column side.
    */
   selectorRowMax: 540,
   /** 541–800 → tier B: the sidebar becomes an overlay drawer. */
@@ -71,18 +66,14 @@ export const BREAKPOINTS = {
    * `minHeight`): below it no tier could keep the layout deliberate.
    *
    * **360 is the GNOME HIG's minimum for the phone form factor** — see
-   * developer.gnome.org/hig/guidelines/adaptive.html (user call, 2026-10-03;
-   * it was 400 before, which was this project's own number). Height stays
-   * 360, so the floor is square, and the width now equals libadwaita's own
-   * `AdwWindow` default (360×200) — the value the breakpoint docs tell you to
-   * override when breakpoints are in use ("the minimum size must be larger
-   * than the smallest UI state"), which is what `minHeight` still does.
+   * developer.gnome.org/hig/guidelines/adaptive.html. Height stays 360, so
+   * the floor is square, and the width equals libadwaita's own `AdwWindow`
+   * default (360×200) — the value the breakpoint docs tell you to override
+   * when breakpoints are in use ("the minimum size must be larger than the
+   * smallest UI state"), which is what `minHeight` still does.
    *
-   * What used to hold this number up is gone: the selector was two
-   * Gtk.DropDowns wanting ~282px between them, and is now one ellipsizing
-   * button that moves into ToolbarView's bottom bar at ≤540. The floor is
-   * therefore the ToolbarView bars plus the tier-S content, which fit inside
-   * 350 (measured — see PLAN §7).
+   * What fits inside it: the `ToolbarView` bars plus the tier-S content,
+   * which fit inside 350 (measured — see PLAN §7).
    */
   minWidth: 360,
   minHeight: 360,
@@ -105,8 +96,7 @@ export interface LayoutTier {
   /** `maxContentHeight` of the scramble slot, in px. */
   scrambleMaxHeight: number
   /**
-   * `maxSidebarWidth` — the sidebar's cap; pinned at 320 for every tier
-   * (the growth steps 380/440 were removed, user call 2026-10-09).
+   * `maxSidebarWidth` — the sidebar's cap; the same 320 at every tier.
    */
   sidebarMax: number
   /** Diagram cap, px — the picture is scaled to fit before it is shown. */
@@ -123,17 +113,12 @@ const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, va
  * same output, no matter which one asked.
  *
  * Width bands alone decide everything, selectors included — the row takes them
- * over at `selectorRowMax` and nowhere else. It used to have a second,
- * label-driven escape hatch (`headerSlack`: move them out early when the
- * header's natural width exceeded its room), but that only existed because the
- * two Gtk.DropDowns could not shrink: Gtk.HeaderBar packs start widgets at
- * natural width, so long labels pushed the window controls off the edge. The
- * header's selector is now an icon button and the type text lives in the
+ * over at `selectorRowMax` and nowhere else. Long labels are not a factor:
+ * the header's selector is an icon button and the type text lives in the
  * window title, whose `Adw.WindowTitle` template labels ellipsize (see
  * src/ui/scrambleTypeButton.ts and src/ui/scrambleTypeTitle.ts), so the
- * header's *min* stays small, it absorbs
- * whatever it is given, and the labels have a place to go (user calls,
- * 2026-10-04, 2026-10-08).
+ * header's *min* stays small, it absorbs whatever it is given, and the labels
+ * have a place to go.
  */
 export function layoutFor(width: number, height: number): LayoutTier {
   const w = sane(width)
@@ -155,7 +140,7 @@ export function layoutFor(width: number, height: number): LayoutTier {
           : 'm',
     scrambleChars: 60,
     scrambleMaxHeight: h <= BREAKPOINTS.shortMax ? 100 : 160,
-    sidebarMax: 320, // the M2 default — and, since 2026-10-09, every tier's cap
+    sidebarMax: 320, // pinned at every tier
     diagramMaxWidth: 440,
     diagramMaxHeight: 150,
   }

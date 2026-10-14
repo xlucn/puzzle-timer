@@ -3,9 +3,10 @@
  * data dir.
  *
  * These live beside the platform code rather than in src/core (see AGENTS.md)
- * because they are the one place the migration is proved: M2 left a single
- * `sessions/default.json` and no index, and M3 must adopt it without losing a
- * solve. Everything is pure Node — no display server, same as the core tests.
+ * because they are the one place the migration is proved: the legacy layout
+ * left a single `sessions/default.json` and no index, and the loader must
+ * adopt it without losing a solve. Everything is pure Node — no display
+ * server, same as the core tests.
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -60,7 +61,7 @@ afterAll(() => {
   delete process.env.XDG_DATA_HOME
 })
 
-describe('store — the M2 → M3 migration', () => {
+describe('store — the index-less legacy migration', () => {
   it('adopts an index-less default.json as the Default session', () => {
     writeFile(
       'default.json',
@@ -254,8 +255,8 @@ describe('store — session files', () => {
   })
 })
 
-describe('store — penalties and comments (M4)', () => {
-  it('round-trips an M4 solve with a penalty and a comment', () => {
+describe('store — penalties and comments', () => {
+  it('round-trips a solve with a penalty and a comment', () => {
     store.scheduleSave('practice', [
       { ...solve(1), penalty: 'plus2', comment: 'lockup' },
       { ...solve(2), penalty: 'dnf' },
@@ -273,7 +274,7 @@ describe('store — penalties and comments (M4)', () => {
     ])
   })
 
-  it('still loads an M2 file unchanged — both fields are optional', () => {
+  it('still loads a file written before penalties existed — both fields are optional', () => {
     writeFile(
       'default.json',
       `${JSON.stringify({ version: 1, solves: [solve(1)] }, null, 2)}\n`,
@@ -354,7 +355,7 @@ describe('store — deleting a session', () => {
   })
 })
 
-describe('store — preferences (M5)', () => {
+describe('store — preferences', () => {
   it('starts from the defaults when no file exists', () => {
     const loaded = store.loadPreferences()
     expect(loaded.notice).toBeNull()

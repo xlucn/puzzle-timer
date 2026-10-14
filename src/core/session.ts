@@ -33,7 +33,8 @@ export interface Solve {
   createdAtMs: number
   /**
    * WCA-style result penalty; absent means OK (see src/core/time.ts).
-   * Optional so session files written before M4 still load unchanged.
+   * Optional so session files written before penalties existed still load
+   * unchanged.
    */
   penalty?: Penalty
   /** Free-text note shown next to the time. */
