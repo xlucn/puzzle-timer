@@ -26,6 +26,7 @@ import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 import { Session } from '../src/core/session.js'
+import { SessionLibrary } from '../src/core/sessionLibrary.js'
 import { createTimesList } from '../src/ui/timesList.js'
 
 const log = (...args) => console.error('[probe]', ...args)
@@ -43,14 +44,29 @@ app.on('activate', () => {
     { id: 1, timeMs: 64_500, scramble: "R U R' U'", scrambleType: '333', createdAtMs: Date.now() - 300_000 },
     { id: 2, timeMs: 12_340, scramble: 'F2 L2', scrambleType: '333', createdAtMs: Date.now() - 60_000 },
   ])
-  const list = createTimesList({ session, onDelete: () => {} })
-
   const window = new Adw.ApplicationWindow({ application: app, title: 'SidebarProbe' })
+  // The M3+ options (getSession; the header chrome): stand-ins of the same
+  // widget kinds as main.ts's, so the session row and header contribute the
+  // widths they do in the app.
+  const list = createTimesList({
+    library: new SessionLibrary(),
+    getSession: () => session,
+    onDelete: () => {},
+    appName: 'SidebarProbe',
+    appMenu: new Gtk.MenuButton({
+      iconName: 'open-menu-symbolic',
+      primary: true,
+      tooltipText: 'Main menu',
+    }),
+    sessionControl: new Gtk.MenuButton({ label: 'Session' }),
+    window,
+  })
+
   // Identical settings to main.ts.
   const split = new Adw.OverlaySplitView({
     content: new Gtk.Label({ label: 'timer area', hexpand: true }),
     sidebar: list.widget,
-    sidebarPosition: Gtk.PackType.END,
+    sidebarPosition: Gtk.PackType.START,
     minSidebarWidth: 240,
     maxSidebarWidth: 320,
     sidebarWidthUnit: Adw.LengthUnit.PX,
