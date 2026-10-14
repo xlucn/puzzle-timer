@@ -11,30 +11,24 @@
  * tear everything down from the window's close handler / quit action.
  * See: https://github.com/romgrk/node-gtk/blob/master/doc/importing.md
  *
- * M2 scope: solving. Every finished solve is recorded against the scramble
+ * What lives where: every finished solve is recorded against the scramble
  * that was on screen (src/core/session.ts), listed newest-first in a
  * Gtk.ColumnView sidebar (src/ui/timesList.ts), and persisted to an atomic
- * JSON file in the XDG data dir (src/platform/store.ts) — so the list
- * survives a restart. Select rows (click, Shift/Ctrl-click) and the sidebar's
- * toolbar — or the Delete key — remove them together, one undo toast for the
- * whole batch. Scrambles still come from cstimer_module in
- * a worker (M1, see src/scramble/); statistics (M4) come next — see PLAN.md.
- *
- * M3 scope: sessions. A session list on disk (index + one solve file per
- * session, src/platform/store.ts) around a core SessionLibrary
+ * JSON file in the XDG data dir (src/platform/store.ts). Scrambles come from
+ * cstimer_module in a worker (src/scramble/) behind the prefetch feed.
+ * Sessions live on disk (index + one solve file per session,
+ * src/platform/store.ts) around a core SessionLibrary
  * (src/core/sessionLibrary.ts) that can create, rename, switch and delete;
  * the sidebar's session menu (src/ui/sessionMenu.ts) drives it, and the
  * sidebar follows whichever session is active. All timing, scramble, session
  * and solve policy live in src/core/, which knows nothing about GTK.
  *
- * Layout F (2026-10-01): the sidebar owns the app chrome — its header holds
- * the app name and the app menu, the session switch sits under it, and the
- * solve list under that. The content header keeps only the timer's controls:
- * sidebar toggle, category/type switchers, refresh, the image toggle, and
- * the window controls. The app menu is the app's one menu since 2026-10-11
- * (user call, merging the content header's App functions button into it):
- * Statistics, then a separator, then Preferences / About / Keyboard
- * Shortcuts / Quit.
+ * Layout: the sidebar owns the app chrome — its header holds the app name
+ * and the app menu, the session switch sits under it, and the solve list
+ * under that. The content header keeps only the timer's controls: sidebar
+ * toggle, scramble type title/button, refresh, the image toggle, and the
+ * window controls. The app menu is the app's one menu: Statistics, then a
+ * separator, then Preferences / About / Keyboard Shortcuts / Quit.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -126,33 +120,30 @@ app.on('activate', () => {
 
   const window = new Adw.ApplicationWindow({ application: app })
   window.setTitle(APP_NAME)
-  // 900×540 again (layout F, 2026-10-01): the content header lost the window
-  // title and the session pill to the sidebar, dropping its natural demand to
-  // ~560 (start: toggle + category/type + refresh; end: app-functions +
-  // window controls). At 900 the sidebar takes its 240 floor (0.25W = 225
-  // clamps up), so the header gets 660 ≥ ~560 — verified uncut after the
-  // change. This is only the startup size: M6's breakpoints decide what the
-  // layout does when the window is dragged smaller or grown (see applyLayout
-  // at the bottom of this function).
+  // 900×540: the content header lost the window title and the session pill
+  // to the sidebar, dropping its natural demand to ~560 (start: toggle +
+  // type button + refresh; end: image toggle + window controls). At 900 the
+  // sidebar takes its 240 floor (0.25W = 225 clamps up), so the header gets
+  // 660 ≥ ~560 — verified uncut. This is only the startup size: the
+  // breakpoints below decide what the layout does when the window is dragged
+  // smaller or grown (see applyLayout at the bottom of this function).
   window.setDefaultSize(900, 540)
-  // M6: the window stops here, and it is a floor rather than a suggestion.
+  // The window stops here, and it is a floor rather than a suggestion.
   // AdwWindow's own default minimum is 360×200, which libadwaita's breakpoint
   // docs explicitly tell you to override ("the minimum size must be larger
-  // than the smallest UI state"): measured 2026-10-08, at 400 the header's
-  // own minimum (~282 — window controls, sidebar toggle, the centred type
-  // title, and the app-functions button since moved into the sidebar menu;
-  // selectors in the bottom row) already claims most of the
+  // than the smallest UI state"): measured at 400 the header's own minimum
+  // (~282 — window controls, sidebar toggle, the centred type title, and the
+  // app menu; selectors in the bottom row) already claims most of the
   // width, and below 360 no tier in src/core/layout.ts could keep the layout
   // deliberate.
   window.widthRequest = BREAKPOINTS.minWidth
   window.heightRequest = BREAKPOINTS.minHeight
 
   // ---- content header: the timer's controls ------------------------------
-  // No *app name* here (layout F, 2026-01-01): that is the *sidebar's*
-  // header, and the window title still goes to the taskbar. Dropping it (and
-  // the session pill that used to sit here) is part of what lets the header
-  // render uncut at 900 px — see the setDefaultSize comment above. The centre
-  // slot does show a title since 2026-10-08: the scramble type as
+  // No *app name* here: that is the *sidebar's* header, and the window title
+  // still goes to the taskbar. Leaving the centre slot free is part of what
+  // lets the header render uncut at 900 px — see the setDefaultSize comment
+  // above. The centre slot does show a title: the scramble type as
   // title/subtitle, assigned once below as the titleWidget.
   const header = new Adw.HeaderBar({ showTitle: false })
 
@@ -179,7 +170,7 @@ app.on('activate', () => {
   if (index.notice !== null) console.error(`[store] ${index.notice}`)
   const library = new SessionLibrary(index.sessions, index.activeId)
 
-  // Settings (M5): one object for the whole run. Every change goes through
+  // Settings: one object for the whole run. Every change goes through
   // applyPreferences() below (defined with the timer wiring), so the file on
   // disk and the running app can never hold different values.
   const loadedPrefs = store.loadPreferences()
@@ -286,10 +277,10 @@ app.on('activate', () => {
     if (removed.length > 0) offerUndo(target, removed)
   }
 
-  // The session control lives in the sidebar (layout F): a full-width row
-  // under the sidebar's header, labeling the list it switches — so it is
-  // built first and handed to createTimesList below. Ctrl+S can arrive while
-  // the sidebar is closed, and a popover cannot anchor to an unmapped
+  // The session control lives in the sidebar: a full-width row under the
+  // sidebar's header, labeling the list it switches — so it is built first
+  // and handed to createTimesList below. Ctrl+S can arrive while the
+  // sidebar is closed, and a popover cannot anchor to an unmapped
   // widget: ensureVisible() reveals the sidebar through the toggle (which is
   // already in both directions sync with the split view), and the menu pops
   // itself once the button has been mapped.
@@ -301,16 +292,14 @@ app.on('activate', () => {
     ensureVisible: () => sidebarToggle.setActive(true),
   })
 
-  // The one app menu, in the sidebar (user call, 2026-10-11): the content
-  // header's App functions button merges into it — Statistics first (its
-  // dialog is src/ui/statsPanel.ts), then a second section, which is what
-  // renders the separator, holding Preferences (M5; src/ui/preferences.ts
-  // owns every setting, the WCA inspection toggle included, user call
-  // 2026-10-02), the About dialog, the keyboard reference and Quit.
-  // Layout F (2026-10-01) had it hold only the last three —
-  // application-level actions, which is what a primary menu is for. The
-  // actions and their accels (Ctrl+T / Ctrl+, / Ctrl+Q) are untouched;
-  // only the entry point moved.
+  // The one app menu, in the sidebar: the content header's App functions
+  // button merges into it — Statistics first (its dialog is
+  // src/ui/statsPanel.ts), then a second section, which is what renders the
+  // separator, holding Preferences (src/ui/preferences.ts owns every
+  // setting, the WCA inspection toggle included), the About dialog, the
+  // keyboard reference and Quit. A primary menu holds application-level
+  // actions, which is what the second section is. The actions and their
+  // accels (Ctrl+T / Ctrl+, / Ctrl+Q) are independent of the entry point.
   const statisticsSection = new Gio.Menu()
   statisticsSection.append('Statistics', 'app.statistics')
   const applicationSection = new Gio.Menu()
@@ -339,19 +328,19 @@ app.on('activate', () => {
   })
 
   // ---- timer + scramble: worker-backed generation, prefetched by the feed -
-  // The timer starts on the stored preferences (M5): the hold threshold it
+  // The timer starts on the stored preferences: the hold threshold it
   // arms on and whether the first release begins an inspection.
   const timer = new Timer({
     holdThresholdMs: prefs.holdThresholdMs,
     startKey: START_KEY,
     inspection: prefs.inspection,
   })
-  // The ao5/ao12 strip rides under the timer's hint line (M4): same live
+  // The ao5/ao12 strip rides under the timer's hint line: same live
   // session reading as the list, so it tracks adds, penalties and switches.
   const statsStrip = createStatsStrip({ library, getSession: activeSession })
   const timerView = createTimerView({ statsStrip })
 
-  // ---- scramble images (M5) ---------------------------------------------
+  // ---- scramble images ----------------------------------------------------
   // The SVG rides in with its scramble (one worker round trip — see
   // scrambleWithImage), so the panel can put text and diagram on screen in
   // the same frame and the timer never moves twice. The cache lives here
@@ -391,7 +380,7 @@ app.on('activate', () => {
 
   const scramblePanel = createScramblePanel({ getImage: imageFor })
   /**
-   * M6: flips to true once the widgets the adaptive layout drives all exist.
+   * Flips to true once the widgets the adaptive layout drives all exist.
    * The feed can announce before then — a session with a stored scramble type
    * retypes at startup — so the layout functions (declared below, hoisted)
    * have to no-op rather than read a half-built tree.
@@ -430,10 +419,10 @@ app.on('activate', () => {
     window,
   })
 
-  // The header's display (user call, 2026-10-08): category over type as an
+  // The header's display: category over type as an
   // Adw.WindowTitle — the slot a HeaderBar centres natively, with ellipsizing
-  // template labels so a long name cannot raise the header's minimum (the
-  // old headerSlack hazard). Assigned once here and never reparented: the
+  // template labels so a long name cannot raise the header's minimum.
+  // Assigned once here and never reparented: the
   // stale HeaderBar:title-widget trap only exists for widgets that leave.
   const typeTitle = createScrambleTypeTitle({ initialType: SCRAMBLE_DEFAULT_TYPE })
   header.titleWidget = typeTitle.widget
@@ -469,17 +458,16 @@ app.on('activate', () => {
   refreshScramble.on('clicked', () => feed.refresh())
   header.packStart(refreshScramble)
 
-  // Copy, beside refresh (user call, 2026-10-02): the scramble is no longer
-  // selectable — see src/ui/scramblePanel.ts — so this button, and the
-  // accelerator below, are *the* ways to get the text out, by mouse or by
-  // keyboard, and they copy what is on screen whether it wrapped or not.
-  // GDK4 *does* have Gdk.Clipboard.set_text(), but it is marked
-  // `introspectable="0"` in the gir, so it is dropped from the typelib and no
-  // binding can call it — probed 2026-10-07: GdkClipboard's prototype carries
-  // setContent/set/readTextAsync and no setText (nor setTexture/setValue).
-  // The clipboard therefore takes a content provider, and text is bytes under
-  // a mime type (`text/plain;charset=utf-8` is the one every paste target
-  // asks for).
+  // Copy, beside refresh: the scramble is not selectable — see
+  // src/ui/scramblePanel.ts — so this button, and the accelerator below, are
+  // *the* ways to get the text out, by mouse or by keyboard, and they copy
+  // what is on screen whether it wrapped or not. GDK4 *does* have
+  // Gdk.Clipboard.set_text(), but it is marked `introspectable="0"` in the
+  // gir, so it is dropped from the typelib and no binding can call it —
+  // GdkClipboard's prototype carries setContent/set/readTextAsync and no
+  // setText (nor setTexture/setValue). The clipboard therefore takes a
+  // content provider, and text is bytes under a mime type
+  // (`text/plain;charset=utf-8` is the one every paste target asks for).
   const runCopy = (): void => {
     const scramble = feed.state.scramble
     // Null only while the very first scramble is still generating — nothing
@@ -507,19 +495,17 @@ app.on('activate', () => {
   app.setAccelsForAction('app.copy-scramble', ['<Control>c'])
   header.packStart(copyScramble)
 
-  // The type chooser (user call, 2026-10-08): icon-only — the label lives in
-  // the header title now — packed after copy, so header and bottom bar share
-  // one order: sidebar, refresh, copy, select. It opens the same picker the
-  // row's chooser does (one dialog, one onChange path).
+  // The type chooser: icon-only — the label lives in the header title —
+  // packed after copy, so header and bottom bar share one order: sidebar,
+  // refresh, copy, select. It opens the same picker the row's chooser does
+  // (one dialog, one onChange path).
   const typeButton = createScrambleTypeButton({ onActivate: () => typePicker.open() })
   header.packStart(typeButton.widget)
 
-  // The image toggle (user call, 2026-10-08): right side of whichever bar
-  // the layout shows — packEnd in the header, where it is the rightmost
-  // app control since the app-functions ⋮ joined the sidebar menu
-  // (2026-10-11), and placeSelectors moves it into the bottom bar at ≤540
-  // with
-  // halign END (one expander = the whole slack, button stays natural —
+  // The image toggle: right side of whichever bar the layout shows — packEnd
+  // in the header, where it is the rightmost app control (the app menu lives
+  // in the sidebar), and placeSelectors moves it into the bottom bar at ≤540
+  // with halign END (one expander = the whole slack, button stays natural —
   // measured). It drives the *existing* scrambleImage preference through
   // applyPreferences below — the same path the Preferences SwitchRow uses,
   // so prefs.json, the dialog and this button can never disagree — and its
@@ -571,13 +557,11 @@ app.on('activate', () => {
   // ---- content: adaptive top and bottom bars around scramble + timer ------
   // At ≤540 the selectors leave the header and move into ToolbarView's
   // bottom-bar slot. All four controls — refresh, copy, select and the image
-  // toggle — move together between header and bar (user call, 2026-10-08);
-  // the box is just the full-width toolbar surface around them — the three
-  // scramble buttons left-packed at natural width (user call: left, not
-  // equal thirds; the inter-button gap
-  // comes from Adwaita's .toolbar style, measured 2026-10-08), the image
-  // toggle right-aligned at the far edge (halign END + the bar's only
-  // hexpand), and
+  // toggle — move together between header and bar; the box is just the
+  // full-width toolbar surface around them — the three scramble buttons
+  // left-packed at natural width (left, not equal thirds; the inter-button
+  // gap comes from Adwaita's .toolbar style, measured), the image toggle
+  // right-aligned at the far edge (halign END + the bar's only hexpand), and
   // ToolbarView supplies the native flat bar styling and accounts for the bar
   // separately from its content. updateDiagram uses its measured bottom-bar
   // height to keep the overlaid diagram clear of the bar.
@@ -603,8 +587,8 @@ app.on('activate', () => {
   content.addTopBar(header)
   content.addBottomBar(selectorBar)
 
-  // The diagram floats in the view's bottom-right corner (user call,
-  // 2026-10-02). GTK4 does not count overlay children in the parent's size
+  // The diagram floats in the view's bottom-right corner. GTK4 does not
+  // count overlay children in the parent's size
   // request — the same rule the spinner slot relies on — so the picture
   // takes no layout space at any window size: the text and timer sit
   // exactly as they do without it, and switching it off reflows nothing.
@@ -613,9 +597,9 @@ app.on('activate', () => {
 
   // The solve list is a sidebar over the left-hand edge: it can be closed,
   // and closing it hands the full width back to the timer. START puts it
-  // left; nothing else claims that side (PLAN §7). `collapsed` is *not* set
+  // left; nothing else claims that side. `collapsed` is *not* set
   // here — applyLayout() below decides, per window width: side by side while
-  // there is room for both, an overlay drawer when there is not (M6). With
+  // there is room for both, an overlay drawer when there is not. With
   // `pinSidebar` at its default, collapsing hides the list and uncollapsing
   // shows it again, so a resize out and back restores what you had.
   const split = new Adw.OverlaySplitView({
@@ -628,19 +612,19 @@ app.on('activate', () => {
     showSidebar: sidebarToggle.active,
   })
 
-  // The list is a drawer below 800px (M6). Adw.OverlaySplitView with its
+  // The list is a drawer below 800px. Adw.OverlaySplitView with its
   // default `pin-sidebar=false` already has an opinion about that: collapsing
   // auto-hides the sidebar, uncollapsing auto-shows it — the contract
   // libadwaita's own "Overlay Sidebar" demo (adaptive-layouts.html) builds on.
   // We take it as-is and wire it the way the demo does, with one bidirectional
   // binding, instead of keeping a second copy of "should the list be up?" in
-  // our own code. Earlier M6 code had exactly that (`sidebarWanted` + handlers
-  // around `notify::show-sidebar`) and it fought libadwaita: every crossing of
-  // the 800px threshold became an override the property immediately re-reported
-  // — 43 flips in one session, two handler re-entries each — i.e. a state
-  // machine whose only reachable output was the one it had started from. One
-  // binding, one direction of truth: the property is the state, the toggle is
-  // a view of it, and Ctrl+B/Escape below are just other callers of
+  // our own code. A `sidebarWanted` flag + handlers around
+  // `notify::show-sidebar` fought libadwaita: every crossing of the 800px
+  // threshold became an override the property immediately re-reported — 43
+  // flips in one session, two handler re-entries each — i.e. a state machine
+  // whose only reachable output was the one it had started from. One binding,
+  // one direction of truth: the property is the state, the toggle is a view
+  // of it, and Ctrl+B/Escape below are just other callers of
   // setShowSidebar().
   split.bindProperty(
     'show-sidebar',
@@ -675,7 +659,7 @@ app.on('activate', () => {
   toastOverlay.setChild(split)
   window.setContent(toastOverlay)
 
-  // ---- adaptive layout (M6) ---------------------------------------------
+  // ---- adaptive layout ----------------------------------------------------
   // Every threshold lives in src/core/layout.ts — pure and unit tested — so
   // this block only *measures* the window and pushes the decisions out. Three
   // things call in, and each is needed:
@@ -712,16 +696,15 @@ app.on('activate', () => {
   /**
    * Moves the scramble controls between the header and the bottom bar.
    *
-   * All three move together (user call, 2026-10-08) — the common GTK4
-   * adaptive pattern: narrow keeps the header to toggle and title, and
-   * gives the bar the actions. In both places they sit at natural
-   * width — in the bar that left-packs them (user call, 2026-10-08), in the
-   * header packStart already did — so nothing but the parent changes. The
-   * image toggle rides along to the *right* end of each bar: it is packed
-   * with packEnd in the header and halign END in the bar (its hexpand makes
-   * it the bar's single expander, so it takes the slack and keeps its
-   * natural width — measured, no spacer needed). The *title* never moves:
-   * it is the HeaderBar's titleWidget for every width, so the
+   * All three move together — the common GTK4 adaptive pattern: narrow keeps
+   * the header to toggle and title, and gives the bar the actions. In both
+   * places they sit at natural width — in the bar that left-packs them, in
+   * the header packStart already did — so nothing but the parent changes.
+   * The image toggle rides along to the *right* end of each bar: it is
+   * packed with packEnd in the header and halign END in the bar (its
+   * hexpand makes it the bar's single expander, so it takes the slack and
+   * keeps its natural width — measured, no spacer needed). The *title* never
+   * moves: it is the HeaderBar's titleWidget for every width, so the
    * stale-title-widget trap (remove() clears the bin but not the property)
    * is unreachable by construction.
    */
@@ -832,7 +815,7 @@ app.on('activate', () => {
     scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
     updateDiagram()
 
-    // One line per *change* — the M6 evidence trail when the window is walked
+    // One line per *change* — the evidence trail when the window is walked
     // through its bands (and a cheap way to spot a tier decided from a stale
     // measurement, which is the one thing a breakpoint could get wrong).
     const signature =
@@ -851,9 +834,8 @@ app.on('activate', () => {
    * overlay child is allocated, not requested — see tools/README.md, so this
    * is where clipping shows up), and lift it clear of the bottom bar, which
    * owns the view's bottom edge when revealed. The timer is *not* touched —
-   * it stays centred at all times (the nudge was dropped, user call,
-   * 2026-10-05). Idempotent, and writes only on change, so the frame-clock
-   * hook below cannot feed itself.
+   * it stays centred at all times. Idempotent, and writes only on change, so
+   * the frame-clock hook below cannot feed itself.
    */
   function updateDiagram(): void {
     if (!layoutReady) return
@@ -987,12 +969,12 @@ app.on('activate', () => {
     if (key !== null) timer.keyUp(key, nowMs())
   })
 
-  // M6: Escape also closes an open drawer — in the *bubble* phase, which runs
+  // Escape also closes an open drawer — in the *bubble* phase, which runs
   // last. Anything that wanted the key first has already had it by then (an
   // open dialog or popover, or the capture controller above stopping a run),
   // so the drawer only gives way when Escape had nothing better to do. The
   // timer's own Escape job — cancelling an inspection — happened in capture
-  // and is unaffected: both can fire, which is what M6 specified.
+  // and is unaffected: both can fire.
   const drawerKeyController = new Gtk.EventControllerKey()
   drawerKeyController.setPropagationPhase(Gtk.PropagationPhase.BUBBLE)
   window.addController(drawerKeyController)
@@ -1037,7 +1019,7 @@ app.on('activate', () => {
   app.addAction(aboutAction)
 
   // The keyboard reference (src/ui/shortcuts.ts), opened from the sidebar's
-  // app menu or Ctrl+? (user call, 2026-10-11). Built fresh on open, like
+  // app menu or Ctrl+?. Built fresh on open, like
   // Preferences: an AdwDialog is gone when it closes, so there is nothing
   // to cache — and construction stays inside the action, so a node-gtk
   // failure around it costs this menu item rather than the startup path.
@@ -1050,22 +1032,20 @@ app.on('activate', () => {
   app.setAccelsForAction('app.shortcuts', ['<Control>question'])
 
   // The Statistics dialog (src/ui/statsPanel.ts): the full current/best/
-  // target table behind the app-functions menu. The component registers its
+  // target table behind the app menu. The component registers its
   // own action, like the session menu does.
   createStatsPanel({ app, window, library, getSession: activeSession })
-  // Keybindings for the app-functions menu (user call, 2026-10-01): every
-  // menu action must be reachable from the keyboard, so tests never need a
-  // synthetic click (tools/README traps 4–5). Ctrl+T: Statistics (Ctrl+S is
-  // the session menu).
+  // Keybindings for the app menu: every menu action must be reachable from
+  // the keyboard, so tests never need a synthetic click (tools/README traps
+  // 4–5). Ctrl+T: Statistics (Ctrl+S is the session menu).
   app.setAccelsForAction('app.statistics', ['<Control>t'])
 
   /**
-   * The single path for a settings change (M5): merge the patch into this
-   * run's Preferences, persist it, then push the new values into everything
-   * they drive. The preferences dialog and the header's image toggle (user
-   * call, 2026-10-08) are the only writers — both come through here (the
-   * app-functions menu's inspection check item was retired, user call
-   * 2026-10-02), so the timer and prefs.json can never disagree.
+   * The single path for a settings change: merge the patch into this run's
+   * Preferences, persist it, then push the new values into everything they
+   * drive. The preferences dialog and the header's image toggle are the only
+   * writers — both come through here, so the timer and prefs.json can never
+   * disagree.
    */
   const applyPreferences = (patch: Partial<Preferences>): void => {
     prefs = { ...prefs, ...patch }
@@ -1096,14 +1076,15 @@ app.on('activate', () => {
   })
   app.setAccelsForAction('app.preferences', ['<Control>comma'])
 
-  // ---- editing a solve (M4 stage 4) --------------------------------------
+  // ---- editing a solve ----------------------------------------------------
   // Ctrl+1/2/3 = OK / +2 / DNF on the *newest* solve of the active session
-  // (PLAN's "no Ctrl+Z"): repeating a penalty clears it, so Ctrl+2 twice is
-  // its own undo. They are quick grades, deliberately separate from the
-  // edit dialog. Ctrl+E opens the one edit dialog — penalty (OK/+2/DNF) and
-  // comment together — on the selection when exactly one row is on it, else
-  // the newest solve; the footer's Edit button and a double-click on a row
-  // reach the same dialog (src/ui/timesList.ts).
+  // (deliberately no Ctrl+Z: a shortcut that deletes a record is not
+  // intuitive — deletions undo from their toast): repeating a penalty clears
+  // it, so Ctrl+2 twice is its own undo. They are quick grades, deliberately
+  // separate from the edit dialog. Ctrl+E opens the one edit dialog —
+  // penalty (OK/+2/DNF) and comment together — on the selection when exactly
+  // one row is on it, else the newest solve; the footer's Edit button and a
+  // double-click on a row reach the same dialog (src/ui/timesList.ts).
   const applyLatest = (penalty: Penalty | undefined): void => {
     const session = activeSession()
     const solves = session.solves
@@ -1154,7 +1135,7 @@ app.on('activate', () => {
   styles.install() // flush queued styles and start the dev hot-reload watcher
   render() // paint the initial state before anything happens
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
-  layoutReady = true // the adaptive layout may now measure and write (M6)
+  layoutReady = true // the adaptive layout may now measure and write
   // Before the first frame, with the size we asked for: the first measurement
   // of the tree happens during present(), and it must already be the right
   // tier — otherwise a long label in the header overflows that first frame
@@ -1164,7 +1145,7 @@ app.on('activate', () => {
   window.present()
   applyLayout() // the tier for the size we were actually given
 
-  // The two continuous sources (M6), both only available once realized: a
+  // The two continuous sources, both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
   // but the short-window tier does), and any repaint — where the diagram's
   // post-allocation numbers live and where applyLayout re-runs with fresh
