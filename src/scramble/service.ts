@@ -33,9 +33,9 @@ export interface ScrambleService {
   /** Generate one scramble. Rejects if the worker fails, stalls or throws. */
   scramble(type: string, length: number): Promise<string>
   /**
-   * Generate one scramble *and* its SVG image in a single round trip (M5):
-   * the panel needs both at the same instant, and a request that lands after
-   * the text would move the timer after it had settled.
+   * Generate one scramble *and* its SVG image in a single round trip: the
+   * panel needs both at the same instant, and a request that lands after the
+   * text would move the timer after it had settled.
    */
   scrambleWithImage(type: string, length: number): Promise<ScramblePayload>
   /** SVG of an already-generated scramble; null when its type has none. */

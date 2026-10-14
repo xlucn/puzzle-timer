@@ -7,18 +7,18 @@
  * and the two agree: `XDG_DATA_HOME` when it is absolute (per the spec a
  * relative value is ignored), otherwise `~/.local/share`.
  *
- * Layout (M3, plus M5's preferences):
+ * Layout:
  *
- *   ~/.local/share/cstimer-gtk/prefs.json               app settings (M5)
+ *   ~/.local/share/cstimer-gtk/prefs.json               app settings
  *   ~/.local/share/cstimer-gtk/sessions/_index.json     which sessions exist + which is active
  *   ~/.local/share/cstimer-gtk/sessions/default.json    one file of solves per session
  *
  * The index is the source of truth for names and the active session; each
- * session file keeps the shape M2 wrote (`{version: 1, solves}`), so
- * `default.json` from M2 *is* the migration — a missing index is rebuilt from
- * whatever session files are on disk, which is also the recovery path when an
- * index is corrupted or hand-edited. `_index.json` cannot be mistaken for a
- * session file: generated ids never start with `_`.
+ * session file keeps the original shape (`{version: 1, solves}`), so a
+ * pre-index `default.json` *is* the migration — a missing index is rebuilt
+ * from whatever session files are on disk, which is also the recovery path
+ * when an index is corrupted or hand-edited. `_index.json` cannot be
+ * mistaken for a session file: generated ids never start with `_`.
  *
  * Writes are atomic — the bytes go to `<file>.tmp` first and are renamed over
  * the target, so a crash mid-write can never truncate a session. They are
@@ -118,11 +118,12 @@ function isSolve(value: unknown): value is Solve {
   if (typeof value !== 'object' || value === null) return false
   const solve = value as Record<string, unknown>
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-  // M4 added two optional fields. Absent is always fine (M2 files), but a
-  // present one must be of the exact shape the rest of the app assumes —
-  // an unrecognised penalty would silently become "OK" in the statistics,
-  // and an unbounded comment could not be shown meaningfully, so both reject
-  // the whole solve and it is skipped with a notice rather than loaded wrong.
+  // Both fields are optional, so absent is always fine (files written before
+  // they existed). A present one must be of the exact shape the rest of the
+  // app assumes — an unrecognised penalty would silently become "OK" in the
+  // statistics, and an unbounded comment could not be shown meaningfully, so
+  // both reject the whole solve and it is skipped with a notice rather than
+  // loaded wrong.
   const penaltyOk =
     solve.penalty === undefined || solve.penalty === 'plus2' || solve.penalty === 'dnf'
   const commentOk =
@@ -193,9 +194,9 @@ function humanName(id: string): string {
 
 /**
  * Read the index. A missing index means "start from the files" (fresh install
- * or M2 layout); anything else that cannot be understood is moved aside and
- * reported, then the files are used anyway — the notice tells the app to say
- * so, never to overwrite.
+ * or the pre-index layout); anything else that cannot be understood is moved
+ * aside and reported, then the files are used anyway — the notice tells the
+ * app to say so, never to overwrite.
  */
 export function loadIndex(): IndexResult {
   const file = indexPath()
