@@ -1,6 +1,5 @@
 /*
- * shortcuts.ts — the keyboard reference (M3, layout F; Adw.ShortcutsDialog
- * since 2026-10-02).
+ * shortcuts.ts — the keyboard reference.
  *
  * An Adw.ShortcutsDialog listing the app's key bindings: Space on the timer
  * (and Escape to cancel an inspection, or to close the solve list when the
@@ -8,17 +7,13 @@
  * (Ctrl+C), Delete and the penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
  * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T),
- * Preferences / Quit (Ctrl+, / Ctrl+Q), and this dialog itself (Ctrl+?,
- * user call 2026-10-11). It opens from the sidebar's app menu
- * ("Keyboard Shortcuts") or that accelerator.
+ * Preferences / Quit (Ctrl+, / Ctrl+Q), and this dialog itself (Ctrl+?).
+ * It opens from the sidebar's app menu ("Keyboard Shortcuts") or that
+ * accelerator.
  *
- * This replaces Gtk.ShortcutsWindow, deprecated since GTK 4.18 — libadwaita
- * gained the same idea in AdwShortcutsDialog (1.9, what this box ships):
- * sections of items, an item being a title plus an accelerator. The mapping
- * from the old structure is one to one: a Gtk.ShortcutsGroup (Timer, Solve
- * list, …) is a titled AdwShortcutsSection, a Gtk.ShortcutsShortcut is an
- * AdwShortcutsItem, and the old single-section-with-groups layout becomes a
- * list of sections — no tabs, since a dialog scrolls instead.
+ * Adw.ShortcutsDialog (libadwaita 1.9) is the successor to
+ * Gtk.ShortcutsWindow (deprecated since GTK 4.18): sections of items, an
+ * item being a title plus an accelerator.
  *
  * Built fresh on every open, like Preferences: an AdwDialog is gone when it
  * closes, so there is nothing to keep hold of. If node-gtk ever fails around
@@ -42,8 +37,8 @@ export type ShortcutsDialog = InstanceType<typeof Adw.ShortcutsDialog>
  * Adw.ShortcutLabel itself (e.g. `<Ctrl>S` renders as "Ctrl+S").
  *
  * A typo in one is still silent: the chip renders *empty*, so the
- * case-sensitive gdk_keyval rule below matters here as much as it did in the
- * window this replaced ("space", never "Space").
+ * case-sensitive gdk_keyval rule below matters here ("space", never
+ * "Space").
  */
 export function createShortcutsDialog(): ShortcutsDialog {
   const dialog = new Adw.ShortcutsDialog({ title: 'Keyboard Shortcuts' })
@@ -64,17 +59,16 @@ export function createShortcutsDialog(): ShortcutsDialog {
     ['Cancel the inspection countdown', 'Escape'],
   ])
   section('Scramble', [
-    // The scramble text is display-only (user call, 2026-10-02): not
-    // selectable, so this is how the text gets out — beside refresh in the
-    // header, or here.
+    // The scramble text is display-only (not selectable), so this is how the
+    // text gets out — beside refresh in the header, or here.
     ['Copy the scramble', '<Ctrl>C'],
   ])
   section('Solve list', [
-    // M6: in a narrow window the list is a drawer over the content;
-    // Ctrl+B is the way in and out at any size (the split view's own
-    // toggle button has no accelerator of its own), and Escape is the
-    // drawer's way out — after anything else that wanted the key (the
-    // inspection cancel above, an open popover) has had it.
+    // In a narrow window the list is a drawer over the content; Ctrl+B is
+    // the way in and out at any size (the split view's own toggle button has
+    // no accelerator of its own), and Escape is the drawer's way out — after
+    // anything else that wanted the key (the inspection cancel above, an open
+    // popover) has had it.
     ['Show or hide the solve list', '<Ctrl>b'],
     ['Hide the solve list (when it is a drawer)', 'Escape'],
     ['Delete the selected solves', 'Delete'],

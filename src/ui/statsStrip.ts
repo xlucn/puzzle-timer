@@ -1,17 +1,16 @@
 /*
- * statsStrip.ts — the ao5/ao12 label strip under the timer readout (M4).
+ * statsStrip.ts — the ao5/ao12 label strip under the timer readout.
  *
  * Component module (see timerLabel.ts): the top level only registers styles
  * and defines exports, so `styles.add()` hot-reloads the CSS below under
  * `npm run dev`.
  *
- * Two cells, `ao5` and `ao12` — the whole strip (user call, 2026-10-01: no
- * PB, no target here; those live in the Statistics dialog behind the
- * app-functions menu). Values are the *current* window averages, computed by
- * src/core/stats.ts on the effective (penalised) times, so a +2 or DNF in
- * the last five solves shows up here immediately. An incomplete window —
- * fewer solves than the average needs — is an em dash, never a partial
- * average: a 3-solve "ao5" would lie about what it is.
+ * Two cells, `ao5` and `ao12` — no PB, no target here; those live in the
+ * Statistics dialog behind the app menu. Values are the *current* window
+ * averages, computed by src/core/stats.ts on the effective (penalised)
+ * times, so a +2 or DNF in the last five solves shows up here immediately.
+ * An incomplete window — fewer solves than the average needs — is an em
+ * dash, never a partial average: a 3-solve "ao5" would lie about what it is.
  *
  * The strip follows the session the same way the solve list does
  * (src/ui/timesList.ts): subscribe to the live Session, and re-point on a

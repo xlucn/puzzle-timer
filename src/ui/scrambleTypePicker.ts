@@ -1,11 +1,11 @@
 /*
  * scrambleTypePicker.ts — the scramble-type chooser: one dialog, two doors.
  *
- * As of 2026-10-04 the dialog is the only place a type is *chosen*. Both
- * layouts open it through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts):
- * packed in the header while the window is wide, and in ToolbarView's bottom
- * bar at ≤540px together with refresh and copy. The button is reparented
- * rather than duplicated, and its text lives in the header's WindowTitle
+ * The dialog is the only place a type is *chosen*. Both layouts open it
+ * through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts): packed in
+ * the header while the window is wide, and in ToolbarView's bottom bar at
+ * ≤540px together with refresh and copy. The button is reparented rather
+ * than duplicated, and its text lives in the header's WindowTitle
  * (src/ui/scrambleTypeTitle.ts), so one dialog and one `onChange` path cover
  * every layout.
  *
@@ -27,19 +27,18 @@
  *     column) until the content makes it wider than 540px.
  *   - The sidebar is built once; the type list holds only the *browsed*
  *     category's rows (~19), refilled by a single `renderTypes()` when
- *     `browse` changes. Measured 2026-10-06: `setFilterFunc` re-evaluates
- *     its predicate for every row on each change through the node-gtk
- *     boundary — 206 rows ≈ 79ms *even with a trivial predicate*, which was
- *     most of the slow popup (open() ≈ 130ms) and made every category click
- *     pay it; rebuilding the visible rows is ≈3ms. Still exactly one render
- *     path, keyed on `browse` alone — layout state never reaches it. Selecting
- *     a category, collapsed, pushes to the content page; the split view's back
- *     button pops it.
+ *     `browse` changes. `setFilterFunc` is not an option: it re-evaluates its
+ *     predicate for every row on each change through the node-gtk boundary —
+ *     206 rows ≈ 79ms even with a trivial predicate (measured), versus ≈3ms
+ *     to rebuild the visible rows. Still exactly one render path, keyed on
+ *     `browse` alone — layout state never reaches it. Selecting a category,
+ *     collapsed, pushes to the content page; the split view's back button
+ *     pops it.
  *
  * A type row shows just the type name (`ScrambleChoice.label`): the category
  * is the selected row on the left and the content page's title, so repeating
- * it on every row would be noise. (Search was dropped 2026-10-05 — it was
- * the messy part; the two-level browse covers the catalogue.)
+ * it on every row would be noise. There is no search entry — the two-level
+ * browse covers the catalogue.
  *
  * This module owns no presentation widget: it provides `{ open, selectType }`
  * for the shared button to call. `selectType` is silent and idempotent, so a
@@ -69,9 +68,9 @@ type ListBoxRow = InstanceType<typeof Gtk.ListBoxRow>
  *
  * This is plain JS wrapper extension, not `registerClass`: the native object
  * stays a stock `AdwActionRow`, only the JS class is extended. Probed working
- * on 2026-10-05 (construction, `instanceof`, signal round-trip identity,
- * 500-row churn — see AGENTS.md invariant 5). If that probe ever fails, fall
- * back to a `Map<ListBoxRow, string>`.
+ * (construction, `instanceof`, signal round-trip identity, 500-row churn —
+ * see AGENTS.md invariant 5). If that probe ever fails, fall back to a
+ * `Map<ListBoxRow, string>`.
  */
 class TypeRow extends Adw.ActionRow {
   typeId?: string
@@ -221,11 +220,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
      * Rebuilt rather than filtered: `Gtk.ListBox.setFilterFunc` re-evaluates
      * its predicate for *every* row on each invalidation, and each evaluation
      * crosses the node-gtk boundary — 206 rows cost ≈79ms even with a trivial
-     * `() => true` predicate (measured 2026-10-06), which was most of the slow
-     * popup and made each category click pay it, twice over (notify fires
-     * before activated). The browsed category has ~19 rows; clear-and-refill
-     * costs ≈3ms. The old "never rebuilt" doctrine guarded against render
-     * paths keyed on *layout* state — this is still exactly one path.
+     * `() => true` predicate, which was most of the slow popup and made each
+     * category click pay it, twice over (notify fires before activated). The
+     * browsed category has ~19 rows; clear-and-refill costs ≈3ms.
      */
     const renderTypes = (): void => {
       let old = typeList.getRowAtIndex(0)
@@ -281,9 +278,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
       // programmatic grab paints a focus ring without any keyboard intent.
       split.showContent = true
     })
-    // Arrow-browsing in the expanded view updates the right pane live (the
-    // old row-selected behavior); collapsed, selection is just a cursor on
-    // the root page — only activation commits a category.
+    // Arrow-browsing in the expanded view updates the right pane live;
+    // collapsed, selection is just a cursor on the root page — only
+    // activation commits a category.
     sidebar.on('notify::selected', () => {
       if (split.collapsed) return
       const index = sidebar.selected

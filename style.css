@@ -11,5 +11,6 @@
  * `.title-1`, `.dim-label`, …) — prefer those before writing custom CSS:
  *   https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/style-classes.html
  *
- * (Empty since 2026-10-07: the scaffold's example rule matched nothing in the
- * app. App styles live beside their widgets in the `styles.add(...)` blocks.)
+ * Currently empty on purpose: app styles live beside their widgets, in the
+ * `styles.add(...)` blocks of the component modules (see timerLabel.ts).
+ */

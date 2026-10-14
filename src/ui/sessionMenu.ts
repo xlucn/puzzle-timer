@@ -1,20 +1,20 @@
 /*
- * sessionMenu.ts — the sidebar's session control (M3, layout F).
+ * sessionMenu.ts — the sidebar's session control.
  *
- * One widget does both jobs (user call, 2026-10-01): a Gtk.MenuButton whose
- * label is the *current* session's name, with a Gio.Menu underneath that
- * lists every session as a radio item — GTK checks the active one itself,
- * because the action is stateful and the menu item's target is compared with
- * the action's state — followed by a second section holding New / Rename /
- * Delete. A dropdown plus a row of separate buttons would have put the same
- * three actions in a second place to hunt for.
+ * One widget does both jobs: a Gtk.MenuButton whose label is the *current*
+ * session's name, with a Gio.Menu underneath that lists every session as a
+ * radio item — GTK checks the active one itself, because the action is
+ * stateful and the menu item's target is compared with the action's state —
+ * followed by a second section holding New / Rename / Delete. A dropdown
+ * plus a row of separate buttons would have put the same three actions in a
+ * second place to hunt for.
  *
- * Placement (layout F, 2026-10-01): a full-width row in the sidebar, between
- * the sidebar's header (app name + app menu) and the solve list — it labels
- * the list below it, so it lives with the list. It is *not* in the content
- * header anymore, which means Ctrl+S can be pressed while the sidebar is
- * closed; `ensureVisible` lets the open path reveal the sidebar first,
- * because a popover cannot anchor to an unmapped widget.
+ * Placement: a full-width row in the sidebar, between the sidebar's header
+ * (app name + app menu) and the solve list — it labels the list below it, so
+ * it lives with the list. It is *not* in the content header, which means
+ * Ctrl+S can be pressed while the sidebar is closed; `ensureVisible` lets
+ * the open path reveal the sidebar first, because a popover cannot anchor to
+ * an unmapped widget.
  *
  * Everything here is UI only: dialogs call `library.create/rename/remove`
  * and the library announces the change. Persistence (index write, session
@@ -242,12 +242,11 @@ export function createSessionMenu(options: SessionMenuOptions) {
       button.popup()
       return
     }
-    // The control lives in the sidebar (layout F): with the sidebar closed
-    // it has no on-screen anchor, and a popover cannot anchor to an
-    // unmapped widget. Connect the map listener *first* (a reveal cannot
-    // map anything before ensureVisible() returns, but ordering it this way
-    // costs nothing), then reveal the sidebar; the menu pops on the frame
-    // the button lands on.
+    // The control lives in the sidebar: with the sidebar closed it has no
+    // on-screen anchor, and a popover cannot anchor to an unmapped widget.
+    // Connect the map listener *first* (a reveal cannot map anything before
+    // ensureVisible() returns, but ordering it this way costs nothing), then
+    // reveal the sidebar; the menu pops on the frame the button lands on.
     button.once('map', () => button.popup())
     options.ensureVisible()
   })

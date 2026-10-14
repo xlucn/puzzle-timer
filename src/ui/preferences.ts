@@ -1,5 +1,5 @@
 /*
- * preferences.ts — the Preferences dialog (M5).
+ * preferences.ts — the Preferences dialog.
  *
  * An Adw.PreferencesDialog (libadwaita's stock settings UI: pages → groups →
  * rows) built fresh every time it opens, reading the *current* preferences
@@ -114,8 +114,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     dialog.add(timerPage)
 
     // ---- page: appearance ------------------------------------------------
-    // The theming row (M5): libadwaita's StyleManager is application-wide,
-    // so choosing here repaints every window at once — including this one.
+    // libadwaita's StyleManager is application-wide, so choosing here
+    // repaints every window at once — including this one.
     const appearancePage = new Adw.PreferencesPage({
       title: 'Appearance',
       iconName: 'preferences-desktop-appearance-symbolic',
@@ -126,16 +126,15 @@ export function createPreferences(options: PreferencesPanelOptions) {
       title: 'Theme',
       model: Gtk.StringList.new(COLOR_SCHEME_CHOICES.map((choice) => choice.label)),
     })
-    // No GtkExpression: a plain Gtk.StringList labels itself. Measured
-    // 2026-10-06 — a control row with setExpression() and one without drew
-    // identical selected-label and popover trees on GTK 4.22.5 /
-    // libadwaita 1.9.4; tools/prefs_probe.mjs asserts the label renders, so a
-    // libadwaita that stops doing this fails the probe rather than showing an
-    // empty row. The docs still name AdwComboRow:expression as the default
-    // factory's binding mechanism, and *search* needs it too, so if this row
-    // ever gets enableSearch, hand setExpression(makeStringExpression()) back
-    // to it — positional/setter, never the `expression` *property* (that path
-    // aborts node-gtk; PLAN decision 10, stringExpression.ts).
+    // No GtkExpression: a plain Gtk.StringList labels itself — measured
+    // side by side with and without on GTK 4.22.5 / libadwaita 1.9.4;
+    // tools/prefs_probe.mjs asserts the label renders, so a libadwaita that
+    // stops doing this fails the probe rather than showing an empty row. The
+    // docs still name AdwComboRow:expression as the default factory's
+    // binding mechanism, and *search* needs it too, so if this row ever gets
+    // enableSearch, hand setExpression(makeStringExpression()) back to it —
+    // positional/setter, never the `expression` *property* (that path
+    // aborts node-gtk; stringExpression.ts).
     schemeRow.selected = Math.max(
       0,
       COLOR_SCHEME_CHOICES.findIndex((choice) => choice.id === prefs.colorScheme),

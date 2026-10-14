@@ -2,12 +2,10 @@
  * timesList.ts — the sidebar's solve list.
  *
  * Component module (see timerLabel.ts): the top level only defines exports —
- * this module owns no CSS since 2026-10-07, when the last custom column rule
- * went: the Time column's semibold made it shout next to its siblings, and
- * the platform's own hierarchy — Time at default size in full foreground,
- * the averages at the same size but dimmed (`dim-label`), the # index smaller
- * (`caption`), tabular figures via `numeric` — is reasonable enough on its
- * own.
+ * this module owns no CSS: the platform's own hierarchy (Time at default size
+ * in full foreground, the averages at the same size but dimmed (`dim-label`),
+ * the # index smaller (`caption`), tabular figures via `numeric`) is
+ * reasonable enough on its own.
  *
  * Gtk.ColumnView, not Gtk.ListBox (AGENTS.md): a session reaches thousands of
  * solves and ColumnView only builds the rows actually on screen.
@@ -20,33 +18,32 @@
  * which is nothing next to the widget work, and it keeps a single code path
  * for add / delete / restore.
  *
- * M3: the list follows the *active* session (src/core/sessionLibrary.ts).
- * Rows still key on ids, but ids are only unique within one session — so a
- * switch re-points `current` and rebuilds wholesale rather than trying to
- * diff two sessions' rows together.
+ * The list follows the *active* session (src/core/sessionLibrary.ts). Rows
+ * still key on ids, but ids are only unique within one session — so a switch
+ * re-points `current` and rebuilds wholesale rather than trying to diff two
+ * sessions' rows together.
  *
- * Layout F (2026-10-01): this sidebar carries the app's top chrome too —
- * a HeaderBar with the app name and the app menu, and under it a row with
- * the session switch button (src/ui/sessionMenu.ts) that names the list
- * below. The app menu is the app's one menu since 2026-10-11: Statistics,
- * then Preferences / About / Keyboard Shortcuts / Quit. The content header
- * keeps the timer's controls: sidebar toggle, category/type switchers,
- * refresh, and the image toggle.
+ * The sidebar carries the app's top chrome too — a HeaderBar with the app
+ * name and the app menu, and under it a row with the session switch button
+ * (src/ui/sessionMenu.ts) that names the list below. The app menu is the
+ * app's one menu: Statistics, then Preferences / About / Keyboard Shortcuts /
+ * Quit. The content header keeps the timer's controls: sidebar toggle,
+ * type title/button, refresh, and the image toggle.
  *
  * Interaction: clicking a row selects it (Shift/Ctrl-click builds a
  * selection, as GTK does for any multi-selection list), and a toolbar under
  * the list — a stock Gtk.ActionBar, the bottom bar Warehouse and other
  * libadwaita apps hang under a list — slides in to show the selection and
- * the buttons that act on it (M4: Edit, Delete). The Delete key travels the
- * same `deleteSelected()` path as the button, so the two can never drift
- * apart, and deleting several rows at once is one undo toast for the lot.
+ * the buttons that act on it (Edit, Delete). The Delete key travels the same
+ * `deleteSelected()` path as the button, so the two can never drift apart,
+ * and deleting several rows at once is one undo toast for the lot.
  *
- * M4 grades a solve through *one* edit dialog — penalty (OK / +2 / DNF) and
- * comment together, never as separate buttons (user call, 2026-10-01) —
- * opened three ways: the footer's Edit button (exactly one row selected), a
- * double-click on a row, or Ctrl+E (the selection when exactly one row is
- * on it, else the newest solve). The keybinding is the test path — see the
- * no-mouse-clicks rule in AGENTS.md.
+ * A solve is graded through *one* edit dialog — penalty (OK / +2 / DNF) and
+ * comment together, never as separate buttons — opened three ways: the
+ * footer's Edit button (exactly one row selected), a double-click on a row,
+ * or Ctrl+E (the selection when exactly one row is on it, else the newest
+ * solve). The keybinding is the test path — see the no-mouse-clicks rule in
+ * AGENTS.md.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -73,11 +70,11 @@ type Widget = InstanceType<typeof Gtk.Widget>
 type Window = InstanceType<typeof Adw.ApplicationWindow>
 
 // A scramble longer than this becomes an ExpanderRow instead of a plain
-// row (user call, 2026-10-11). Measured through cstimer_module: 555wca
-// tops out at 198 chars in five samples — the tall row that still read
-// fine — while 666wca starts at 269, 777wca at 355 and the 234567 relay
-// runs 943–1072, i.e. 17 to 19 wrapped lines, which would push the
-// dialog off any window. 200 keeps everything already seen as it was.
+// row. Measured through cstimer_module: 555wca tops out at 198 chars in
+// five samples — the tall row that still read fine — while 666wca starts at
+// 269, 777wca at 355 and the 234567 relay runs 943–1072, i.e. 17 to 19
+// wrapped lines, which would push the dialog off any window. 200 keeps
+// everything already seen as it was.
 const EXPAND_SCRAMBLE_ABOVE = 200
 
 export interface TimesListOptions {
@@ -132,8 +129,8 @@ export function createTimesList(options: TimesListOptions) {
       const cell: any = object
       // xalign: 0 for every column: GTK's ColumnView headers are always
       // left-aligned (no API to change it — probe-verified), so cells
-      // left-align to sit directly under their headers (user call,
-      // 2026-10-01). Right-aligned values would strand the header.
+      // left-align to sit directly under their headers. Right-aligned values
+      // would strand the header.
       cell.setChild(new Gtk.Label({ xalign: 0, hexpand: true }))
     })
 
@@ -160,12 +157,12 @@ export function createTimesList(options: TimesListOptions) {
     // No setFixedWidth() on purpose: the default (-1) is GTK's native
     // "size to content" — an explicit width is used "regardless of the size
     // of its content" (GtkColumnViewColumn:fixed-width), which is exactly
-    // what made the old hardcoded widths static. Verified by
+    // what made hardcoded widths static. Verified by
     // tools/colview_probe.mjs (short content 136px → long content 168px,
     // explicit width overrides content). Not resizable: GTK's drag is a raw
     // 1:1 pointer gesture with no sensitivity setting, which felt jumpy on
-    // narrow columns (user call, 2026-10-01) — this list is a log, not a
-    // spreadsheet; content-fit plus tabular figures keeps it stable.
+    // narrow columns — this list is a log, not a spreadsheet; content-fit
+    // plus tabular figures keeps it stable.
     column.setResizable(false)
     return column
   }
@@ -227,18 +224,17 @@ export function createTimesList(options: TimesListOptions) {
   })
 
   // ---- sidebar chrome: header, then the session row ----------------------
-  // Layout F: the app name and the app menu are this sidebar's header (the
-  // app's "where am I" column starts with the app itself). Window controls
-  // are not here — GTK puts those in the content header, the first HeaderBar
-  // in the toplevel, which is where they stay.
+  // The app name and the app menu are this sidebar's header (the app's
+  // "where am I" column starts with the app itself). Window controls are not
+  // here — GTK puts those in the content header, the first HeaderBar in the
+  // toplevel, which is where they stay.
   const title = new Adw.WindowTitle({ title: options.appName, subtitle: '' })
   const header = new Adw.HeaderBar({ titleWidget: title, showTitle: true })
   header.packEnd(options.appMenu)
 
   // The session switch labels the list below it, so it sits between header
-  // and list as a full-width flat row — not as a third header button (user
-  // call, layout F, 2026-10-01). The margins keep the hover highlight off
-  // the sidebar's edges.
+  // and list as a full-width flat row. The margins keep the hover highlight
+  // off the sidebar's edges.
   const sessionRow = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     marginTop: 4,
@@ -257,11 +253,11 @@ export function createTimesList(options: TimesListOptions) {
   // is actually selected. With nothing selected there is no record to act on;
   // an always-present row of insensitive buttons would just be dead weight.
   //
-  // Two buttons, not a battery (user call, 2026-10-01): grading (+2, DNF,
-  // comment) lives in the one edit dialog behind Edit; Delete is the only
-  // other thing a row can ask for. Edit needs exactly one row — one record,
-  // one dialog — and says so by going insensitive over a multi-selection
-  // rather than by hiding (the row must not shift under the pointer).
+  // Two buttons, not a battery: grading (+2, DNF, comment) lives in the one
+  // edit dialog behind Edit; Delete is the only other thing a row can ask
+  // for. Edit needs exactly one row — one record, one dialog — and says so
+  // by going insensitive over a multi-selection rather than by hiding (the
+  // row must not shift under the pointer).
   const footerInfo = new Gtk.Label({
     xalign: 0,
     hexpand: true,
@@ -302,17 +298,16 @@ export function createTimesList(options: TimesListOptions) {
   const footer = new Gtk.ActionBar({ revealed: false })
   footer.setCenterWidget(footerRow)
 
-  // The sidebar as a ToolbarView (user call, 2026-10-11): header → top
-  // bar, ActionBar → bottom bar — both are first-class bar kinds in
-  // adw-toolbar-view.c, whose docs say "windows with sidebars should
-  // always use this style" (FLAT by default, so the bars render as they
-  // did in the plain box). What it buys: the footer is pinned by the
-  // container instead of leaning on the scroller's vexpand,
-  // revealTopBars/revealBottomBars become available the way the content
-  // side already uses them, and the sidebar matches the main content's
-  // structure. The session row stays *content* — it labels the list, so
-  // it must not leave with the header — and the `sidebar` class moves to
-  // this root: its rules match descendants, so the list keeps them.
+  // The sidebar as a ToolbarView: header → top bar, ActionBar → bottom bar —
+  // both are first-class bar kinds in adw-toolbar-view.c, whose docs say
+  // "windows with sidebars should always use this style" (FLAT by default,
+  // so the bars render as they would in a plain box). What it buys: the
+  // footer is pinned by the container instead of leaning on the scroller's
+  // vexpand, revealTopBars/revealBottomBars become available the way the
+  // content side already uses them, and the sidebar matches the main
+  // content's structure. The session row stays *content* — it labels the
+  // list, so it must not leave with the header — and the `sidebar` class
+  // moves to this root: its rules match descendants, so the list keeps them.
   const widget = new Adw.ToolbarView({ cssClasses: ['sidebar'] })
   widget.addTopBar(header)
   const body = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
@@ -355,57 +350,49 @@ export function createTimesList(options: TimesListOptions) {
 
   /**
    * The edit dialog: penalty (OK / +2 / DNF) and comment in one form — the
-   * only way to grade a solve (user call, 2026-10-01), opened from the
-   * footer's Edit button, a double-click on the row, or Ctrl+E. A normal
-   * dialog with a header bar (user call, 2026-10-10, superseding the
-   * AdwAlertDialog): the bar carries the title — "Edit solve #id", the
-   * number having left the record line for it (2026-10-11) — a suggested
-   * Save packed at its left, and — for free, from AdwDialog's header
-   * integration — the close button that, exactly like Escape, discards;
-   * only Save ever writes. Above the card the scored time stands as a
-   * centered number (title-1) that follows the penalty toggle
-   * live — the effective time, DNF reading "DNF(solved time)" (user call,
-   * 2026-10-11) — and the rows are one libadwaita list
-   * (user call, 2026-10-10, superseding the 2026-01-01 multi-line box):
-   * the Date row first — stamp as subtitle, `property`-classed so the
-   * value is the emphasized half rather than the title, stamp copyable —
-   * then the scramble: a plain row below EXPAND_SCRAMBLE_ABOVE, an
-   * ExpanderRow above it (one ellipsized line collapsed, the full text
-   * in a bounded scroller when expanded), either way with a copy of this
-   * solve's scramble; the penalty ActionRow below the scramble, and the
-   * comment EntryRow last, whose title is the placeholder and whose text
-   * is capped at
-   * MAX_COMMENT_LENGTH in the widget as well as on the save path; saving
-   * an empty comment clears it — that is what "no comment" should cost.
-   * The session is captured at open: switching sessions while the dialog
-   * sits there must not retarget the write onto a different session's
-   * solve.
+   * only way to grade a solve, opened from the footer's Edit button, a
+   * double-click on the row, or Ctrl+E. A normal dialog with a header bar:
+   * the bar carries the title — "Edit solve #id" — a suggested Save packed
+   * at its left, and — for free, from AdwDialog's header integration — the
+   * close button that, exactly like Escape, discards; only Save ever writes.
+   * Above the card the scored time stands as a centered number (title-1)
+   * that follows the penalty toggle live — the effective time, DNF reading
+   * "DNF(solved time)" — and the rows are one libadwaita list: the Date row
+   * first — stamp as subtitle, `property`-classed so the value is the
+   * emphasized half rather than the title, stamp copyable — then the
+   * scramble: a plain row below EXPAND_SCRAMBLE_ABOVE, an ExpanderRow above
+   * it (one ellipsized line collapsed, the full text in a bounded scroller
+   * when expanded), either way with a copy of this solve's scramble; the
+   * penalty ActionRow below the scramble, and the comment EntryRow last,
+   * whose title is the placeholder and whose text is capped at
+   * MAX_COMMENT_LENGTH in the widget as well as on the save path; saving an
+   * empty comment clears it — that is what "no comment" should cost. The
+   * session is captured at open: switching sessions while the dialog sits
+   * there must not retarget the write onto a different session's solve.
    */
   const openEdit = (solve: Solve): void => {
     const session = current
-    // The number lives in the title now — "Edit solve #id" (user call,
-    // 2026-10-11) — the scored time stays on the line above the list, and
-    // the moment is the Date row below.
+    // The solve's number lives in the dialog title — "Edit solve #id" — the
+    // scored time on the line above the list, and the moment is the Date row
+    // below.
     const solveNumber = session.indexOf(solve.id) + 1
     const datetime = formatFullTimestamp(solve.createdAtMs)
-    // What the big number reads for a given penalty (user call,
-    // 2026-10-11): the effective time per formatSolve — and DNF keeps the
-    // solved time in view as "DNF(12.34)". Used at open and re-read on
-    // every step of the toggle, so the number always matches the group.
+    // What the big number reads for a given penalty: the effective time per
+    // formatSolve — and DNF keeps the solved time in view as "DNF(12.34)".
+    // Used at open and re-read on every step of the toggle, so the number
+    // always matches the group.
     const timeText = (penalty: Penalty | undefined): string =>
       penalty === 'dnf' ? `DNF(${formatSolve(solve.timeMs)})` : formatSolve(solve.timeMs, penalty)
 
-    // A segmented control, not a dropdown and not a radio group (user call,
-    // 2026-10-10): OK / +2 / DNF are all three visible at a glance and one
-    // click away, and Adw.ToggleGroup owns the single-selection rule — the
-    // old Gtk.CheckButton.set_group dance is gone; each choice is an
+    // A segmented control, not a dropdown and not a radio group: OK / +2 /
+    // DNF are all three visible at a glance and one click away, and
+    // Adw.ToggleGroup owns the single-selection rule; each choice is an
     // Adw.Toggle addressed by *name*, so the save path survives a reordering
     // of the three. The group keeps its natural width as the ActionRow's
-    // suffix — the row's halign is what fills the row (user call,
-    // 2026-10-10), not an hexpand on the group — and valign: CENTER is
-    // the same choice in height (user call, 2026-10-10): GTK's default
-    // is fill, which would hand the group the row's height instead of
-    // its own. The labels keep their mnemonics (Alt+O / Alt+2 / Alt+D —
+    // suffix — the row's halign is what fills the row, not an hexpand on the
+    // group — and valign: CENTER is the same choice in height: GTK's default
+    // is fill, which would hand the group the row's height instead of its
+    // own. The labels keep their mnemonics (Alt+O / Alt+2 / Alt+D —
     // useUnderline reaches the group's internal GtkButtons,
     // adw-toggle-group.c) so the penalty can also be switched by key: the
     // test path (AGENTS.md: never aim a mouse at it).
@@ -428,27 +415,25 @@ export function createTimesList(options: TimesListOptions) {
     const penaltyRow = new Adw.ActionRow({ title: 'Penalty', halign: Gtk.Align.FILL })
     penaltyRow.addSuffix(penaltyGroup)
 
-    // Single-line, in the same list as the penalty (user call, 2026-10-10 —
-    // superseding the 2026-01-01 "real multi-line box" call): the row's
-    // title doubles as its placeholder, and maxLength caps the text natively
-    // (what the TextView enforced only as a save-path slice). Setting .text
-    // truncates a hand-edited over-long comment at the cap, so the save
-    // path keeps its slice as the read-side guard.
-    // Deliberately NO activatesDefault (user call, 2026-10-11): Enter in
-    // the comment must not save-and-close the dialog — only the Save button
-    // does that. The row's property was the sole gate anyway: the internal
-    // text never carries activates-default (adw-entry-row.ui doesn't set
-    // it), so dropping it disconnects Return from the dialog's default
-    // completely — the text widget consumes Return itself, as before.
+    // Single-line, in the same list as the penalty: the row's title doubles
+    // as its placeholder, and maxLength caps the text natively. Setting
+    // .text truncates a hand-edited over-long comment at the cap, so the
+    // save path keeps its slice as the read-side guard.
+    // Deliberately NO activatesDefault: Enter in the comment must not
+    // save-and-close the dialog — only the Save button does that. The
+    // internal text never carries activates-default (adw-entry-row.ui
+    // doesn't set it), so the row's property is the sole gate — dropping it
+    // disconnects Return from the dialog's default completely; the text
+    // widget consumes Return itself.
     const commentRow = new Adw.EntryRow({
       title: 'Comment',
       text: solve.comment ?? '',
       maxLength: MAX_COMMENT_LENGTH,
     })
-    // The clipboard path is the header copy button's verbatim (main.ts,
-    // probed 2026-10-07): Gdk's set_text is unintrospectable, so the text
-    // goes as bytes under a content provider. Both row copies — the stamp
-    // and the scramble — go through this one writer.
+    // The clipboard path is the header copy button's verbatim (main.ts):
+    // Gdk's set_text is unintrospectable, so the text goes as bytes under a
+    // content provider. Both row copies — the stamp and the scramble — go
+    // through this one writer.
     const copyToClipboard = (text: string): void => {
       const bytes = GLib.Bytes.new(Array.from(new TextEncoder().encode(text)))
       options.window
@@ -456,9 +441,9 @@ export function createTimesList(options: TimesListOptions) {
         .getClipboard()
         .setContent(Gdk.ContentProvider.newForBytes('text/plain;charset=utf-8', bytes))
     }
-    // The suffix both copies share (user call, 2026-10-11): same icon and
-    // flat look, valign CENTER so the button stays compact and centers
-    // itself against a wrapped subtitle's height.
+    // The suffix both copies share: same icon and flat look, valign CENTER
+    // so the button stays compact and centers itself against a wrapped
+    // subtitle's height.
     const copySuffix = (text: string, tooltipText: string) => {
       const button = new Gtk.Button({
         iconName: 'edit-copy-symbolic',
@@ -470,20 +455,18 @@ export function createTimesList(options: TimesListOptions) {
       return button
     }
 
-    // The scramble as a row before the comment (user call, 2026-10-11) —
-    // still shown, not editable: it is history, and knowing which scramble
-    // a bad time was on is half of what a comment is for (user call,
-    // 2026-10-01) — now carrying a copy of *this solve's* scramble rather
-    // than the timer's. Above EXPAND_SCRAMBLE_ABOVE the row becomes an
-    // ExpanderRow (user call, 2026-10-11): collapsed shows one ellipsized
-    // line — subtitleLines: 1, libadwaita's native cap — and expanding
-    // reveals the whole scramble in a bounded scroller, so the dialog
-    // grows by 160px on demand instead of by a relay's 17 lines. The
-    // `property` class cannot follow it in: its selectors need box.header
-    // directly on the row and the expander nests its header, so the
-    // collapsed subtitle keeps Adwaita's dim preview styling. The copy
-    // suffix stays either way — it always carries the full text. Omitted
-    // entirely when a solve has none.
+    // The scramble as a row before the comment — still shown, not editable:
+    // it is history, and knowing which scramble a bad time was on is half of
+    // what a comment is for. The row carries a copy of *this solve's*
+    // scramble. Above EXPAND_SCRAMBLE_ABOVE the row becomes an ExpanderRow:
+    // collapsed shows one ellipsized line — subtitleLines: 1, libadwaita's
+    // native cap — and expanding reveals the whole scramble in a bounded
+    // scroller, so the dialog grows by 160px on demand instead of by a
+    // relay's 17 lines. The `property` class cannot follow it in: its
+    // selectors need box.header directly on the row and the expander nests
+    // its header, so the collapsed subtitle keeps Adwaita's dim preview
+    // styling. The copy suffix stays either way — it always carries the full
+    // text. Omitted entirely when a solve has none.
     const scrambleRow = (() => {
       if (solve.scramble.length === 0) return null
 
@@ -527,13 +510,12 @@ export function createTimesList(options: TimesListOptions) {
       return row
     })()
 
-    // The moment as the list's first row (user call, 2026-10-11): title
-    // "Date", subtitle the value, and the stamp gets the same copy suffix
-    // (user call, 2026-10-11). The `property` class is Adwaita's
-    // label/value row — it shrinks and dims the title while restoring the
-    // subtitle to full size and opacity, so the value is the emphasized
-    // half instead of the title (adw stylesheet: row.property > … >
-    // .title / .subtitle). halign FILL, as on the penalty row: the row
+    // The moment as the list's first row: title "Date", subtitle the value,
+    // and the stamp gets the same copy suffix. The `property` class is
+    // Adwaita's label/value row — it shrinks and dims the title while
+    // restoring the subtitle to full size and opacity, so the value is the
+    // emphasized half instead of the title (adw stylesheet: row.property >
+    // … > .title / .subtitle). halign FILL, as on the penalty row: the row
     // spans the card.
     const dateRow = new Adw.ActionRow({
       title: 'Date',
@@ -543,16 +525,14 @@ export function createTimesList(options: TimesListOptions) {
     })
     dateRow.addSuffix(copySuffix(datetime, 'Copy the date'))
 
-    // The rows live in one list (user call, 2026-10-10, extended
-    // 2026-10-11): the native libadwaita form — ActionRow and EntryRow are
-    // both Gtk.ListBoxRows — the display-only Date and Scramble rows first
-    // (each with its copy suffix), then the penalty below the scramble
-    // (user call, 2026-10-11) and the comment last: what you *do* sits
-    // under what you read. `boxed-list` draws the card it sits in
-    // (background, 12px corners, row rules — the picker's list has the
-    // same class); `list` alone would be only GtkListBox's CSS node,
-    // which every list already is. Selection is off: rows are controls
-    // here, not selectable items.
+    // The rows live in one list: the native libadwaita form — ActionRow and
+    // EntryRow are both Gtk.ListBoxRows — the display-only Date and Scramble
+    // rows first (each with its copy suffix), then the penalty below the
+    // scramble and the comment last: what you *do* sits under what you read.
+    // `boxed-list` draws the card it sits in (background, 12px corners, row
+    // rules — the picker's list has the same class); `list` alone would be
+    // only GtkListBox's CSS node, which every list already is. Selection is
+    // off: rows are controls here, not selectable items.
     const formList = new Gtk.ListBox({
       cssClasses: ['boxed-list'],
       selectionMode: Gtk.SelectionMode.NONE,
@@ -562,12 +542,11 @@ export function createTimesList(options: TimesListOptions) {
     formList.append(penaltyRow)
     formList.append(commentRow)
 
-    // The scored time, centered over the card (user call, 2026-10-11):
-    // title-1 — Adwaita's largest built-in heading (~26px, weight 800),
-    // so no custom styles — with `numeric` keeping the digits tabular as
-    // the number changes. The solve's number has moved into the title
-    // and the moment into the Date row; this is the record's headline.
-    // It follows the penalty toggle live (user call, 2026-10-11): the
+    // The scored time, centered over the card: title-1 — Adwaita's largest
+    // built-in heading (~26px, weight 800), so no custom styles — with
+    // `numeric` keeping the digits tabular as the number changes. The
+    // solve's number is in the title and the moment in the Date row; this
+    // is the record's headline. It follows the penalty toggle live: the
     // number is always the *effective* time of the penalty on screen —
     // DNF reading "DNF(solved time)".
     const timeLabel = new Gtk.Label({
@@ -597,11 +576,10 @@ export function createTimesList(options: TimesListOptions) {
     form.append(timeLabel)
     form.append(formList)
 
-    // Save at the left of the header bar (user call, 2026-10-10), suggested
-    // as the alert dialog's save response was. Adw.HeaderBar adds the dialog
-    // close button at the right for free, and Escape closes through
-    // adw-dialog.c's own shortcut — both discard, exactly as the old
-    // close-response 'cancel' did; the button below is the only writer.
+    // Save at the left of the header bar, suggested. Adw.HeaderBar adds the
+    // dialog close button at the right for free, and Escape closes through
+    // adw-dialog.c's own shortcut — both discard; the button below is the
+    // only writer.
     const saveButton = new Gtk.Button({
       label: 'Save',
       cssClasses: ['suggested-action'],
@@ -616,25 +594,24 @@ export function createTimesList(options: TimesListOptions) {
     const dialog = new Adw.Dialog({
       // A plain HeaderBar picks the dialog's title up itself when it roots
       // (adw-header-bar.c: update_title reads adw_dialog_get_title), so the
-      // string lives here and nowhere else — the solve's number included
-      // (user call, 2026-10-11).
+      // string lives here and nowhere else — the solve's number included.
       title: `Edit solve #${solveNumber}`,
       child: box,
       // Fixed width, as the stats dialog's: the scramble row's subtitle
       // wraps, but a GtkLabel's natural width is its text on one line —
       // uncapped, a long scramble would stretch the dialog across the
-      // screen (the old line's maxWidthChars: 40 was this same cap).
+      // screen.
       contentWidth: 480,
-      // Deliberately no focusWidget (user call, 2026-10-11): the dialog
-      // opens without grabbing the comment line — Tab or Alt+O/2/D gets
-      // you there when you want it. Still no claim-dance either: the race
-      // that needed it was AdwAlertDialog's default response button
-      // (observed 2026-10-02), and a plain AdwDialog has none.
+      // Deliberately no focusWidget: the dialog opens without grabbing the
+      // comment line — Tab or Alt+O/2/D gets you there when you want it.
+      // (An AdwAlertDialog's default response button claims focus on map,
+      // which is what needed a claim-dance once; a plain AdwDialog has no
+      // response button.)
       // defaultWidget stays so Return still resolves to Save from *outside*
       // the comment entry (the dialog's own binding) — with focus on Save,
       // the button focused at open, Enter presses that very button. The
-      // comment row no longer routes Enter here (user call, 2026-10-11:
-      // only the save button closes the dialog).
+      // comment row does not route Enter here: only the save button closes
+      // the dialog.
       defaultWidget: saveButton,
     })
     saveButton.on('clicked', () => {
@@ -663,10 +640,10 @@ export function createTimesList(options: TimesListOptions) {
     return true
   }
 
-  // The third way in (user call, 2026-10-01): double-click a row to edit
-  // it. This is GtkColumnView's own activation — rows activate on double
-  // click while single-click-activate is off (the default) — so the first
-  // click's selection, the footer, and the dialog all agree on the record.
+  // The third way in: double-click a row to edit it. This is
+  // GtkColumnView's own activation — rows activate on double click while
+  // single-click-activate is off (the default) — so the first click's
+  // selection, the footer, and the dialog all agree on the record.
   view.on('activate', (position) => {
     if (position >= model.nItems) return // GTK_INVALID_LIST_POSITION
     const solve = current.find(Number(model.getString(position)))

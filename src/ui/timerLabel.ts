@@ -33,8 +33,8 @@ styles.add(`
        (Adwaita: font-variant-numeric: tabular-nums) — keep the digits from
        shifting as the time changes. */
   }
-  /* M6: the readout steps with the window's tier. Small covers both narrow
-     and short windows — the digits are the one thing that must never clip —
+  /* The readout steps with the window's tier. Small covers both narrow and
+     short windows — the digits are the one thing that must never clip —
      and large is what a window over 1200 logical does with the room. */
   .timer-display.size-s { font-size: 72px; }
   .timer-display.size-l { font-size: 128px; }
@@ -76,7 +76,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
 
   /**
    * The class list is assembled from three independent facts — the size tier
-   * (M6, changes with the window), the timer state, and whether an inspection
+   * (changes with the window), the timer state, and whether an inspection
    * has already blown its DNF limit — so both entry points below go through
    * one function rather than one of them overwriting the other's classes.
    */
@@ -111,7 +111,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
     /** Container to place in the window. */
     widget,
     /**
-     * M6: the readout's size class follows the window's tier
+     * The readout's size class follows the window's tier
      * (src/core/layout.ts). The state classes on screen are reapplied, so a
      * resize never repaints a running timer in the idle colour.
      */

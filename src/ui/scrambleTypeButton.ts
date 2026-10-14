@@ -1,19 +1,12 @@
 /*
  * scrambleTypeButton.ts — the header's scramble-type selector.
  *
- * Icon-only since 2026-10-08 (user call): the "category - type" label moved
- * to the header's centre as an `Adw.WindowTitle`
- * (src/ui/scrambleTypeTitle.ts), so this is just the way in — one flat
- * button, one dialog (user call, 2026-10-04), no state of its own: there is
- * nothing type-specific left to display, hence no selectType either. Fixed
- * width at every window size, in the header and in the narrow layout's
- * bottom toolbar alike, so its *min* never competes for header room.
- *
- * (History: this button replaced two Gtk.DropDowns, then grew its own
- * ellipsizing label — both designs existed to keep the header's demand
- * small, see headerSlack in src/core/layout.ts. That job now belongs to the
- * WindowTitle's template. Its `view-list-symbolic` says "a list of types
- * behind this", where the old chevron said the same next to the label.)
+ * Icon-only: the "category - type" label lives in the header's centre as an
+ * `Adw.WindowTitle` (src/ui/scrambleTypeTitle.ts), so this is just the way
+ * in — one flat button, one dialog, no state of its own: there is nothing
+ * type-specific left to display, hence no selectType either. Fixed width at
+ * every window size, in the header and in the narrow layout's bottom toolbar
+ * alike, so its *min* never competes for header room.
  *
  * Clicking opens the picker dialog — the same instance the narrow layout
  * uses, passed in by main.ts rather than built here, so there is one dialog

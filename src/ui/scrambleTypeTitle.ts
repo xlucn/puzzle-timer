@@ -1,9 +1,8 @@
 /*
  * scrambleTypeTitle.ts — the header's type display: category over type name.
  *
- * The two levels the selector used to print on one line now live in the
- * header's centre as an `Adw.WindowTitle` (user call, 2026-10-08): title =
- * category, subtitle = type. main.ts assigns it as the HeaderBar's
+ * The two levels live in the header's centre as an `Adw.WindowTitle`: title
+ * = category, subtitle = type. main.ts assigns it as the HeaderBar's
  * titleWidget once at construction and never moves it — the slot is the one
  * place a HeaderBar centres a widget natively, and leaving it alone means
  * the stale `HeaderBar:title-widget` trap (adw-header-bar.c: remove() clears
@@ -11,8 +10,7 @@
  *
  * The widget's template labels ellipsize END (adw-window-title.ui), so a long
  * name degrades to an ellipsis instead of raising the header's minimum — the
- * same guarantee the button label gave, and why headerSlack in
- * src/core/layout.ts stays dead.
+ * header absorbs whatever it is given.
  *
  * `selectType` keeps the picker's contract exactly: silent (a session switch
  * must not write the session's own value back), idempotent, and false for an

@@ -1,14 +1,11 @@
 /*
- * scrambleTypeSelect.ts — the header's scramble-type selectors.
+ * scrambleTypeSelect.ts — a two-dropdown scramble-type selector.
  *
- * **UNHOOKED (2026-10-04): nothing imports this any more.** The header uses
- * one ellipsizing button instead — src/ui/scrambleTypeButton.ts, user call
- * 2026-10-04 — which also let layoutFor drop its label-driven escape hatch
- * (headerSlack), because these two dropdowns could not shrink: see the note
- * there. Kept because the two-level Gtk.DropDown approach is still a
- * reference for anyone revisiting it, and because decision 10 (below, and in
- * PLAN §4) is about the *search* gotcha that bites any Gtk.DropDown holding
- * strings — which the Preferences ComboRow still does.
+ * **UNHOOKED: nothing imports this any more.** The header uses one
+ * icon button (src/ui/scrambleTypeButton.ts) plus the picker dialog instead.
+ * This file is kept as a reference for the two-level Gtk.DropDown approach
+ * and, more importantly, for the *search* gotcha below, which bites any
+ * Gtk.DropDown holding strings.
  *
  * All 206 types cstimer_module offers sit behind two Gtk.DropDown widgets,
  * mirroring csTimer's own menu: csTimer's `scrdata` is a two-level table of
@@ -18,10 +15,9 @@
  * exploit — see SCRAMBLE_GROUPS in src/core/scrambleTypes.ts.
  *
  * Both popups are searchable (`enableSearch` adds a search entry). GTK only
- * filters when DropDown:expression is set — see stringExpression.ts, which
- * this file and tools/shrink_demo.mjs still import (the Preferences ComboRow
- * dropped it 2026-10-06: it renders a plain Gtk.StringList on its own and
- * keeps row search off).
+ * filters when DropDown:expression is set — see stringExpression.ts. Display
+ * needs no expression: a plain Gtk.StringList labels itself (the Preferences
+ * ComboRow relies on that and keeps row search off).
  */
 import Gtk from 'gi:Gtk-4.0'
 

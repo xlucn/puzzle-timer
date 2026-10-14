@@ -1,19 +1,18 @@
 /*
- * statsPanel.ts — the Statistics dialog behind the app-functions menu (M4).
+ * statsPanel.ts — the Statistics dialog behind the app menu.
  *
- * The full table the strip under the timer deliberately leaves out (user
- * call, 2026-10-01): current / best / PB target per record — Single, mo3,
- * ao5, ao12 — plus the session mean with its DNF count. Every number comes
- * from src/core/stats.ts, computed on the effective (penalised) times, so
- * this view and the strip cannot disagree.
+ * The full table the strip under the timer deliberately leaves out: current
+ * / best / PB target per record — Single, mo3, ao5, ao12 — plus the session
+ * mean with its DNF count. Every number comes from src/core/stats.ts,
+ * computed on the effective (penalised) times, so this view and the strip
+ * cannot disagree.
  *
- * Layout note (probed 2026-10-01 against libadwaita 1.9.4): an Adw.Dialog
- * does NOT render its own title — only `child`, so the content carries its
- * own Adw.HeaderBar for the title. That HeaderBar gets a close button for
- * free inside a dialog (AdwDialog docs: it "adjusts the decoration layout to
- * ensure it always has a close button"; probe 2026-10-05 confirmed clicking
- * it closes), so no button of ours is needed — and adw-dialog.c binds Escape
- * to close natively.
+ * Layout note (probed against libadwaita 1.9.4): an Adw.Dialog does NOT
+ * render its own title — only `child`, so the content carries its own
+ * Adw.HeaderBar for the title. That HeaderBar gets a close button for free
+ * inside a dialog (AdwDialog docs: it "adjusts the decoration layout to
+ * ensure it always has a close button"), so no button of ours is needed —
+ * and adw-dialog.c binds Escape to close natively.
  *
  * The figures are computed when the dialog opens: it blocks input to the
  * window behind it, so nothing can change while it is on screen.
@@ -101,8 +100,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
 
     // ---- header ----------------------------------------------------------
     // Built-ins instead of rules: caption (82% + 400 weight) + dim-label
-    // (55%) is the platform's small secondary text — what the deleted
-    // `.stats-col-head` rule hand-rolled.
+    // (55%) is the platform's small secondary text.
     attach(0, 0, cell('', ['caption', 'dim-label']))
     attach(1, 0, cell('Current', ['caption', 'dim-label']))
     attach(2, 0, cell('Best', ['caption', 'dim-label']))
@@ -123,7 +121,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const best = stats.best[kind] === null ? '—' : formatAverage(stats.best[kind]!.value)
       const target = targetText(stats.target[kind])
 
-      attach(0, row, cell(name, [])) // default size — the deleted .stats-name was 15px ≈ default
+      attach(0, row, cell(name, [])) // default size — the platform's plain row label
       attach(1, row, cell(current, current === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
       attach(2, row, cell(best, best === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
       attach(3, row, cell(target, target === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
@@ -166,21 +164,20 @@ export function createStatsPanel(options: StatsPanelOptions) {
     )
     box.append(content)
 
-    // Adaptive width (option 2, 2026-10-05): a fixed dialog width, not
-    // followsContentSize — with followsContentSize the dialog width always
-    // *equals* the content, so a width breakpoint could never tell a roomy
-    // window from a squeezed one (it would fire permanently). With a fixed
-    // 480 the gap between dialog and content natural (365) is the "there is
-    // room" signal. Measured (probe, parent 900/460/440/380/360): the
-    // breakpoint reads the dialog's *content* box, so it stays loose while
-    // that box is >450 (parent ≳510 floating; contentWidth caps at 480) and
-    // tightens below — at which point the table (spacing 12, margins 12,
-    // natural 293) fits every rung down to the 360px floor with ~67px slack,
-    // where the old loose table (365) overflowed by 29px. libadwaita also
-    // auto-swaps floating ↔ bottom sheet at parent ≤450 on its own.
+    // Adaptive width: a fixed dialog width, not followsContentSize — with
+    // followsContentSize the dialog width always *equals* the content, so a
+    // width breakpoint could never tell a roomy window from a squeezed one
+    // (it would fire permanently). With a fixed 480 the gap between dialog
+    // and content natural (365) is the "there is room" signal. Measured
+    // (probe, parent 900/460/440/380/360): the breakpoint reads the dialog's
+    // *content* box, so it stays loose while that box is >450 (parent ≳510
+    // floating; contentWidth caps at 480) and tightens below — at which point
+    // the table (spacing 12, margins 12, natural 293) fits every rung down to
+    // the 360px floor with ~67px slack, where the loose table (365) overflowed
+    // by 29px. libadwaita also auto-swaps floating ↔ bottom sheet at parent
+    // ≤450 on its own.
     // A breakpoint-bearing AdwDialog has no implicit minimum size (AdwDialog
-    // docs), so ask for one explicitly. apply/unapply, not addSetter:
-    // node-gtk can't box the GValue (AGENTS).
+    // docs), so ask for one explicitly.
     const dialog = new Adw.Dialog({
       child: box,
       contentWidth: 480,

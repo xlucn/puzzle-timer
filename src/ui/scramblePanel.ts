@@ -8,7 +8,7 @@
  *   scramble   → show it (wrapped, display only — copying it is the header's
  *                copy button / Ctrl+C), with its
  *                diagram floating in the view's bottom-right corner when the
- *                type has one (M5 — main.ts places it, see `image`);
+ *                type has one (main.ts places it, see `image`);
  *   generating → the previous scramble stays on screen as a dimmed ghost
  *                (`.pending`) with the spinner + status line over it: the
  *                slot keeps the *text's* height, so the timer holds still
@@ -61,7 +61,7 @@ const FAILED = (reason: string) => `Scramble failed: ${reason}`
 
 /**
  * Default diagram size cap (logical px), i.e. the cap of the normal window
- * tier — M6's applyLayout() pushes larger caps into the panel on a wide
+ * tier — applyLayout() pushes larger caps into the panel on a wide
  * window (see setDiagramMax). The natural sizes run from ~375×180 (clock) to
  * ~526×393 (4x4) — a 396×296 3x3 image would eat half the window, so the
  * picture is asked for the cap-fitted box (svgPaintable), keeping its
@@ -207,11 +207,11 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     label: '',
     visible: false,
     wrap: true,
-    // Display, not an editor (user call, 2026-10-02): a selectable label puts
-    // itself in the focus chain — Tab used to land on the scramble — and
-    // invites dragging a highlight across the one thing on screen that is
-    // there to be read. Copying lives on the header's copy button (Ctrl+C),
-    // which also copies text that has wrapped over several lines.
+    // Display, not an editor: a selectable label puts itself in the focus
+    // chain (Tab would land on the scramble) and invites dragging a highlight
+    // across the one thing on screen that is there to be read. Copying lives
+    // on the header's copy button (Ctrl+C), which also copies text that has
+    // wrapped over several lines.
     selectable: false,
     xalign: 0.5, // centred while unwrapped…
     justify: Gtk.Justification.CENTER, // …and when the lines wrap
@@ -250,20 +250,19 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     visible: false,
   })
 
-  // The diagram (M5): same source as the text, same frame — but placed as
-  // an *overlay* child of the view (main.ts), tucked into the bottom-right
-  // corner (user call, 2026-10-02). Overlay children are not counted in the
-  // parent's size request, so the picture cannot move the text or the timer
-  // at any window size, and switching the image off reflows nothing. Its
-  // size is the *cap-fitted request's* (see IMAGE_MAX_*), constant within a
-  // type; `canShrink` + CONTAIN take it down again when the window narrows
-  // instead of clipping.
+  // The diagram: same source as the text, same frame — but placed as an
+  // *overlay* child of the view (main.ts), tucked into the bottom-right
+  // corner. Overlay children are not counted in the parent's size request, so
+  // the picture cannot move the text or the timer at any window size, and
+  // switching the image off reflows nothing. Its size is the *cap-fitted
+  // request's* (see IMAGE_MAX_*), constant within a type; `canShrink` +
+  // CONTAIN take it down again when the window narrows instead of clipping.
   //
-  // No card behind it: the SVGs come transparent from cstimer_module and
-  // the white backdrop added in the first draft read as a stray box on the
-  // window (user call, 2026-10-02). Trade-off: the diagrams are drawn with
-  // black outlines, so on a dark theme the outlines go low-contrast — worth
-  // revisiting if it reads badly (e.g. a scheme-aware card).
+  // No card behind it: the SVGs come transparent from cstimer_module, and a
+  // white backdrop behind them reads as a stray box on the window. Trade-off:
+  // the diagrams are drawn with black outlines, so on a dark theme the
+  // outlines go low-contrast — worth revisiting if it reads badly (e.g. a
+  // scheme-aware card).
   const picture = new Gtk.Picture({
     alternativeText: 'Scramble diagram',
     canShrink: true,
@@ -332,7 +331,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   /** The feed state last drawn — what a tier change redraws without waiting. */
   let lastState: ScrambleFeedState | null = null
 
-  // The caps in force (M6): they start at the normal tier's defaults and
+  // The caps in force: they start at the normal tier's defaults and
   // applyLayout() pushes the tier's numbers in. Within one window size they
   // are constant, which is what keeps the timer from moving between solves.
   let textMaxChars = TEXT_MAX_CHARS
@@ -412,7 +411,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     image: picture,
     render,
     /**
-     * M6: how wide the scramble text may ask to be, and how tall the slot may
+     * How wide the scramble text may ask to be, and how tall the slot may
      * grow — both from the window's tier. The label's own `maxWidthChars`
      * caps its natural width (the minimum is the longest word, so the window
      * can still shrink past it) and `maxContentHeight` caps a tall scramble.
@@ -428,7 +427,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       }
     },
     /**
-     * M6: the diagram cap for this tier. The paintable's viewport was written
+     * The diagram cap for this tier. The paintable's viewport was written
      * against the old cap, so the cache is dropped and the last state
      * redrawn — the picture changes size, never its position, and the text
      * and timer are untouched (overlay children take no layout space).
@@ -441,14 +440,14 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       if (lastState !== null) render(lastState)
     },
     /**
-     * The diagram's size *as drawn* (M6): the picture is an overlay child, so
-     * its allocation is its own natural size (the paintable's cap-fitted
-     * viewport) or, in a cramped window, whatever room the overlay has — either way it is where
-     * the image actually is, and nothing in the layout can influence it
-     * (overlay children take no layout space). Zero before the first
-     * allocation, which the caller reads as "not yet" and the frame clock's
-     * after-paint corrects on the next frame. main.ts logs it on every change:
-     * it is the number most likely to reveal clipping.
+     * The diagram's size *as drawn*: the picture is an overlay child, so its
+     * allocation is its own natural size (the paintable's cap-fitted
+     * viewport) or, in a cramped window, whatever room the overlay has —
+     * either way it is where the image actually is, and nothing in the
+     * layout can influence it (overlay children take no layout space). Zero
+     * before the first allocation, which the caller reads as "not yet" and
+     * the frame clock's after-paint corrects on the next frame. main.ts logs
+     * it on every change: it is the number most likely to reveal clipping.
      */
     diagramSize: (): { width: number; height: number } => ({
       width: picture.getSize(Gtk.Orientation.HORIZONTAL),
