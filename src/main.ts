@@ -688,10 +688,16 @@ app.on('activate', () => {
   //     unapplied. Disjoint bands mean every boundary crossing changes the
   //     current breakpoint and therefore fires apply/unapply.
   //   • Gdk.Surface::layout — every resize, including a height-only one that
-  //     no width band can see; that is what carries the short-window tier.
+  //     no width band can see. It runs before GTK has caught the widget
+  //     allocations up, so all it can do is re-apply the tier already in
+  //     force; the frame end below is where a real size change becomes a
+  //     new tier.
   //   • the frame clock's after-paint — the diagram's size log and its
   //     bottom-bar lift read post-allocation numbers, so they belong at the
-  //     end of a frame, not in a resize handler.
+  //     end of a frame, not in a resize handler; applyLayout re-runs there
+  //     too, where every allocation is fresh — this is what lands band
+  //     crossings, height-only resizes, and the Adaptive Preview's
+  //     emulated-screen switches (which raise no surface event at all).
   //
   // All three end in the same idempotent functions: measure, compare, write
   // only what changed.
@@ -748,60 +754,49 @@ app.on('activate', () => {
   let lastTier = ''
   /** The last diagram size reported (see updateDiagram). */
   let lastDiagram = ''
-  /** The shadow last logged, so groundWindowSize's line speaks on a change. */
-  let reportedShadow = ''
 
   /**
-   * The window's size, read from the *surface* where possible.
+   * The rectangle the app lives in: `window.content`'s allocation, read via
+   * `getWidth()`/`getHeight()` — the `getAllocated*` getters are deprecated
+   * (the docs point at `get_width`/`get_height`).
    *
-   * The `layout` signal that drives applyLayout is the surface announcing its
-   * new size; GTK only catches the widget allocations up afterwards. So on the
-   * one pass where a tier or a margin must be decided for the new size, every
-   * widget answers with the *old* one — measured on the 900→460 jump: surface
-   * 460, window widget 890, split 762 (the split having been allocated the
-   * overflow it asked for). All three are true numbers from three different
-   * moments, and a decision taken from any of the widget ones is a decision
-   * about a window that no longer exists.
+   * `window.content` is the child of the very AdwBreakpointBin the window's
+   * breakpoints are evaluated against (adw-application-window.c), so this
+   * keeps the tiers and the bands on one rectangle *by construction*: in a
+   * normal window the bin fills the window, and with libadwaita's Adaptive
+   * Preview (Ctrl+Shift+M) it sits inside the preview's emulated screen —
+   * no feature test here, whatever embeds the content next. It is also the
+   * whole app, sidebar included, and deliberately not the `content`
+   * ToolbarView the applyLayout comment rejects, which is only what is left
+   * after the sidebar — a tier decided from that would feed on its own
+   * result.
    *
-   * The surface is the whole window *plus* the CSD shadow GTK draws around it,
-   * so the client area is that shadow subtracted — and the shadow is not
-   * something to infer but something to read: Gtk.Native reports its own
-   * offset inside the surface (`getSurfaceTransform`), i.e. the shadow on one
-   * edge, hence the 2×. Measured 2026-10-07 against three window sizes, that
-   * equalled `surface − window widget` exactly every time (offset 5 → 10px)
-   * and matched the value the old inference eventually settled on — it just
-   * got there by differencing two samples that first had to stand still, and
-   * credited `1x1` on its opening pass, so one tier was decided from a shadow
-   * that had not been measured yet. The transform is right from the first
-   * frame and needs no pump, so the frame clock no longer has to call in.
-   *
-   * Sign is not meaningful (it only says which way the axes run), hence the
-   * absolute value. Before realization there is no surface, so this reports
-   * 0×0 and applyLayout falls back to the size we asked for (see there).
+   * What this cannot know is *when* it is called, and that is the callers'
+   * business: on `Gdk.Surface::layout` the surface has already changed while
+   * GTK has not caught the widget allocations up (measured on the 900→460
+   * jump: surface 460, window widget 890, split 762), so this reads the
+   * old rectangle and re-applies the tier already in force — a harmless
+   * no-op. The frame's after-paint runs with fresh allocations and is what
+   * lands a new tier; the breakpoints, evaluated against the bin's own
+   * allocation, agree with it. Before the first allocation nothing is
+   * allocated, so this reports 0×0 and applyLayout falls back to the size
+   * we asked for (see there).
    */
   function groundWindowSize(): { width: number; height: number } {
-    const surface = window.getSurface()
-    if (surface === null) return { width: 0, height: 0 }
-    const [shadowX, shadowY] = window.getSurfaceTransform()
-    const shadowWidth = 2 * Math.abs(shadowX)
-    const shadowHeight = 2 * Math.abs(shadowY)
-    const shadow = `${shadowWidth}x${shadowHeight}`
-    if (shadowWidth > 0 && shadow !== reportedShadow) {
-      reportedShadow = shadow
-      console.error(`[layout] CSD shadow ${shadow}`)
-    }
     return {
-      width: surface.getWidth() - shadowWidth,
-      height: surface.getHeight() - shadowHeight,
+      width: window.content.getWidth(),
+      height: window.content.getHeight(),
     }
   }
 
   /** Apply the tier for the window's current size. Safe to call any time. */
   function applyLayout(): void {
     if (!layoutReady) return
-    // Measure the *window*, as the surface reports it (see groundWindowSize
-    // below) — the same number the breakpoints' conditions are checked
-    // against. Deliberately not `content`: in side-by-side mode that is what
+    // Measure the window's content (see groundWindowSize) — the same
+    // rectangle the breakpoints' conditions are evaluated against, so a
+    // trigger and the tier can never disagree about which window they are
+    // describing, in a normal window or behind the Adaptive Preview.
+    // Deliberately not `content`: in side-by-side mode that is what
     // is left *after* the sidebar, so a tier decided from it would feed on its
     // own result (open the drawer → content grows → the window looks wide
     // enough for a sidebar → close it → content shrinks → …). And deliberately
@@ -815,8 +810,8 @@ app.on('activate', () => {
     // *during* present(), and with long labels still packed in the header that
     // measurement overflows the window before any tier has run (measured with
     // `lsll`: "requested 928, 890 available"). The size we *asked* for is the
-    // size that first frame is given, so it stands in until the surface
-    // answers — applyLayout() runs once before present() for exactly this.
+    // size that first frame is given, so it stands in until the content is
+    // allocated — applyLayout() runs once before present() for exactly this.
     let { width, height } = groundWindowSize()
     if (width <= 0 || height <= 0) {
       const [askedWidth, askedHeight] = window.getDefaultSize()
@@ -1171,9 +1166,10 @@ app.on('activate', () => {
 
   // The two continuous sources (M6), both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
-  // but the short-window tier does), and any repaint that changed the
-  // diagram — its size log and its bottom-bar lift read post-allocation
-  // numbers, so they belong at the end of the frame.
+  // but the short-window tier does), and any repaint — where the diagram's
+  // post-allocation numbers live and where applyLayout re-runs with fresh
+  // allocations, which is what carries every size change no breakpoint
+  // sees, the Adaptive Preview's emulated-screen switches included.
   const surface = window.getSurface()
   if (surface === null) {
     console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the tier')
@@ -1184,7 +1180,16 @@ app.on('activate', () => {
   if (frameClock === null) {
     console.error('[layout] no frame clock — the diagram keeps its first size')
   } else {
-    frameClock.on('after-paint', () => updateDiagram())
+    frameClock.on('after-paint', () => {
+      updateDiagram()
+      // The fresh-allocation pass: surface layout can only re-apply what is
+      // already in force (the widgets have not caught up yet), and the
+      // Adaptive Preview raises no surface event at all — so every real
+      // size change lands here, with no mode test. applyLayout is
+      // compare-first everywhere (see the sources above), so an idle frame
+      // costs one measurement and nothing else.
+      applyLayout()
+    })
   }
 
   // Surface the load notices (details already went to stderr).

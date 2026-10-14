@@ -1515,6 +1515,19 @@ width bands (S ≤480, C 481–540, B 541–800, M 1200–1599, L ≥1600) as
 and `Gdk.FrameClock::after-paint`, which now drives `updateDiagram` — the
 picture's size log and bottom-bar lift, since it was the timer nudge.
 
+*Size source, revised 2026-10-11 (Adaptive Preview):* `applyLayout` reads
+`window.content`'s allocation — the child of the same `AdwBreakpointBin`
+the band conditions are evaluated against (adw-application-window.c) — so
+one rectangle serves tiers and bands whether the window shows the app
+directly or the preview's emulated screen, with no feature test anywhere
+in main.ts. The surface read (and its CSD-shadow subtraction) is gone;
+`Gdk.Surface::layout` remains as the early, one-frame-stale trigger that
+can only re-apply the in-force tier, and after-paint, with fresh
+allocations, lands every new one — band crossings, height-only resizes,
+preview toggles and emulated-device switches alike. Probe: preview content
+360×670 inside a 1000×700 window; `max-width: 360px` applies while the
+window is 1000 wide.
+
 - **Drawer sidebar ≤800** — `Adw.OverlaySplitView.collapsed`, auto-hide on
   collapse / auto-show on uncollapse, wired exactly as libadwaita's own
   "Overlay Sidebar" demo: one bidirectional binding between `show-sidebar`
@@ -1578,6 +1591,17 @@ Decisions worth carrying forward:
   decision from any of them is a decision about a window that no longer
   exists. `groundWindowSize()` reads the surface minus the CSD shadow
   (measured 10×10) and feeds both `layoutFor` and the margin clamp.
+  *(Revised 2026-10-11 for the Adaptive Preview, user call: "something
+  general that naturally works with adaptive preview" — the ground is now
+  `window.content`'s allocation, the child of the very breakpoint bin the
+  band conditions are evaluated against, so tiers and bands share one
+  rectangle in every embedding with **no feature test** — a grep for
+  `adaptivePreview` in main.ts comes back empty. The staleness argument
+  above turns into a *when* rule: surface `layout` can only re-apply the
+  in-force tier, after-paint — fresh allocations — lands the new one; the
+  surface read and its 10×10 CSD-shadow subtraction are deleted. Probe
+  evidence: preview content 360×670 inside a 1000×700 window, and
+  `max-width: 360px` applies while the window is 1000 wide.)*
 - **Never clamp against a box that GTK has already given its minimum.** The
   content's allocation contains the margin being computed, so that clamp is
   a tautology that settles *above* the window and clips (439px of content in
@@ -1605,7 +1629,7 @@ Evidence:
   `<Ctrl+B>` → `<Ctrl+B>` → `Escape` → 400×360 (the floor *then*; it is
   360×360 since the HIG change in §7) → 1700 → 900,
   with an aliveness check after every step. The log shows exactly one
-  `[sidebar]` line per state change (no ping-pong), `CSD shadow 10x10`, and
+  `[sidebar]` line per state change (no ping-pong) and
   `[layout] 390x350 (win 350)` at that floor — content under the window, no
   `AdwToastOverlay exceeds` line anywhere. Re-verified at the new floor:
   `350x350` (360×360) and `350x630` (360×640), still zero warnings — §7.

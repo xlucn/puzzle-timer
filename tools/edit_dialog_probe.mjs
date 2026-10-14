@@ -309,7 +309,7 @@ app.on('activate', () => {
       `inner scroller holds the FULL scramble, bounded (heightRequest=${scroller?.heightRequest}, label=${fullLabel?.label?.length} chars)`,
       scroller !== null && scroller.heightRequest === 160 && fullLabel !== null && fullLabel.label === SCRAMBLE_LONG,
     )
-    const boxH = A.box.getAllocatedHeight()
+    const boxH = A.box.getHeight()
     check(
       `collapsed content bounded (box h=${boxH}px; the unbounded row would be ~640)`,
       boxH > 200 && boxH <= 420,
@@ -331,8 +331,8 @@ app.on('activate', () => {
         scrambleCopy.cssClasses.includes('flat'),
     )
     check(
-      `Date row spans the card (rowW=${rows[0].computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getAllocatedWidth()})`,
-      Math.abs(rows[0].computeBounds(A.formList)[1].getWidth() - A.formList.getAllocatedWidth()) <= 2,
+      `Date row spans the card (rowW=${rows[0].computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getWidth()})`,
+      Math.abs(rows[0].computeBounds(A.formList)[1].getWidth() - A.formList.getWidth()) <= 2,
     )
 
     check(
@@ -352,12 +352,12 @@ app.on('activate', () => {
     // (dialogW is the AdwDialog overlay layer filling the host — same as
     // the stats dialog; the card wraps the child bin, whose natural comes
     // from contentWidth).
-    const dialogW = A.dialog.getAllocatedWidth()
+    const dialogW = A.dialog.getWidth()
     const [boxMin, boxNat] = A.box.measure(Gtk.Orientation.HORIZONTAL, -1)
     check(
-      `content capped at contentWidth (boxAlloc=${A.box.getAllocatedWidth()} of nat ${boxNat}; overlay=${dialogW}, contentWidth=${A.dialog.contentWidth})`,
-      A.box.getAllocatedWidth() >= 475 &&
-        A.box.getAllocatedWidth() <= 485 &&
+      `content capped at contentWidth (boxAlloc=${A.box.getWidth()} of nat ${boxNat}; overlay=${dialogW}, contentWidth=${A.dialog.contentWidth})`,
+      A.box.getWidth() >= 475 &&
+        A.box.getWidth() <= 485 &&
         boxNat > 600 &&
         A.dialog.contentWidth === 480,
     )
@@ -441,14 +441,14 @@ app.on('activate', () => {
           br = br.getNextSibling()
         }
         const expander = bRows[1]
-        const beforeH = B.box.getAllocatedHeight()
+        const beforeH = B.box.getHeight()
         check(
           `B opens with a collapsed ExpanderRow (type ${expander?.constructor.name}, box h=${beforeH}px)`,
           expander?.constructor.name === 'AdwExpanderRow' && expander.expanded === false && beforeH <= 420,
         )
         expander.expanded = true
         GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 400, () => {
-          const afterH = B.box.getAllocatedHeight()
+          const afterH = B.box.getHeight()
           check(
             `expanding grows content by the bounded scroller (before=${beforeH} → after=${afterH}, Δ=${afterH - beforeH})`,
             afterH > beforeH + 100 && afterH < beforeH + 260,
@@ -459,8 +459,8 @@ app.on('activate', () => {
             if (w.constructor.name === 'GtkScrolledWindow') sc2 = w
           })
           check(
-            `scroller allocated its 160px when expanded (h=${sc2?.getAllocatedHeight()})`,
-            sc2 !== null && sc2.getAllocatedHeight() >= 150 && sc2.getAllocatedHeight() <= 180,
+            `scroller allocated its 160px when expanded (h=${sc2?.getHeight()})`,
+            sc2 !== null && sc2.getHeight() >= 150 && sc2.getHeight() <= 180,
           )
           const willClose = B.dialog.close()
           check(`dialog.close() accepted (returns ${willClose})`, willClose === true)
@@ -470,12 +470,12 @@ app.on('activate', () => {
 
           // ---------- carry-over: the form itself ----------
           check(
-            `penaltyRow halign=FILL, fills list (rowW=${A.penaltyRow.computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getAllocatedWidth()})`,
-            Math.abs(A.penaltyRow.computeBounds(A.formList)[1].getWidth() - A.formList.getAllocatedWidth()) <= 2,
+            `penaltyRow halign=FILL, fills list (rowW=${A.penaltyRow.computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getWidth()})`,
+            Math.abs(A.penaltyRow.computeBounds(A.formList)[1].getWidth() - A.formList.getWidth()) <= 2,
           )
           check(
-            `group natural width, no hexpand (groupW=${A.penaltyGroup.getAllocatedWidth()}, hexpand=${A.penaltyGroup.hexpand})`,
-            A.penaltyGroup.getAllocatedWidth() < 200 && A.penaltyGroup.hexpand === false,
+            `group natural width, no hexpand (groupW=${A.penaltyGroup.getWidth()}, hexpand=${A.penaltyGroup.hexpand})`,
+            A.penaltyGroup.getWidth() < 200 && A.penaltyGroup.hexpand === false,
           )
           check(
             `comment row does NOT route Enter to the dialog (activatesDefault=${A.commentRow.activatesDefault})`,
