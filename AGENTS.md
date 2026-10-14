@@ -2,6 +2,10 @@
 
 Native Linux cube timer (csTimer-like), built with GTK4 + libadwaita.
 Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
+Other docs: **[README.md](./README.md)** (user-facing), **[BUILD.md](./BUILD.md)**
+(build/run/test detail), **[CONTRIBUTING.md](./CONTRIBUTING.md)** (contributor
+entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)**
+(current-state architecture, distilled from PLAN.md), **[RUST-PORT.md](./RUST-PORT.md)**.
 
 ## Stack (decided — do not re-litigate without being asked)
 
@@ -120,6 +124,13 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   the README's *How this was written* section and the About dialog's
   `comments` line both carry it. Reword one and you reword both — they are
   the same statement in two places.
+- **Code comments are for peer developers, not a development diary**
+  ([CONTRIBUTING.md](./CONTRIBUTING.md) has the full policy): present tense,
+  what the code does plus the one key reason it is that way. Keep gotchas
+  that are still true (GTK/node-gtk quirks, measured facts) — without the
+  date. Never write dates, "(user call, …)" attribution, milestone tags
+  (`M3`, `M6`, …), or "superseded / used to be / removed on …" narratives:
+  history belongs in git and [PLAN.md](./PLAN.md).
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
   argument — a handler takes exactly the signal's own parameters — and what it
   returns becomes the signal's return value (that is how a `boolean`-returning
@@ -292,23 +303,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
 
 ### Fresh install
 
-`package.json` carries an `allowScripts` allowlist for `node-gtk` and
-`esbuild`. Without it npm blocks their install scripts: `npm install` dies in
-`postinstall` with `MODULE_NOT_FOUND .../node-gtk/lib/native.js` and the app
-cannot start. The entries are version-pinned, so after bumping either
-dependency re-approve them:
-
-```sh
-npm install-scripts approve node-gtk
-npm install-scripts approve esbuild
-```
-
-If the install is already broken and you only want the native binding back:
-
-```sh
-(cd node_modules/node-gtk && npx node-pre-gyp install --fallback-to-build)
-npm run generate-types
-```
+If `npm install` dies in `postinstall` with
+`MODULE_NOT_FOUND .../node-gtk/lib/native.js`, npm blocked the `node-gtk` /
+`esbuild` install scripts — the fix (`npm install-scripts approve …`, and the
+one-command binding repair) is in [BUILD.md](./BUILD.md) → Fresh install.
+Re-approve after bumping either dependency: the allowlist entries are
+version-pinned.
 
 ## Out of scope (agreed, do not add unprompted)
 
