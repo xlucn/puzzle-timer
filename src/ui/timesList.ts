@@ -302,15 +302,25 @@ export function createTimesList(options: TimesListOptions) {
   const footer = new Gtk.ActionBar({ revealed: false })
   footer.setCenterWidget(footerRow)
 
-  const widget = new Gtk.Box({
-    orientation: Gtk.Orientation.VERTICAL,
-    cssClasses: ['sidebar'],
-  })
-  widget.append(header)
-  widget.append(sessionRow)
-  widget.append(scroller)
-  widget.append(empty)
-  widget.append(footer)
+  // The sidebar as a ToolbarView (user call, 2026-10-11): header → top
+  // bar, ActionBar → bottom bar — both are first-class bar kinds in
+  // adw-toolbar-view.c, whose docs say "windows with sidebars should
+  // always use this style" (FLAT by default, so the bars render as they
+  // did in the plain box). What it buys: the footer is pinned by the
+  // container instead of leaning on the scroller's vexpand,
+  // revealTopBars/revealBottomBars become available the way the content
+  // side already uses them, and the sidebar matches the main content's
+  // structure. The session row stays *content* — it labels the list, so
+  // it must not leave with the header — and the `sidebar` class moves to
+  // this root: its rules match descendants, so the list keeps them.
+  const widget = new Adw.ToolbarView({ cssClasses: ['sidebar'] })
+  widget.addTopBar(header)
+  const body = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
+  body.append(sessionRow)
+  body.append(scroller)
+  body.append(empty)
+  widget.content = body
+  widget.addBottomBar(footer)
 
   // ---- actions -----------------------------------------------------------
   /**
