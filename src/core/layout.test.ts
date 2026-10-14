@@ -57,7 +57,7 @@ describe('layoutFor — width tiers', () => {
   })
 })
 
-describe('layoutFor — the selectors leave only at ≤600', () => {
+describe('layoutFor — the selectors leave only at ≤540', () => {
   it('follows the width band alone, at every band edge', () => {
     // The label-driven escape hatch (headerSlack) is gone as of 2026-10-04:
     // it existed only because the two Gtk.DropDowns could not shrink, so long
@@ -65,8 +65,8 @@ describe('layoutFor — the selectors leave only at ≤600', () => {
     // the edge. The header's selector is now one button whose label
     // ellipsizes, so the header absorbs what it is given and only the window's
     // width decides — hence no third argument to layoutFor.
-    expect(layoutFor(selectorRowMax, 540).selectorRow).toBe(true) // 600 → row
-    expect(layoutFor(selectorRowMax + 1, 540).selectorRow).toBe(false) // 601 → header
+    expect(layoutFor(selectorRowMax, 540).selectorRow).toBe(true) // 540 → row
+    expect(layoutFor(selectorRowMax + 1, 540).selectorRow).toBe(false) // 541 → header
     expect(layoutFor(drawerMax, 540).selectorRow).toBe(false) // 800 → drawer, still header
     expect(layoutFor(drawerMax + 1, 540).selectorRow).toBe(false) // 801 → side by side, header
     expect(layoutFor(largeMin, 540).selectorRow).toBe(false) // tier L → header

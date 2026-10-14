@@ -278,8 +278,8 @@ DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (
 # one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to
 # keep its natural width. Select the catalogue's worst pair (FTO category +
 # Diamond type, 52 chars) and check three things:
-#   • `[layout] … selectors in the header` at 900/700/610 and `in their own
-#     row` only at ≤600 — the labels are not part of that decision any more;
+#   • `[layout] … selectors in the header` at 900/700/541 and `in their own
+#     row` only at ≤540 — the labels are not part of that decision any more;
 #   • the minimize/maximize/close buttons stay on screen at every width,
 #     including side-by-side with the sidebar open (header ≈ w − 240);
 #   • the label reads `…` under that squeeze rather than shoving the
@@ -288,7 +288,7 @@ DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (
 jq '(.sessions[] | select(.id == "default")).scrambleType = "dmdso"' \
     ~/.local/share/cstimer-gtk/sessions/_index.json > /tmp/idx && \
     cp /tmp/idx ~/.local/share/cstimer-gtk/sessions/_index.json
-# …restart, walk 1700/900/700/610/600, then restore with _index.json.bak.
+# …restart, walk 1700/900/700/541/540, then restore with _index.json.bak.
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …

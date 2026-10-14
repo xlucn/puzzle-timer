@@ -4,7 +4,7 @@
  * As of 2026-10-04 the dialog is the only place a type is *chosen*. Both
  * layouts open it through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts):
  * packed in the header while the window is wide, and in ToolbarView's bottom
- * bar at ≤600px together with refresh and copy. The button is reparented
+ * bar at ≤540px together with refresh and copy. The button is reparented
  * rather than duplicated, and its text lives in the header's WindowTitle
  * (src/ui/scrambleTypeTitle.ts), so one dialog and one `onChange` path cover
  * every layout.
@@ -20,11 +20,11 @@
  *     look, the selection pill, scrolling, and — flipped to
  *     `Adw.SidebarMode.PAGE` by the same breakpoint — the boxed-lists page it
  *     becomes when collapsed (the documented Adw.Sidebar pattern).
- *   - Collapse is an `Adw.Breakpoint` (`max-width: 600px`) on the dialog,
+ *   - Collapse is an `Adw.Breakpoint` (`max-width: 540px`) on the dialog,
  *     applied to `collapsed` through the breakpoint's apply/unapply signals
  *     (node-gtk can't box the GValue `addSetter` needs — AGENTS.md). The
  *     dialog follows its own content size, so it is naturally narrow (one
- *     column) until the content makes it wider than 600px.
+ *     column) until the content makes it wider than 540px.
  *   - The sidebar is built once; the type list holds only the *browsed*
  *     category's rows (~19), refilled by a single `renderTypes()` when
  *     `browse` changes. Measured 2026-10-06: `setFilterFunc` re-evaluates
@@ -98,7 +98,7 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     const dialog = new Adw.Dialog({
       title: 'Scramble type',
       // A default size, not a managed one: the dialog clamps itself to the
-      // parent window, and the 600px breakpoint collapses the split whenever
+      // parent window, and the 540px breakpoint collapses the split whenever
       // the allocated width is too narrow. No surface listener, no manual
       // contentWidth chasing — the dialog uses the space available to it.
       contentWidth: 720,

@@ -187,12 +187,12 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
   the 360×360 floor (360×640 gives `350x630`).
 - Type chooser (same keyboard-only rule): **both layouts open the same
-  dialog** (2026-10-04). Above 600 the current type shows as the header's
+  dialog** (2026-10-04). Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)
   and the control is an **icon-only button packed after refresh/copy** —
   walk `Tab` until the focus ring is on it (focus is sticky, so there is no
   fixed stop count; order: sidebar → refresh → copy → select) and press
-  `Return`. Below 600 **all four bar controls** — refresh, copy, select and
+  `Return`. Below 540 **all four bar controls** — refresh, copy, select and
   the image toggle — move together into `Adw.ToolbarView`'s **bottom
   toolbar** —
   walk `Tab` until the select button's ring is on it and press `Return`. Inside the
@@ -209,7 +209,7 @@ Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
   most of the slow popup and ran twice per category click), while rebuilding
   the ~19 visible rows costs ≈3ms. One render path keyed on `browse` alone —
   layout state never reaches it — and an `Adw.Breakpoint`
-  (`max-width: 600px` on the dialog, which clamps to the parent) drives
+  (`max-width: 540px` on the dialog, which clamps to the parent) drives
   `collapsed`. When collapsed the content page's header shows the split view's
   own back button to the category page; selecting a category pushes to its
   types. Navigation, selection and activation are the widgets' own (no custom

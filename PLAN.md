@@ -520,7 +520,7 @@ Small and self-contained — deliberately the first thing scheduled (user call,
   and the tier's `diagramMaxWidth/Height` are the same numbers written twice
   today; one of them goes before a scale can make them disagree.
 - **What must still hold:** the 360×360 floor, the drawer at ≤800, the
-  selector row at ≤600 — none of them may acquire a size constant of its own.
+  selector row at ≤540 — none of them may acquire a size constant of its own.
 
 **Checkpoint for the user:** at default scale, 360×360 still reports
 `350x350` with no app warnings; then push each scale to an end and confirm at
@@ -1509,7 +1509,7 @@ Adaptive layout. Every threshold and both decisions live in
 `src/core/layout.ts` as pure functions (`layoutFor`, `BREAKPOINTS` — and
 `timerMargins` too, until the nudge was dropped on 2026-10-05, see below);
 `src/main.ts` only measures and applies. Five **disjoint**
-width bands (S ≤480, C 481–600, B 601–800, M 1200–1599, L ≥1600) as
+width bands (S ≤480, C 481–540, B 541–800, M 1200–1599, L ≥1600) as
 `Adw.BreakpointCondition`s written from those same constants, plus
 `Gdk.Surface::layout` for what bands cannot see (height, in-between sizes)
 and `Gdk.FrameClock::after-paint`, which now drives `updateDiagram` — the
@@ -1521,8 +1521,11 @@ picture's size log and bottom-bar lift, since it was the timer nudge.
   and the header toggle, so the property *is* the state. `<Ctrl+B>`
   (`app.sidebar`) and `Escape` (drawer only) are the other two callers of
   `setShowSidebar()`; both are in the shortcuts window.
-- **Selectors leave the header** for their own row at ≤600 — that width band
-  is the whole rule (user call, 2026-10-04). It was previously two conditions:
+- **Selectors leave the header** for their own row at ≤540 — that width band
+  is the whole rule (user call, 2026-10-04; edge moved 600 → **540** on
+  2026-10-11, user call — the type picker's collapse breakpoint shares
+  `selectorRowMax`, and 540 puts a phone in landscape, its dialog wider
+  than 540, on the picker's two-column side). It was previously two conditions:
   the band, **or when the measured labels stopped fitting** — `layoutFor` took
   the header's natural width and handed the row over when it exceeded the room
   by more than `headerSlack` (200). Measured then: the header asks **724px**
@@ -1616,6 +1619,11 @@ Evidence:
   reason `headerSlack` existed, and it was removed 2026-10-04** along with
   the demand measurement, once the selector could ellipsize instead; the
   724/561/521 numbers remain the record of why 800 and 600 were chosen.
+  — *the edge is 540 since 2026-10-11 (user call)*: those 521/531 belong
+  to the two-dropdown row, and the selector is an icon button with the
+  type text in the title since M6, so the row's natural is far under the
+  new edge — and the constant also drives the type picker's collapse
+  breakpoint, where 540 puts a phone in landscape on its two-column side.
 - **The nudge measures right** *(superseded — the nudge was dropped
   2026-10-05, so the timer is centred now; kept for what it proved about
   measuring against the window)*: at 900 the timer block's centre lands 1.5px
@@ -1790,7 +1798,7 @@ Evidence:
   focus stop: the wide chain gained one stop, `Shift+Tab`×7 (AGENTS
   Layout-F anchors). Floor: header min 282, row min 156 → 198, both ≤ 360.
 - **Narrow: all four bar controls share the bottom bar (user call,
-  2026-10-08)** — below 600 refresh, copy, select **and the image toggle**
+  2026-10-08)** — below 540 refresh, copy, select **and the image toggle**
   move together into `Adw.ToolbarView`'s **bottom toolbar**: the three
   scramble buttons left-packed at natural width, the image toggle
   right-aligned at the far edge (halign END; it is the bar's only
@@ -1814,7 +1822,7 @@ Evidence:
   own `Adw.ToolbarView` + `Adw.HeaderBar`, so the split view itself provides
   the page titles and — collapsed — the back button (a real `AdwBackButton`,
   confirmed in the widget tree). Collapse is an **`Adw.Breakpoint`**
-  (`max-width: 600px`) applied to `collapsed` via the breakpoint's
+  (`max-width: 540px`, `BREAKPOINTS.selectorRowMax`) applied to `collapsed` via the breakpoint's
   apply/unapply signals (node-gtk can't box the GValue `addSetter` needs). The
   dialog is given only a default `contentWidth`/`contentHeight` (720×480) and
   clamps itself to the parent window — there is no parent-surface listener and

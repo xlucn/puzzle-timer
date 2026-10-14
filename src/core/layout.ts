@@ -40,9 +40,15 @@
 export const BREAKPOINTS = {
   /** ≤ 480 → tier S: the timer's digits step down so they never clip. */
   smallMax: 480,
-  /** 481–600 → tier C: the selectors leave the header for their own row. */
-  selectorRowMax: 600,
-  /** 601–800 → tier B: the sidebar becomes an overlay drawer. */
+  /**
+   * 481–540 → tier C: the selectors leave the header for their own row.
+   * 540 since 2026-10-11 (user call): the type picker's collapse
+   * breakpoint shares this constant (scrambleTypePicker.ts), and540 puts a
+   * phone in landscape — its dialog wider than 540 — on the picker's
+   * two-column side.
+   */
+  selectorRowMax: 540,
+  /** 541–800 → tier B: the sidebar becomes an overlay drawer. */
   drawerMax: 800,
   /** 1200–1599 → tier M: the timer steps up and the scramble slot widens. */
   mediumMin: 1200,
@@ -74,7 +80,7 @@ export const BREAKPOINTS = {
    *
    * What used to hold this number up is gone: the selector was two
    * Gtk.DropDowns wanting ~282px between them, and is now one ellipsizing
-   * button that moves into ToolbarView's bottom bar at ≤600. The floor is
+   * button that moves into ToolbarView's bottom bar at ≤540. The floor is
    * therefore the ToolbarView bars plus the tier-S content, which fit inside
    * 350 (measured — see PLAN §7).
    */
@@ -137,7 +143,7 @@ export function layoutFor(width: number, height: number): LayoutTier {
 
   const tier: LayoutTier = {
     drawer,
-    // The width band is the whole rule: at ≤600 the window is too narrow for
+    // The width band is the whole rule: at ≤540 the window is too narrow for
     // two controls side by side, and the row gives the labels their own space.
     selectorRow: w <= BREAKPOINTS.selectorRowMax,
     // Narrow *or* short: the digits are the one thing that must never clip.

@@ -515,9 +515,10 @@ app.on('activate', () => {
   header.packStart(typeButton.widget)
 
   // The image toggle (user call, 2026-10-08): right side of whichever bar
-  // the layout shows — packEnd in the header (AdwHeaderBar prepends, so it
-  // lands left of the app-functions menu, keeping ⋮ the rightmost app
-  // control), and placeSelectors moves it into the bottom bar at ≤600 with
+  // the layout shows — packEnd in the header, where it is the rightmost
+  // app control since the app-functions ⋮ joined the sidebar menu
+  // (2026-10-11), and placeSelectors moves it into the bottom bar at ≤540
+  // with
   // halign END (one expander = the whole slack, button stays natural —
   // measured). It drives the *existing* scrambleImage preference through
   // applyPreferences below — the same path the Preferences SwitchRow uses,
@@ -568,7 +569,7 @@ app.on('activate', () => {
   })
 
   // ---- content: adaptive top and bottom bars around scramble + timer ------
-  // At ≤600 the selectors leave the header and move into ToolbarView's
+  // At ≤540 the selectors leave the header and move into ToolbarView's
   // bottom-bar slot. All four controls — refresh, copy, select and the image
   // toggle — move together between header and bar (user call, 2026-10-08);
   // the box is just the full-width toolbar surface around them — the three
