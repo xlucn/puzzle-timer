@@ -14,6 +14,11 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 | `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window |
+| `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets |
+| `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
+| `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the AGENTS floor-line numbers) |
+| `preview_probe.mjs` | Headless: Adaptive Preview premises — content sits in the emulated screen and the window's breakpoints measure that screen (what makes content-basis ground correct) |
+| `content_min_probe.mjs` | Headless: the main stack's minimum per widget at floor widths — bars + panel + timer, text- and width-independent (the 294-floor fit) |
 | `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines (rquickjs, boa, deno_core, rusty_v8, JavaScriptCore, libnode) and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK. |
 
 ## Requirements

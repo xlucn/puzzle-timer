@@ -1617,7 +1617,8 @@ Decisions worth carrying forward:
   above turns into a *when* rule: surface `layout` can only re-apply the
   in-force tier, after-paint — fresh allocations — lands the new one; the
   surface read and its 10×10 CSD-shadow subtraction are deleted. Probe
-  evidence: preview content 360×670 inside a 1000×700 window, and
+  evidence (`tools/preview_probe.mjs`): preview content 360×670 inside a
+  1000×700 window, and
   `max-width: 360px` applies while the window is 1000 wide.)*
 - **Never clamp against a box that GTK has already given its minimum.** The
   content's allocation contains the margin being computed, so that clamp is
@@ -1934,7 +1935,7 @@ Evidence:
   "scale down to 360×294px" (Small Size Handling); the earlier reading took
   360 for both axes and squared the floor. 294 is the height — and exactly
   the height a phone in landscape gives an app. Width stays 360. Headless
-  floor probe, both backends: `heightRequest` floors the *widget* at exactly
+  `tools/floor_probe.mjs`, both backends: `heightRequest` floors the *widget* at exactly
   the request — on initial allocation **and** against a forced `xdotool`
   resize — so the expected floor line is **`[layout] 360x294 (win 294)`**,
   reached at xdotool `370×304` under the walk's +10 CSD rule (the probe
@@ -1954,8 +1955,9 @@ Evidence:
   360 floor (the header still holding its controls: 650 → 410 until
   `placeSelectors` caught up). Three parts, all needed:
   (1) the stack's minimum came down to 290 — panel top margin 14→8, timer
-  box spacing 4→2, measured headless on the real widgets (`content_min`
-  probe: height is text-independent — empty/3x3/relay all equal, and
+  box spacing 4→2, measured headless on the real widgets
+  (`tools/content_min_probe.mjs`: height is text-independent —
+  empty/3x3/relay all equal, and
   width-independent at 505/480/360; 277 after, real = that + the stats
   values the stub never rendered);
   (2) `groundWindowSize` stops believing an over-allocated child —
