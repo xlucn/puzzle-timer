@@ -63,20 +63,26 @@ export const BREAKPOINTS = {
   sidebarMin: 240,
   /**
    * The window refuses to be dragged narrower than this (and shorter than
-   * `minHeight`): below it no tier could keep the layout deliberate.
+   * `minHeight`): below either, no tier could keep the layout deliberate.
    *
-   * **360 is the GNOME HIG's minimum for the phone form factor** — see
-   * developer.gnome.org/hig/guidelines/adaptive.html. Height stays 360, so
-   * the floor is square, and the width equals libadwaita's own `AdwWindow`
-   * default (360×200) — the value the breakpoint docs tell you to override
-   * when breakpoints are in use ("the minimum size must be larger than the
-   * smallest UI state"), which is what `minHeight` still does.
+   * **360×294 is the GNOME HIG's smallest phone-form-factor window** — see
+   * developer.gnome.org/hig/guidelines/adaptive.html, Small Size Handling:
+   * "apps that are appropriate for a phone form factor should scale down to
+   * 360×294px". The height is 294 rather than a square 360 because that is
+   * the height a phone in landscape gives an app: a size devices reach, not
+   * a margin.
    *
-   * What fits inside it: the `ToolbarView` bars plus the tier-S content,
-   * which fit inside 350 (measured — see PLAN §7).
+   * The width also equals libadwaita's own `AdwWindow` default (360×200) —
+   * the value the breakpoint docs tell you to override when breakpoints are
+   * in use ("the minimum size must be larger than the smallest UI state"),
+   * which is what `minHeight` does.
+   *
+   * What fits inside: the `ToolbarView` bars plus the tier-S content were
+   * measured to fit in 350 (PLAN §7). The request can only *add* to that —
+   * the content's own minimum still holds the window higher if it needs to.
    */
   minWidth: 360,
-  minHeight: 360,
+  minHeight: 294,
 } as const
 
 /** Timer readout size class (src/ui/timerLabel.ts styles `.size-*`). */

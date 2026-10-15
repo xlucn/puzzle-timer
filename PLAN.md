@@ -478,7 +478,7 @@ the table.
 | **M4** | Statistics ported from csTimer rules (ao5/ao12/mo3 trimming, DNF-as-∞, PB target), penalties `+2`/`DNF`, WCA inspection with beeps, per-session scramble type | Feature-complete core |
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
 | **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
-| **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×360 floor still holds |
+| **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×294 floor still holds |
 | **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change |
 | **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese |
 | **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
@@ -519,11 +519,11 @@ Small and self-contained — deliberately the first thing scheduled (user call,
 - **Unify the diagram caps** — `scramblePanel.ts`'s `IMAGE_MAX_WIDTH/HEIGHT`
   and the tier's `diagramMaxWidth/Height` are the same numbers written twice
   today; one of them goes before a scale can make them disagree.
-- **What must still hold:** the 360×360 floor, the drawer at ≤800, the
+- **What must still hold:** the 360×294 floor, the drawer at ≤800, the
   selector row at ≤540 — none of them may acquire a size constant of its own.
 
-**Checkpoint for the user:** at default scale, 360×360 still reports
-`350x350` with no app warnings; then push each scale to an end and confirm at
+**Checkpoint for the user:** at default scale, the floor still reports
+`360x294` with no app warnings; then push each scale to an end and confirm at
 900×540 that the digits read the size asked for and the diagram still clears
 the timer.
 
@@ -937,14 +937,18 @@ keyboard rather than becoming a second input model.
   stated cause (a first frame measuring the selectors before any tier ran)
   went away with `headerSlack` on 2026-10-04 — so either it is gone and the
   note closes, or it is something else and now has a name.
+  *(Closed 2026-10-15: it has a name — the content-min-vs-floor family in
+  §7 — and the floor run boots clean: zero warnings from start through
+  four resizes.)*
 - **Dialog audit at the floor, both orientations:** Statistics, the type
   picker, the keyboard reference, rename/delete, and the edit dialog at
-  **360×360** (portrait phone) and **640×360** (landscape phone — tier B
+  **360×640** (portrait phone) and **640×294** (landscape phone — tier B
   drawer, timer `s`, `scrambleMaxHeight` 100).
 
 **Checkpoint for the user:** click-and-hold the timer and release to start,
 with no keyboard anywhere near it; swipe a row to delete and undo from the
-toast; then resize to 360×360 and confirm the diagram is off the digits.
+toast; then resize to the 360×294 floor and confirm the diagram is off the
+digits.
 
 ### M15 — scheduled (phone runtime — an evaluation, not a port)
 
@@ -1362,6 +1366,19 @@ Return itself — while `defaultWidget` stays, so Return still resolves to
 Save from *outside* the entry (focus opens on Save, so Enter there presses
 that very button). The probe drives the save path dialog-side
 (`default.activate`) and asserts the row's property false.
+— *one scroll view instead of two (user call, 2026-10-15, when the floor
+dropped to 294 and the editor stopped fitting it)*: the form moved into a
+`Gtk.ScrolledWindow` under the fixed header — Save stays reachable at any
+height — and the expander's 160px scroller was removed; the relay's full
+text lays out unrolled and the form's scroller carries it. Two measured
+mechanics: `Gtk.ScrolledWindow` reports a flat 58px unless
+`propagateNaturalHeight` is set (against a 502px form — without it the
+dialog collapses to a bare header), and the dialog keeps its collapsed
+size when the expander opens, so the same scroller takes the growth; at
+the floor the dialog clamps to its parent and the form scrolls beneath
+the header. The collapsed size is unchanged by the rework (329px in both
+shapes). Probe 50/50 — new checks: clamped parent → scrollable form,
+header allocated above it, no inner scroller, full text laid out.
 
 **WCA inspection (stage 5).** A sixth timer state, `inspecting`: the first
 ready→release starts the 15 s countdown (`formatInspection`, orange, clamped),
@@ -1913,6 +1930,45 @@ Evidence:
   current geometry. Re-measure before acting on it: M14 carries the item.
   The `390x350` above is the old floor's
   number, kept for what it proved.
+- **Height floor 360 → 294 (user call, 2026-10-15)** — the HIG sentence is
+  "scale down to 360×294px" (Small Size Handling); the earlier reading took
+  360 for both axes and squared the floor. 294 is the height — and exactly
+  the height a phone in landscape gives an app. Width stays 360. Headless
+  floor probe, both backends: `heightRequest` floors the *widget* at exactly
+  the request — on initial allocation **and** against a forced `xdotool`
+  resize — so the expected floor line is **`[layout] 360x294 (win 294)`**,
+  reached at xdotool `370×304` under the walk's +10 CSD rule (the probe
+  display's own CSD reads +50, hence the probe asserts widget numbers, not
+  the shadow). The old `350x350` / WM-minimum-360 expectations cannot arise
+  while `widthRequest = 360` is in force (widget ≥ 360 by construction) —
+  they predate the requests taking effect in a run. The 350 *fit*
+  measurement above is still the only measured vertical fit, and the one
+  thing unmeasured is the real content's own minimum: a request can only
+  *add* to a floor, so the walk at `370×304` is what confirms the window
+  actually reaches 294.
+- **Floor vs content: the `AdwToastOverlay exceeds …` family (user report,
+  2026-10-15)** — confirmed exactly as the note above feared: at the floor
+  the content's own minimum was **300** (bars 91 + panel 77 + timer 145
+  with real stats values), so every measure below it warned
+  (`requested 300, 294 available`), and width had the same family at the
+  360 floor (the header still holding its controls: 650 → 410 until
+  `placeSelectors` caught up). Three parts, all needed:
+  (1) the stack's minimum came down to 290 — panel top margin 14→8, timer
+  box spacing 4→2, measured headless on the real widgets (`content_min`
+  probe: height is text-independent — empty/3x3/relay all equal, and
+  width-independent at 505/480/360; 277 after, real = that + the stats
+  values the stub never rendered);
+  (2) `groundWindowSize` stops believing an over-allocated child —
+  `min(content, window widget)`: when the minimum exceeds the window GTK
+  still gives the child its request (the report's `505x300 (win 294)`,
+  the run's `650x294`), so the ground described a window that did not
+  exist and held the wrong tier open — the header kept its controls past
+  `selectorRowMax` while the floor had already been reached;
+  (3) together the tier now lands on the first pass.
+  Verified on the live session (scale-2 XWayland; xdotool args in device
+  px): four resizes including two 900×540 → floor crossings — **0
+  `AdwToastOverlay` warnings**, log `505x294 (win 294)` and `360x294 (win
+  294)`, `selectors in their own row` from the first floor line.
 - **Scramble panel stability (2026-10-01)** — the timer must not move when
   the scramble updates, in either direction. The spinner/status row is a
   `Gtk.Overlay` child of the text slot, never stacked under it (stacked cost

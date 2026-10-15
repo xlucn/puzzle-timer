@@ -76,9 +76,10 @@ const TEXT_MAX_HEIGHT = 160
  * The panel's own vertical margins (see `widget` below). They are *outside*
  * the panel's height — GTK allots a child its margins plus its size, and the
  * next child starts after the lot — so the timer begins this much below the
- * panel's measured bottom edge.
+ * panel's measured bottom edge. They are also part of the *window's* height
+ * minimum: bars + panel + timer must fit the 294px floor with room to spare.
  */
-const PANEL_MARGIN_TOP = 14
+const PANEL_MARGIN_TOP = 8
 const PANEL_MARGIN_BOTTOM = 4
 
 /**

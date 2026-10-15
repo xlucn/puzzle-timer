@@ -378,9 +378,10 @@ export function createTimesList(options: TimesListOptions) {
 
     // Display-only history: knowing which scramble a bad time was on is half
     // of what a comment is for. Above EXPAND_SCRAMBLE_ABOVE the row becomes
-    // an ExpanderRow — one ellipsized line collapsed, the full text in a
-    // bounded scroller when expanded — so the dialog grows by at most 160px
-    // on demand. The `property` class cannot follow it in: its selectors
+    // an ExpanderRow — one ellipsized line collapsed, the full text laid out
+    // when expanded — with no scroller of its own: the form scrolls as one
+    // (see the scroller below), so a relay's 1000+ characters cost scroll,
+    // not structure. The `property` class cannot follow it in: its selectors
     // need box.header directly on the row and the expander nests its header.
     // Omitted entirely when a solve has none.
     const scrambleRow = (() => {
@@ -406,19 +407,14 @@ export function createTimesList(options: TimesListOptions) {
       row.addSuffix(copySuffix(solve.scramble, 'Copy the scramble'))
       row.addRow(
         new Gtk.ListBoxRow({
-          child: new Gtk.ScrolledWindow({
-            // Bounded (~9 lines): a whole 7x7 fits unscrolled, the 234567
-            // relay scrolls — and the dialog grows by at most this.
-            heightRequest: 160,
-            child: new Gtk.Label({
-              label: solve.scramble,
-              wrap: true,
-              xalign: 0,
-              marginStart: 12,
-              marginEnd: 12,
-              marginTop: 6,
-              marginBottom: 6,
-            }),
+          child: new Gtk.Label({
+            label: solve.scramble,
+            wrap: true,
+            xalign: 0,
+            marginStart: 12,
+            marginEnd: 12,
+            marginTop: 6,
+            marginBottom: 6,
           }),
         }),
       )
@@ -486,9 +482,25 @@ export function createTimesList(options: TimesListOptions) {
     const header = new Adw.HeaderBar()
     header.packStart(saveButton)
 
+    // The form scrolls, the header stays fixed: the dialog clamps to its
+    // parent, and at the window floor (~294px tall) the rows would fall off
+    // the bottom — with Save packed in the header, it is reachable either
+    // way. propagateNaturalHeight is the load-bearing bit: by default the
+    // scroller reports only its own size (measured: a flat 58px against a
+    // 502px form) and the dialog would collapse to a bare header — with it,
+    // the dialog is as tall as the form, and only an overflow (the floor
+    // clamp, a relay expansion) engages the scrolling. Never horizontal:
+    // the rows fill the card and the labels wrap.
+    const scroller = new Gtk.ScrolledWindow({
+      child: form,
+      vexpand: true,
+      hscrollbarPolicy: Gtk.PolicyType.NEVER,
+      vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
+      propagateNaturalHeight: true,
+    })
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
     box.append(header)
-    box.append(form)
+    box.append(scroller)
 
     const dialog = new Adw.Dialog({
       // A plain HeaderBar picks the dialog's title up itself when it roots

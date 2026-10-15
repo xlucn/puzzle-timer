@@ -1,7 +1,9 @@
-// Edit-dialog probe v4 (2026-10-11): Adw.Dialog + header bar, boxed-list
+// Edit-dialog probe v5 (2026-10-15): Adw.Dialog + header bar, boxed-list
 // rows (Date+copy / Scramble → ExpanderRow when long / Penalty /
 // Comment), title carrying the solve number, Return→save from outside the
-// comment entry, discard path, height bounds.
+// comment entry, discard path, and the form scroll view: the dialog clamps
+// against a short parent (the window floor), the form scrolls beneath the
+// fixed header, and the expander carries no scroller of its own.
 //
 // Usage: node --import tsx --import node-gtk/register tools/edit_dialog_probe.mjs
 import Adw from 'gi:Adw-1'
@@ -104,17 +106,14 @@ function buildDialog(writes, win, scramble) {
     row.addSuffix(copySuffix(scramble, 'Copy the scramble'))
     row.addRow(
       new Gtk.ListBoxRow({
-        child: new Gtk.ScrolledWindow({
-          heightRequest: 160,
-          child: new Gtk.Label({
-            label: scramble,
-            wrap: true,
-            xalign: 0,
-            marginStart: 12,
-            marginEnd: 12,
-            marginTop: 6,
-            marginBottom: 6,
-          }),
+        child: new Gtk.Label({
+          label: scramble,
+          wrap: true,
+          xalign: 0,
+          marginStart: 12,
+          marginEnd: 12,
+          marginTop: 6,
+          marginBottom: 6,
         }),
       }),
     )
@@ -158,9 +157,16 @@ function buildDialog(writes, win, scramble) {
   const header = new Adw.HeaderBar()
   header.packStart(saveButton)
 
+  const scroller = new Gtk.ScrolledWindow({
+    child: form,
+    vexpand: true,
+    hscrollbarPolicy: Gtk.PolicyType.NEVER,
+    vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
+    propagateNaturalHeight: true,
+  })
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   box.append(header)
-  box.append(form)
+  box.append(scroller)
 
   const dialog = new Adw.Dialog({
     title: 'Edit solve #3',
@@ -197,6 +203,7 @@ function buildDialog(writes, win, scramble) {
     box,
     form,
     formList,
+    scroller,
     isClosed: () => closed,
   }
 }
@@ -241,7 +248,7 @@ app.on('activate', () => {
       kids.push(k.constructor.name)
       k = k.getNextSibling()
     }
-    check(`box children = [${kids.join(', ')}] (header, content)`, kids.join(',') === 'AdwHeaderBar,GtkBox')
+    check(`box children = [${kids.join(', ')}] (header, scroller)`, kids.join(',') === 'AdwHeaderBar,GtkScrolledWindow')
 
     const formKids = []
     let f = A.form.getFirstChild()
@@ -294,25 +301,28 @@ app.on('activate', () => {
         rows[1].subtitleLines === 1 &&
         rows[1].expanded === false,
     )
-    let scroller = null
+    // The expander must hold the full text itself — no scroller of its own:
+    // the dialog's form is the one scroll view.
+    let innerScrollers = 0
+    let plainFull = false
     walk(rows[1], (w) => {
-      if (w.constructor.name === 'GtkScrolledWindow') scroller = w
+      if (w.constructor.name === 'GtkScrolledWindow') innerScrollers++
+      if (
+        w.constructor.name === 'GtkListBoxRow' &&
+        w.getChild?.()?.constructor.name === 'GtkLabel' &&
+        w.getChild().label === SCRAMBLE_LONG
+      ) {
+        plainFull = true
+      }
     })
-    // getFirstChild may be a scrollbar — find the label inside.
-    let fullLabel = null
-    if (scroller !== null) {
-      walk(scroller, (w) => {
-        if (w.constructor.name === 'GtkLabel') fullLabel = w
-      })
-    }
     check(
-      `inner scroller holds the FULL scramble, bounded (heightRequest=${scroller?.heightRequest}, label=${fullLabel?.label?.length} chars)`,
-      scroller !== null && scroller.heightRequest === 160 && fullLabel !== null && fullLabel.label === SCRAMBLE_LONG,
+      `expander holds the FULL scramble in a plain label, unscrolled (scrollers=${innerScrollers}, plain=${plainFull})`,
+      innerScrollers === 0 && plainFull,
     )
     const boxH = A.box.getHeight()
     check(
-      `collapsed content bounded (box h=${boxH}px; the unbounded row would be ~640)`,
-      boxH > 200 && boxH <= 420,
+      `collapsed dialog sizes to the form (box h=${boxH}px, header + form natural)`,
+      boxH > 200 && boxH <= 460,
     )
     const dateCopy = findCopy(rows[0])
     check(
@@ -348,17 +358,17 @@ app.on('activate', () => {
       A.penaltyGroup.valign === Gtk.Align.CENTER,
     )
 
-    // contentWidth: 480 must cap the *content* despite the long scramble
-    // (dialogW is the AdwDialog overlay layer filling the host — same as
-    // the stats dialog; the card wraps the child bin, whose natural comes
-    // from contentWidth).
+    // contentWidth: 480 sets the card's width, and the scroller no longer
+    // propagates the label's one-line natural width, so the long scramble
+    // cannot inflate the dialog's natural width either (dialogW is the
+    // AdwDialog overlay layer filling the host).
     const dialogW = A.dialog.getWidth()
     const [boxMin, boxNat] = A.box.measure(Gtk.Orientation.HORIZONTAL, -1)
     check(
       `content capped at contentWidth (boxAlloc=${A.box.getWidth()} of nat ${boxNat}; overlay=${dialogW}, contentWidth=${A.dialog.contentWidth})`,
       A.box.getWidth() >= 475 &&
         A.box.getWidth() <= 485 &&
-        boxNat > 600 &&
+        boxNat < 600 &&
         A.dialog.contentWidth === 480,
     )
 
@@ -444,23 +454,32 @@ app.on('activate', () => {
         const beforeH = B.box.getHeight()
         check(
           `B opens with a collapsed ExpanderRow (type ${expander?.constructor.name}, box h=${beforeH}px)`,
-          expander?.constructor.name === 'AdwExpanderRow' && expander.expanded === false && beforeH <= 420,
+          expander?.constructor.name === 'AdwExpanderRow' && expander.expanded === false && beforeH <= 460,
         )
         expander.expanded = true
         GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 400, () => {
           const afterH = B.box.getHeight()
-          check(
-            `expanding grows content by the bounded scroller (before=${beforeH} → after=${afterH}, Δ=${afterH - beforeH})`,
-            afterH > beforeH + 100 && afterH < beforeH + 260,
-          )
-          check(`expanded content still fits a 640-tall window (h=${afterH})`, afterH <= 600)
-          let sc2 = null
+          // The dialog keeps its size — one scroll view, Save never moving —
+          // and the unrolled text is laid out in full inside the scroller.
+          let fullH = 0
           walk(expander, (w) => {
-            if (w.constructor.name === 'GtkScrolledWindow') sc2 = w
+            if (w.constructor.name === 'GtkLabel' && w.label === SCRAMBLE_LONG && w.wrap) fullH = w.getHeight()
           })
           check(
-            `scroller allocated its 160px when expanded (h=${sc2?.getHeight()})`,
-            sc2 !== null && sc2.getHeight() >= 150 && sc2.getHeight() <= 180,
+            `expanding lays the full text into the scroller, dialog unchanged (label h=${fullH}px, box Δ=${afterH - beforeH}px)`,
+            fullH > 300 && Math.abs(afterH - beforeH) <= 60,
+          )
+          let sc2 = 0
+          walk(expander, (w) => {
+            if (w.constructor.name === 'GtkScrolledWindow') sc2++
+          })
+          check(`expander holds no scroller when expanded (${sc2} found)`, sc2 === 0)
+          // The form is the scroll view: expanded past the dialog's height,
+          // the vadjustment must have something to scroll.
+          const vadj = B.scroller.getVadjustment()
+          check(
+            `form scrolls when the expansion overflows (upper ${vadj.getUpper()} > page ${vadj.getPageSize()})`,
+            vadj.getUpper() > vadj.getPageSize(),
           )
           const willClose = B.dialog.close()
           check(`dialog.close() accepted (returns ${willClose})`, willClose === true)
@@ -517,12 +536,42 @@ app.on('activate', () => {
             findCopy(cRows[1]) !== null && findCopy(cRows[1]).tooltipText === 'Copy the scramble',
           )
 
-          for (const c of checks) console.error(`[e] ${c}`)
-          const fails = checks.filter((c) => c.startsWith('FAIL'))
-          console.error(
-            `[e] RESULT: ${checks.length - fails.length}/${checks.length} ${fails.length === 0 ? 'ALL PASS' : 'FAILURES: ' + fails.join('; ')}`,
-          )
-          app.quit()
+          // ---------- the window floor: dialog clamps, form scrolls ----------
+          const shortWin = new Adw.ApplicationWindow({
+            application: app,
+            defaultWidth: 1100,
+            defaultHeight: 300,
+          })
+          shortWin.setContent(new Gtk.Label({ label: 'timer' }))
+          shortWin.present()
+          const D = buildDialog([], shortWin, SCRAMBLE_LONG)
+          D.dialog.present(shortWin)
+          GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
+            const [, formNat] = D.form.measure(Gtk.Orientation.VERTICAL, D.box.getWidth())
+            check(
+              `short parent clamps the dialog below the form (box h=${D.box.getHeight()} < form nat ${formNat})`,
+              D.box.getHeight() < formNat,
+            )
+            const dVadj = D.scroller.getVadjustment()
+            check(
+              `form is scrollable at the floor (upper ${dVadj.getUpper()} > page ${dVadj.getPageSize()})`,
+              dVadj.getUpper() > dVadj.getPageSize(),
+            )
+            check(
+              `header with Save stays allocated above the scroller (header h=${D.header.getHeight()})`,
+              D.header.getHeight() > 20,
+            )
+            D.dialog.close()
+            shortWin.close()
+
+            for (const c of checks) console.error(`[e] ${c}`)
+            const fails = checks.filter((c) => c.startsWith('FAIL'))
+            console.error(
+              `[e] RESULT: ${checks.length - fails.length}/${checks.length} ${fails.length === 0 ? 'ALL PASS' : 'FAILURES: ' + fails.join('; ')}`,
+            )
+            app.quit()
+            return false
+          })
           return false
         })
         return false

@@ -108,9 +108,9 @@ app.on('activate', () => {
   // takes its 240 floor, leaving 660 for the header. Resizing is handled by
   // the breakpoints below (applyLayout).
   window.setDefaultSize(900, 540)
-  // A hard floor, not a suggestion: below 360 no tier in core/layout.ts can
-  // keep the layout deliberate (the header alone needs ~282). 360 is also
-  // the GNOME HIG minimum for the phone form factor.
+  // Hard floors, not suggestions: below these no tier in core/layout.ts can
+  // keep the layout deliberate (the header alone needs ~282 of *width*).
+  // 360×294 is the GNOME HIG's smallest phone window — see BREAKPOINTS.
   window.widthRequest = BREAKPOINTS.minWidth
   window.heightRequest = BREAKPOINTS.minHeight
 
@@ -630,11 +630,19 @@ app.on('activate', () => {
    * emulated screen. It is the whole app, sidebar included; not the `content`
    * ToolbarView, which is only what is left after the sidebar (a tier from
    * that would feed on its own result — see applyLayout).
+   *
+   * One more thing it must not believe: an over-allocated child. When the
+   * content's own minimum exceeds the window, GTK still hands the child its
+   * request (measured: 650px of content in a 505px window; 300 against the
+   * 294 floor) — reporting that describes a window that does not exist and
+   * holds the wrong tier open (the header keeps its controls at a width that
+   * has already passed selectorRowMax, and the next measure warns). The
+   * window widget caps the reading in both axes.
    */
   function groundWindowSize(): { width: number; height: number } {
     return {
-      width: window.content.getWidth(),
-      height: window.content.getHeight(),
+      width: Math.min(window.content.getWidth(), window.getSize(Gtk.Orientation.HORIZONTAL)),
+      height: Math.min(window.content.getHeight(), window.getSize(Gtk.Orientation.VERTICAL)),
     }
   }
 

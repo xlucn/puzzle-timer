@@ -98,7 +98,9 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
 
   const widget = new Gtk.Box({
     orientation: Gtk.Orientation.VERTICAL,
-    spacing: 4,
+    // Counted in the window's height minimum: bars + panel + timer must fit
+    // the 294px floor, so label/hint/strip gaps are kept to a minimum.
+    spacing: 2,
     halign: Gtk.Align.CENTER,
     valign: Gtk.Align.CENTER,
     vexpand: true,

@@ -83,3 +83,18 @@ describe('layoutFor — height tiers', () => {
     expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight + 1).timerSize).toBe('l')
   })
 })
+
+describe('BREAKPOINTS — the window floor', () => {
+  it('is the HIG phone minimum: 360 wide, 294 tall', () => {
+    expect(BREAKPOINTS.minWidth).toBe(360)
+    expect(BREAKPOINTS.minHeight).toBe(294)
+  })
+
+  it('selects a deliberate tier at the floor', () => {
+    const tier = layoutFor(BREAKPOINTS.minWidth, BREAKPOINTS.minHeight)
+    expect(tier.drawer).toBe(true)
+    expect(tier.selectorRow).toBe(true)
+    expect(tier.timerSize).toBe('s')
+    expect(tier.scrambleMaxHeight).toBe(100)
+  })
+})

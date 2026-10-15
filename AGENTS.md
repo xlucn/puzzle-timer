@@ -190,8 +190,8 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   `[layout] WxH … drawer/side-by-side, selectors …` plus `[sidebar]` on each
   state change. `<Ctrl+B>` toggles the list, `Escape` closes the drawer
   (only while one is up). Expected: one line per change, **zero**
-  `AdwToastOverlay exceeds …` warnings, and `[layout] 350x350 (win 350)` at
-  the 360×360 floor (360×640 gives `350x630`).
+  `AdwToastOverlay exceeds …` warnings, and `[layout] 360x294 (win 294)` at
+  the floor (xdotool `370×304`; `370×640` gives `360x630`).
 - Type chooser (same keyboard-only rule): **both layouts open the same
   dialog**. Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)
