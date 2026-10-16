@@ -1,7 +1,15 @@
 {
-  "name": "cstimer-gtk",
-  "version": "0.1.0",
-  "description": "An Adwaita application built with node-gtk.",
+  "name": "puzzle-timer",
+  "version": "0.0.7",
+  "description": "A native GTK4/libadwaita speedcubing timer — WCA scrambles for 206 puzzles, sessions and statistics, in the spirit of csTimer.",
+  "homepage": "https://github.com/xlucn/puzzle-timer#readme",
+  "bugs": {
+    "url": "https://github.com/xlucn/puzzle-timer/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xlucn/puzzle-timer.git"
+  },
   "type": "module",
   "private": true,
   "license": "GPL-3.0-or-later",

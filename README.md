@@ -51,6 +51,13 @@ while the app runs — edit, save, and the window restyles instantly.
 
 Written with the assistance of AI/LLM tools.
 
+## Changelog
+
+Every stage is tagged and described in [CHANGELOG.md](./CHANGELOG.md).
+`0.0.x` marks internal stages — one per milestone that has landed — and
+`0.1.0` will be the first public source release. The same file feeds the
+About dialog's release notes.
+
 ## License
 
 GPL-3.0-or-later — see [LICENSE](./LICENSE). Not a preference: this project
@@ -66,5 +73,6 @@ ports GPL-3.0 code from
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute — conventions and workflow |
 | [DESIGN.md](./DESIGN.md) | How the code is structured, and why |
 | [PLAN.md](./PLAN.md) | The project's development history and milestone record |
+| [CHANGELOG.md](./CHANGELOG.md) | What changed, in each tagged stage |
 | [AGENTS.md](./AGENTS.md) | Rules the AI coding agents follow in this repo |
 | [tools/README.md](./tools/README.md) | The scripted UI-verification harness |

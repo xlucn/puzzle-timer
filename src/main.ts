@@ -32,7 +32,7 @@ import { SessionLibrary } from './core/sessionLibrary.js'
 import type { Penalty } from './core/time.js'
 import { Timer, type TimerState } from './core/timer.js'
 import { playInspectionCue } from './platform/audio.js'
-import { APP_VERSION } from './platform/meta.js'
+import { APP_ISSUES, APP_REPOSITORY, APP_VERSION, releaseNotesHtml } from './platform/meta.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createPreferences } from './ui/preferences.js'
@@ -851,16 +851,20 @@ app.on('activate', () => {
 
   // ---- app actions (wired to the menu above) ---------------------------
   const showAbout = () => {
-    // Adw.AboutDialog (1.5+), not Adw.AboutWindow (deprecated since 1.6);
-    // GPL_3_0 means *3.0 or later*, matching package.json's
-    // GPL-3.0-or-later — GPL_3_0_ONLY would not. Version comes from
-    // package.json via platform/meta.ts, never a literal (AGENTS: one
-    // version, one place).
+    // GPL_3_0 means *3.0 or later* — GPL_3_0_ONLY would not. Version, repo
+    // URLs and release notes come from meta.ts so they cannot drift from
+    // package.json or CHANGELOG.md.
+    const releaseNotes = releaseNotesHtml()
     const about = new Adw.AboutDialog({
       applicationName: APP_NAME,
       applicationIcon: APP_ID,
       developerName: 'Lu Xu',
       version: APP_VERSION,
+      ...(APP_REPOSITORY === null ? {} : { website: APP_REPOSITORY }),
+      ...(APP_ISSUES === null ? {} : { issueUrl: APP_ISSUES }),
+      ...(releaseNotes === null
+        ? {}
+        : { releaseNotes, releaseNotesVersion: APP_VERSION }),
       comments:
         'A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\n' +
         'Scrambles are provided by the cstimer_module package, part of the ' +
@@ -870,6 +874,11 @@ app.on('activate', () => {
       copyright: '© 2026 Lu Xu',
       licenseType: Gtk.License.GPL_3_0,
     })
+    about.addAcknowledgementSection('Built with', [
+      'csTimer and cstimer_module by Shuang Chen',
+      'node-gtk',
+      'GTK and libadwaita',
+    ])
     about.present(window)
   }
 

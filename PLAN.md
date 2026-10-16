@@ -543,8 +543,20 @@ decisions at the end of this block.
   twice already; versions are a monotonic counter, so a renumber can never
   demand a version rewrite.
 
-**Already done — verified 2026-10-16. This block used to describe all of it
-as future work:**
+**Landed 2026-10-16:** the seven backfilled tags (`v0.0.1` … `v0.0.7`);
+`package.json` at `0.0.7` with `name: puzzle-timer`, a real `description`
+and `homepage`/`bugs`/`repository`; `CHANGELOG.md`, seeded from §6 and
+opened with `[Unreleased]`; and the About dialog's `website`, `issueUrl`,
+`releaseNotes` + `releaseNotesVersion` and `addAcknowledgementSection()`.
+
+`meta.ts` grew a **second** file dependency — `../../CHANGELOG.md` — because
+the About dialog parses its own release notes from the changelog rather than
+carrying a copy that would drift. The packaged layout must ship that file
+(M16's PKGBUILD copies it), and AGENTS' load-bearing-paths rule went from
+four to five.
+
+**Already done earlier — verified 2026-10-16. This block used to describe all
+of it as future work:**
 
 - *one version, one place*: `src/platform/meta.ts` reads `package.json`, and
   `main.ts` passes `version: APP_VERSION`. The import-attribute alternative
@@ -559,15 +571,11 @@ as future work:**
 
 **Still open in half A:**
 
-- **`package.json` identity** — still `name: cstimer-gtk`, with the
-  scaffold's placeholder `description` ("An Adwaita application built with
-  node-gtk.") and no `repository` field, days after `Puzzle Timer` was
-  adopted. `private: true` stays — a source release is a git tag and a repo,
-  not an npm publish.
-- **`CHANGELOG.md`** — as above; does not exist yet.
-- **About gaps** — `website`, `issueUrl`, `releaseNotes` +
-  `releaseNotesVersion`, and `addAcknowledgementSection()` for csTimer /
-  `cstimer_module` / node-gtk / GTK / libadwaita are still unfilled.
+- **A visual check of About.** The new fields are type-checked and the
+  release-notes conversion is unit-tested (including the hard-wrapped-line
+  bug it hit), but only a display proves node-gtk accepts them at runtime.
+  Open the dialog and expect version `0.0.7`, a GitHub link, an issues
+  link, this version's notes, and a "Built with" acknowledgement section.
 - **Decide whether the About dialog should publish the developer email** —
   it currently shows `Lu Xu <oliver_lew@outlook.com>`, which is a decision
   once the repo is public.
@@ -1097,7 +1105,7 @@ package() {
   local d="/usr/lib/$pkgname"
   cd "$pkgname-$pkgver"
   install -d "$pkgdir$d/node_modules" "$pkgdir/usr/bin"
-  cp -r dist package.json style.css "$pkgdir$d/"
+  cp -r dist package.json style.css CHANGELOG.md "$pkgdir$d/"
   cp -r node_modules/cstimer_module "$pkgdir$d/node_modules/"
   cp -r node_modules/node-gtk/lib node_modules/node-gtk/package.json \
         "$pkgdir$d/node_modules/node-gtk/"
