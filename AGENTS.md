@@ -306,13 +306,14 @@ Stackmat is a **long-term** goal (see PLAN.md), not current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; don't redesign them, follow the
 milestone blocks):
-**M7** size preferences → **M8** scramble type options (independent of the
-rest, and its length control is deliberately **not**
-persisted — see PLAN.md §6) → **M9** i18n → **M10** csTimer import/export →
-**M11** records & statistics → **M12** charts → **M13** release readiness →
-**M14** touch input → **M15** phone-runtime verdict → **M16** AUR package
-(blocked on M13 — PLAN.md §6 has the draft PKGBUILD and
-the size measurements).
+**Queue (2026-10-16): M13** release readiness → **M14** touch input →
+**M15** phone-runtime verdict → **M7** size preferences → **M8** scramble
+type options (independent of the rest, and its length control is
+deliberately **not** persisted) → **M9** i18n → **M10** csTimer
+import/export → **M11** records & statistics → **M12** charts → **M16** AUR
+package (blocked on M13 — PLAN.md §6 has the draft PKGBUILD and the size
+measurements). Numbers are stable identifiers, not positions in the queue:
+reorder the queue, never the numbers.
 
 Only **M15** may reopen packaging any further (Flatpak, deb, AppStream).
 
