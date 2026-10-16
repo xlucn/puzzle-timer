@@ -5,7 +5,8 @@
 > the milestone order in [PLAN.md](./PLAN.md) §1 is unchanged. A Rust port is
 > **not** M16 and must not be started unprompted.
 >
-> **Re-run the evidence:** `tools/rust-embed/run.sh` (see [§7](#7-reproducing-this)).
+> **Re-run the evidence:** `tools/rust-embed/run.sh` (see [§7](#7-reproducing-this)),
+> and `tools/rust-embed/probe-vala/run.sh` for the Vala variant ([§10](#10-vala-the-other-candidate-language)).
 
 ## 1. The question, and the short answer
 
@@ -39,6 +40,11 @@ actively-maintained [gtk-rs](https://gtk-rs.org) project (~2.3k stars, gtk4-rs
 a single-maintainer binding — PLAN.md §5 already lists that as the project's
 main architectural risk. So a future Rust rewrite buys better GUI bindings
 *and* can keep the scramble module untouched.
+
+**The other candidate language is measured too:** [§10](#10-vala-the-other-candidate-language)
+runs the same 206-type evidence for **Vala**, where JavaScriptCore arrives as
+a shipped vapi instead of hand-written FFI. The engine verdict above does not
+change; the language choice is a separate, and closer, question.
 
 ---
 
@@ -136,8 +142,9 @@ Under real libnode, `process`/`require`/`global` genuinely exist — **no shim a
    lang string (or an uncaught throw) rather than an engine bug.
    The app already handles this — `src/scramble/cstimerLang.ts`.
 
-2. **`getImage` returns `false`, not `null`,** for the 28 types with no drawing
-   rule. Bind it as a union (`bool | string`) or as "truthy string", never as
+2. **`getImage` returns `false`, not `null`,** for the 29 types with no drawing
+   rule (206 − 177 image-producing types; `src/scramble/worker.ts` says the
+   same). Bind it as a union (`bool | string`) or as "truthy string", never as
    `Option<String>` — a `None`-only binding fails on the first imageless type.
 
 ---
@@ -626,6 +633,9 @@ SLOW=1 tools/rust-embed/run.sh
 
 # optional: the libnode route (needs a downloaded libnode.so)
 LIBNODE=/path/to/libnode.so tools/rust-embed/run.sh
+
+# the same evidence for Vala — needs valac + webkitgtk-6.0 (~35 s)
+tools/rust-embed/probe-vala/run.sh
 ```
 
 **Slow engines are opt-in** — they are 20–55× slower and their results are
@@ -636,7 +646,10 @@ smoke test would not.
 
 `run.sh` checks itself: it compares against an **expected** count derived from
 the flags (3 default, +2 for `SLOW`, +1 for `LIBNODE`) and exits non-zero on
-any mismatch, so a silent probe failure can't read as a pass.
+any mismatch, so a silent probe failure can't read as a pass. `probe-vala` is
+deliberately outside that count — it is not a cargo member and has its own
+`run.sh`, which checks all three of its runs against the same recorded hash
+and also exits non-zero on any mismatch (§10).
 
 Layout:
 
@@ -653,7 +666,11 @@ tools/rust-embed/
 ├── probe-deno/             deno_core (+ tokio gotcha)
 ├── probe-v8/               v8 direct — no deno_core, no tokio
 ├── probe-jsc/              JSC C API — no crates, 0.35 MB
-└── probe-libnode/          edon/libnode                [LIBNODE=]
+├── probe-libnode/          edon/libnode                [LIBNODE=]
+└── probe-vala/             Vala + the jsc/ GObject API, own run.sh (§10)
+                            main.vala, shim.js, sweep.js — not a cargo member;
+                            the two .js files are verbatim copies of
+                            probe-common's SHIM/sweep_expr, so keep them in step
 ```
 
 `probe-jsc` links one of two system libraries via a cargo feature:
@@ -794,3 +811,119 @@ happens; don't retrofit it into the node-gtk app.
    does not exist in the runtime.
 6. **Python stays rejected** unless someone measures a JIT strategy that
    integrates with GTK bindings.
+7. **Rust or Vala?** [§10](#10-vala-the-other-candidate-language)
+   measures the part a language choice actually decides for the dependency —
+   Vala embeds JSC with less code and its vapis track the installed libraries —
+   and names what it does *not* decide (the 7 043-line rewrite, memory safety
+   vs. tooling, and Vala's loss of the "own your engine" option). Re-run
+   `tools/rust-embed/probe-vala/run.sh` before trusting either column.
+
+---
+
+## 10. Vala, the other candidate language
+
+Written 2026-10-16 at the user's request, after §1–§9 had settled the *engine*
+question: does the **language** change the answer for the module? It does not —
+Vala runs `cstimer_module` under JavaScriptCore more cheaply than Rust does.
+Evidence: `tools/rust-embed/probe-vala/` (own `run.sh`, not a cargo member).
+
+No Rust probe measures the host→module path (`--api` below): every Rust engine
+is driven from *inside* one evaluated script, so the two "lines" rows are not
+two attempts at one task — the Vala probe does the sweep **and** the thread
+shape **and** the call path a port actually lives on.
+
+```bash
+tools/rust-embed/probe-vala/run.sh          # ~35 s; DIFF=1 adds a fresh node diff
+```
+
+### The module: easier, and shorter
+
+| | `probe-jsc` (Rust) | `probe-vala` |
+|---|---|---|
+| binding | 8 C functions hand-declared, `unsafe` throughout | **none written** — `valac --pkg javascriptcoregtk-6.0` |
+| lines | 172 + 185 shared in `probe-common` — **dump sweep only** | 243 in one file, covering all three modes below (+ the same shim/sweep JS) |
+| build | cargo release | **0.29 s** |
+| stripped binary | 368 KB | 35 KB |
+| links | `libjavascriptcoregtk-6.0.so.1` | the same `.so` — no libwebkit, no web process, no sandbox |
+
+The `jsc/` GObject API ships as a vapi vapigen'd from the installed
+`JavaScriptCore-6.0` GIR, so the whole typed surface (`JSC.Context`,
+`JSC.Value`, `JSC.Exception`, `JSC.VirtualMachine`) arrives with `valac` and
+the probe contains no FFI of its own. That typelib is installed too, so a
+**GJS** host could use the same API — PLAN.md §3's option stays open.
+
+§3's two traps soften rather than vanish:
+
+- `evaluate (code, length)` is a two-argument call — no six-argument
+  `JSEvaluateScript` to miscount, and no `JSStringRef` to release by hand;
+  exceptions come back as a `NULL` result plus `ctx.get_exception()`.
+- `getImage`'s `false` is `is_boolean()`, which the probe counts as one of
+  **29** imageless types — 206 − 177, and `src/scramble/worker.ts` says the
+  same; §3's "28" was corrected to 29 on these numbers.
+
+### Three runs, and why all three
+
+`run.sh` checks the two sweeps against the recorded dump hash
+(`7750f9e8e1eaf18540c43a8ec7f6d574`) and the host-API run against the
+reference's counts, and exits non-zero on any mismatch in either:
+
+| run | mode | result |
+|---|---|---|
+| dump sweep | default | byte-identical to node and to all six Rust engines |
+| dump sweep off the UI thread | `--thread` | same hash — context created **and** used on a worker thread with **no GLib main loop** (AGENTS.md rule 4) |
+| host → module calls | `--api` | `OK=206 empty=0 images=177 no-image=29 failures=0`, seed parity identical, images arrive as `<svg…` strings |
+
+The third is the one a port depends on. The Rust probes drive everything from
+*inside* one evaluated script; `service.ts`'s shape is the **host** calling
+three functions with typed arguments, and that marshalling is exactly what
+`--api` exercises — string and number arguments in, string / boolean `false` /
+thrown exception out. It runs as its own process so nothing in it can perturb
+the RNG stream the dump sweep measures.
+
+### What §10 does *not* change
+
+- **The module is the small part.** The port stays §8's 7 043 non-test lines.
+  `src/scramble/` (318 lines) is the boundary in either language and
+  `protocol.ts` (33 lines) carries over untouched; `worker_threads` becomes a
+  `GLib.Thread` plus a queue, which the `--thread` run is the evidence for.
+- **§5's JSC notes are about the library, not the language.** The `.so`'s long
+  licence list, the `jsc6`/`jsc4` package split, the Flatpak runtime argument
+  and the ABI-bump gotcha all still apply, word for word.
+
+### What Vala buys beyond the module
+
+- **Vapis in step with the installed libraries.** Every `Adw.*` / `Gtk.*` /
+  `Gdk.*` / `Pango.*` symbol this app uses exists locally, and
+  `libadwaita-1.vapi` covers since **1.10** = the installed 1.10.0 —
+  `Adw.Breakpoint`, `Adw.Sidebar*`, `Adw.ShortcutsDialog`, `Gtk.Svg` all
+  present. gtk4-rs 0.11.5 / libadwaita-rs 0.9.2 lag the installed GTK 4.24 /
+  libadwaita 1.10, so the newest API a port would need is the case where
+  hand-maintained crates are weakest.
+- **No FFI layer, so AGENTS.md rule 5 and §8's Blueprint note both flip.**
+  GObject subclassing and `[GtkTemplate]` are the native idiom there, and
+  blueprint-compiler's `.blp` → `.ui` output is what `GtkTemplate` already
+  consumes. The node-gtk FFI risk that makes subclassing scary in *this* app
+  has no counterpart in Vala.
+
+### What Rust still buys
+
+Memory safety — Vala compiles to C, where leaks and use-after-free are
+possible and there is no borrow checker — plus test ergonomics for porting
+`core/`'s 2 053 Vitest lines (`cargo test` against GLib.Test + Meson),
+ecosystem beyond GNOME, and the six engines already measured in this document.
+
+### The one real lock-in
+
+Vala ⟹ JSC. There is no usable V8 binding for Vala, so §5's "own the engine,
+ship one self-contained binary" option is off the table. Given this document
+already picks `jsc6` for packaging and Flatpak and measured JSC within ~10%
+of V8 (§4), that costs roughly 10% of headroom and buys 0.35 MB plus no
+engine download — a trade, not a free choice.
+
+**So: migrating the module is easy and now measured; migrating the app is the
+same 7 043-line job in either language.** Two caveats keep nobody over-reading
+this: only the engine was tested — no GTK/UI code was written in Vala, so
+"the UI port is easy" is an argument from vapi coverage, not a measurement —
+and WebKit's headers say nothing about threads, so the rule to hold is *one
+thread owns the context* (marshal results back with `Idle.add`), which the
+`--thread` run demonstrates for creation and use, not for cross-thread access.
