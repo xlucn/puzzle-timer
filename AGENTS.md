@@ -135,6 +135,16 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   event keep propagating). Verified against `node-gtk/src/closure.cc`; the
   typed signatures are in `node_modules/.node-gtk-types/*.d.ts` — look up the
   `.on(...)` overload rather than guessing.
+- **Adw/Gtk properties are not all plain text — several parse markup.**
+  `AdwActionRow:title` does, which is why the type picker's rows set
+  `useMarkup: false` (`3x3x3 Roux - LSE <M, U>` otherwise logs a parse
+  warning). `AdwAboutDialog:release-notes` parses an **AppStream
+  description**, not HTML: only `<p>`, `<ul>`/`<ol>` with `<li>`, `<em>` and
+  `<code>` are accepted, an unknown element aborts the whole dialog with a
+  GMarkup error instead of being skipped (`Unexpected element 'b'`), there is
+  no bold at all (`<em>` is the only emphasis), and text outside a paragraph
+  or list item is dropped — so headings carry nothing. Escape user data, or
+  set `useMarkup: false` where the property offers it.
 - The `gi:*` shims export only a value namespace, so `Gtk.Widget` is **not**
   usable as a type annotation. Let TypeScript infer widget types (see
   `createTimerView()` in `src/ui/`).
