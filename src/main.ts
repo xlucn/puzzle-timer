@@ -870,7 +870,8 @@ app.on('activate', () => {
         'Scrambles are provided by the cstimer_module package, part of the ' +
         'csTimer project (GPL-3.0).\n' +
         'Written with the assistance of AI/LLM tools.',
-      developers: ['Lu Xu <oliver_lew@outlook.com>'],
+      // No developers list: developerName already credits the author, and the
+      // only thing it would add is a contact address, which stays unpublished.
       copyright: '© 2026 Lu Xu',
       licenseType: Gtk.License.GPL_3_0,
     })

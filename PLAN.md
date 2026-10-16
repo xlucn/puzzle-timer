@@ -569,16 +569,13 @@ of it as future work:**
 - the AI/LLM disclosure present in **both** places, same sentence in each:
   the README's *How this was written* section and the About `comments`.
 
-**Still open in half A:**
-
-- **A visual check of About.** The new fields are type-checked and the
-  release-notes conversion is unit-tested (including the hard-wrapped-line
-  bug it hit), but only a display proves node-gtk accepts them at runtime.
-  Open the dialog and expect version `0.0.7`, a GitHub link, an issues
-  link, this version's notes, and a "Built with" acknowledgement section.
-- **Decide whether the About dialog should publish the developer email** —
-  it currently shows `Lu Xu <oliver_lew@outlook.com>`, which is a decision
-  once the repo is public.
+**Half A complete (2026-10-17).** The user confirmed the What's New page
+renders — version, links, this stage's notes and the "Built with"
+acknowledgement all accepted by node-gtk at runtime — and decided **not to
+publish the developer email**. The About dialog drops its `developers` list
+entirely: `developerName` already credits the author, and the only thing the
+list would add is a contact address. The draft PKGBUILD's `Maintainer` line
+is name-only for the same reason.
 **B — gated on two open decisions**
 
 - **Public name**, cheapest to most irreversible:
@@ -1069,7 +1066,7 @@ is the first thing to test.
 **Draft PKGBUILD** (untested against Arch's tsc):
 
 ```bash
-# Maintainer: Lu Xu <oliver_lew@outlook.com>
+# Maintainer: Lu Xu
 pkgname=cstimer-gtk
 pkgver=0.1.0
 pkgrel=1
