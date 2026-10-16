@@ -37,6 +37,9 @@ reasoning behind each.
   Attribute csTimer and `cstimer_module` in the About dialog.
 - **Every user-visible string goes through `t()`** (`src/core/i18n.ts`), no
   bare literals in `src/ui/`, the menus, the toasts, or the tooltips.
+- **User-visible prose is written by hand.** Agents may draft it, but the
+  change stays uncommitted until a human has edited and approved it. See
+  below.
 - **Solve lists use `Gtk.ColumnView`**, never `Gtk.ListBox` — sessions can
   hold thousands of solves.
 - **Let adaptive widgets do their job.** Before writing manual
@@ -72,6 +75,38 @@ time, not as a development diary.
   comment is for — just state it without the date.
 - **Module headers describe the module's current job**, not how the module
   grew.
+
+## User-visible prose
+
+Five documents are written by hand: `README.md`, `CHANGELOG.md`,
+`CONTRIBUTING.md`, `BUILD.md` and `DESIGN.md`. The in-app strings count
+too: the About dialog's comments, and later the `.desktop` file and the
+AppStream summary.
+`PLAN.md`, `AGENTS.md` and `RUST-PORT.md` are excluded on purpose. They are
+the record of measurements and decisions, and shortening them would cost the
+evidence they exist to keep.
+
+AI agents may draft this text, but the text is not theirs to finish. An agent
+writes the change into the file and stops there. The change stays
+uncommitted until a person has edited it and approved it. A typo, a wrong
+number or a stale fact can be fixed and committed straight away; anything
+beyond that waits.
+
+What to look for when editing:
+
+- **Sentence length.** One idea per sentence. About 25 words is the ceiling.
+- **Chained em-dashes.** At most one per paragraph. A full stop usually
+  reads better.
+- **Nested parentheticals.** Fold the aside into the sentence, or drop it.
+- **Hedging and filler.** Arguably, worth noting, just, simply, in order to.
+- **Marketing register.** Powerful, seamless, delightful, robust.
+- **Restatement.** Saying the same thing twice in two shapes is twice the
+  reading, not emphasis.
+- **Claims without measurement.** A number in this text is a claim. If it
+  was not measured, it does not go in.
+
+Active voice, present tense. Concrete nouns and numbers where an adjective
+would do. A bullet holds one clause and about 20 words.
 
 ## Workflow
 

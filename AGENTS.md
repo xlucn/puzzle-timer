@@ -128,6 +128,14 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   attribution, milestone tags (`M3`, `M6`, …), or "superseded / used to be /
   removed on …" narratives: history belongs in git and
   [PLAN.md](./PLAN.md).
+- **User-visible prose is written by hand** — the scope and the list of
+  tells to avoid are in [CONTRIBUTING.md](./CONTRIBUTING.md). An agent drafts
+  it **into the file** and stops there: the change stays **uncommitted**
+  until a person has edited and approved it. Only a typo, a wrong number or
+  a stale fact may be fixed and committed directly. Governed: README,
+  CHANGELOG, CONTRIBUTING, BUILD, DESIGN, and the in-app strings (About
+  `comments`, later the `.desktop` file and the AppStream summary). Exempt as
+  working documents: PLAN.md, AGENTS.md, RUST-PORT.md.
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
   argument — a handler takes exactly the signal's own parameters — and what it
   returns becomes the signal's return value (that is how a `boolean`-returning
