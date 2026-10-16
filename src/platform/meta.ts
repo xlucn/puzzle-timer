@@ -103,8 +103,9 @@ export function releaseNotesHtml(): string | null {
   for (const line of section.split('\n').slice(1)) {
     const text = line.trim()
     if (text.startsWith('### ')) {
+      // Keep a Changelog's categories (Added / Changed / …) are document
+      // scaffolding: the bullets carry the meaning, and Adw has no headings.
       flush()
-      out.push(`<p>${inline(text.slice(4))}</p>`)
     } else if (text.startsWith('- ')) {
       flushParagraph()
       items.push(text.slice(2))

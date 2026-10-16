@@ -5,12 +5,15 @@ Notable changes to this project, most recent first.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-`0.0.x` marks **internal stages** — one per milestone that has landed, cut
-when called rather than on a schedule. `0.1.0` will be the first public
-source release. Milestone numbers never appear inside a version, so
-renumbering the plan cannot rewrite this file.
+`0.0.x` marks **internal stages**, cut when called rather than on a
+schedule. `v0.0.1` … `v0.0.7` are the milestone landings M0–M6; `v0.0.8` is
+the work that followed. `0.1.0` will be the first public source release.
+Versions are a monotonic counter, never derived from a milestone number —
+the plan has been renumbered twice, so they cannot be.
 
 ## [Unreleased]
+
+## [0.0.8] — 2026-10-16
 
 ### Added
 
@@ -140,7 +143,8 @@ renumbering the plan cannot rewrite this file.
 - The timer state machine lives in pure TypeScript, key-repeat dedup
   included, so it is unit-testable without a display server.
 
-[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.0.7...HEAD
+[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.0.8...HEAD
+[0.0.8]: https://github.com/xlucn/puzzle-timer/tree/v0.0.8
 [0.0.7]: https://github.com/xlucn/puzzle-timer/tree/v0.0.7
 [0.0.6]: https://github.com/xlucn/puzzle-timer/tree/v0.0.6
 [0.0.5]: https://github.com/xlucn/puzzle-timer/tree/v0.0.5

@@ -11,10 +11,15 @@ import { APP_ISSUES, APP_REPOSITORY, APP_VERSION, releaseNotesHtml } from './met
 const read = (file: string): string =>
   fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')
 
-/** Strip tags and collapse whitespace, so text can be compared as a reader sees it. */
-const plain = (html: string): string =>
-  html
+/**
+ * Strip markup and collapse whitespace, so text compares as a reader sees it.
+ * Stripping a tag leaves a space, so `result <em>x</em>, y` would otherwise
+ * normalise to `result x , y` and fail against the source markdown.
+ */
+const plain = (text: string): string =>
+  text
     .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
     .replace(/\s+/g, ' ')
     .trim()
 
