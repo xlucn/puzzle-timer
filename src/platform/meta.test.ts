@@ -70,4 +70,16 @@ describe('meta', () => {
     expect(html).not.toContain('**')
     expect(html).not.toMatch(/(^|\s)```/)
   })
+
+  it('emits only the markup AdwAboutDialog accepts', () => {
+    // Adw parses release notes as AppStream description markup, not HTML:
+    // an unlisted element aborts the dialog with a GMarkup error instead of
+    // being rendered or ignored.
+    const allowed = new Set(['p', 'ul', 'ol', 'li', 'em', 'code'])
+    const tags = [...(releaseNotesHtml() ?? '').matchAll(/<\/?([a-z0-9]+)>/g)].map(
+      (match) => match[1],
+    )
+    expect(tags.length).toBeGreaterThan(0)
+    expect([...new Set(tags)].filter((tag) => !allowed.has(tag))).toEqual([])
+  })
 })

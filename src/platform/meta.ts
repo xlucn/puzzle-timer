@@ -51,9 +51,15 @@ export const APP_ISSUES =
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
+/*
+ * AdwAboutDialog parses release notes as AppStream description markup, not
+ * HTML: only <p>, <ul>/<ol> with <li>, <em> and <code> are accepted, and an
+ * unknown element aborts the whole dialog with a GMarkup error. So emphasis
+ * degrades to <em> (there is no bold) and headings become paragraphs.
+ */
 const inline = (text: string): string =>
   escapeHtml(text)
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/\*\*([^*]+)\*\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
 
 /**
@@ -98,7 +104,7 @@ export function releaseNotesHtml(): string | null {
     const text = line.trim()
     if (text.startsWith('### ')) {
       flush()
-      out.push(`<h3>${inline(text.slice(4))}</h3>`)
+      out.push(`<p>${inline(text.slice(4))}</p>`)
     } else if (text.startsWith('- ')) {
       flushParagraph()
       items.push(text.slice(2))
