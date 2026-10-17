@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Puzzle Timer
+Comment=Speed-cubing timer for various WCA-legal puzzles
+Exec=puzzle-timer
+Icon=puzzle-timer
+Terminal=false
+Categories=Game;
+StartupNotify=true

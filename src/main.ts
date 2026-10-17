@@ -1,5 +1,5 @@
 /*
- * csTimer GTK — an Adwaita application built with node-gtk.
+ * Puzzle Timer — an Adwaita application built with node-gtk.
  *
  * Run with `node --import tsx --import node-gtk/register src/main.ts` (the
  * npm scripts do). Two ESM caveats: the `gi:` import scheme needs
@@ -20,6 +20,7 @@ import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 import GObject from 'gi:GObject-2.0'
 import Gtk from 'gi:Gtk-4.0'
+import { fileURLToPath } from 'node:url'
 
 import { styles } from 'node-gtk/styles'
 
@@ -48,7 +49,9 @@ import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
 const APP_ID = 'com.oliver.cstimergtk'
-const APP_NAME = 'csTimer GTK'
+const APP_NAME = 'Puzzle Timer'
+/** Matches the hicolor tree under data/icons. */
+const ICON_NAME = 'puzzle-timer'
 
 /** ~60 fps is plenty for a centisecond readout, and costs almost nothing. */
 const TICK_MS = 16
@@ -104,6 +107,17 @@ app.on('activate', () => {
 
   const window = new Adw.ApplicationWindow({ application: app })
   window.setTitle(APP_NAME)
+
+  // The app icon lives in a hicolor tree inside the repo, because a source
+  // checkout has no install prefix to drop icons into. The search path holds
+  // *theme directories*, so it is the parent of hicolor — pointing it at
+  // hicolor itself finds nothing. A packaged install needs none of this.
+  const display = Gdk.Display.getDefault()
+  if (display !== null) {
+    Gtk.IconTheme.getForDisplay(display).addSearchPath(
+      fileURLToPath(new URL('../data/icons', import.meta.url)),
+    )
+  }
   // The startup size. The header's controls need ~560; at 900 the sidebar
   // takes its 240 floor, leaving 660 for the header. Resizing is handled by
   // the breakpoints below (applyLayout).
@@ -857,7 +871,7 @@ app.on('activate', () => {
     const releaseNotes = releaseNotesHtml()
     const about = new Adw.AboutDialog({
       applicationName: APP_NAME,
-      applicationIcon: APP_ID,
+      applicationIcon: ICON_NAME,
       developerName: 'Lu Xu',
       version: APP_VERSION,
       ...(APP_REPOSITORY === null ? {} : { website: APP_REPOSITORY }),

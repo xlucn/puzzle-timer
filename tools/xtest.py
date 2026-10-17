@@ -30,7 +30,7 @@ Requires libX11, libXtst (present on any X system) and ImageMagick's
 
 One-shot command list (flags come before the list):
 
-    python3 tools/xtest.py --window "csTimer GTK" \\
+    python3 tools/xtest.py --window "Puzzle Timer" \\
         press space sleep 0.6 shot ready.png release space \\
         sleep 1.0 press x release x sleep 0.2 shot stopped.png
 
@@ -53,7 +53,7 @@ import subprocess
 import sys
 import time
 
-DEFAULT_WINDOW = "csTimer GTK"
+DEFAULT_WINDOW = "Puzzle Timer"
 
 # Forced repaint: a resize makes GTK redraw the whole surface, which is what
 # gets the pixels into the X drawable that ImageMagick reads back.

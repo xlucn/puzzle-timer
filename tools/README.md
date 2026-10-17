@@ -39,7 +39,7 @@ traps 1, 2, 4 and 5 in one move:
 Xephyr :99 -screen 1280x800 -ac -br &          # nested X server = a window on your desktop
 pkill -f "[n]ode-gtk/register"                 # trap 3: only one instance per session bus
 DISPLAY=:99 GDK_BACKEND=x11 npm start &
-DISPLAY=:99 python3 tools/xtest.py --window "csTimer GTK" \
+DISPLAY=:99 python3 tools/xtest.py --window "Puzzle Timer" \
   tap ctrl+e sleep 0.5 shot out.png
 ```
 
@@ -216,7 +216,7 @@ GDK_BACKEND=x11 npm start &
 python3 tools/timer_walk.py --out /tmp/shots
 
 # one-shot scripted interaction (flags come before the command list)
-python3 tools/xtest.py --window "csTimer GTK" \
+python3 tools/xtest.py --window "Puzzle Timer" \
     press space sleep 0.6 shot ready.png release space \
     sleep 1.0 press x release x sleep 0.2 shot stopped.png
 
@@ -236,7 +236,7 @@ python3 tools/xtest.py --no-repaint \
 # The pointer is aimed once and re-checked (`pointer` must print the window
 # id, not 0x0); after that everything is keys — the Delete key — so the
 # origin can move without breaking the test.
-python3 tools/xtest.py --window "csTimer GTK" \
+python3 tools/xtest.py --window "Puzzle Timer" \
     click 1740 240 pointer sleep 0.3 \
     press Shift_L press Down release Down press Down release Down release Shift_L \
     sleep 0.3 shot selected.png \
@@ -254,7 +254,7 @@ python3 tools/xtest.py --window "csTimer GTK" \
 # and press Return. The dialog focuses its own list, so Down + Return picks
 # straight away; there is no search entry — rows are
 # browsed, not filtered.
-python3 tools/xtest.py --window "csTimer GTK" \
+python3 tools/xtest.py --window "Puzzle Timer" \
     click 160 28 sleep 0.6 \
     press Down release Down sleep 0.3 \
     press Return release Return sleep 1.5 shot type-switched.png

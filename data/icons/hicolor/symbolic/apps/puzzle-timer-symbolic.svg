@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Symbolic variant of puzzle-timer: same 25° isometric silhouette as
+       the full-colour icon, reduced to an outline because the 3x3 grid is
+       lost below ~32px anyway. -->
+  <g fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 1.01 L14.58 3.79 L14.58 12.22 L8 14.99 L1.42 12.22 L1.42 3.79 Z"/>
+    <path d="M8 6.56 L1.42 3.79"/>
+    <path d="M8 6.56 L14.58 3.79"/>
+    <path d="M8 6.56 L8 14.99"/>
+  </g>
+</svg>

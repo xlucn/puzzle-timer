@@ -37,7 +37,7 @@ EXPECTED = [
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--window", default="csTimer GTK")
+    parser.add_argument("--window", default="Puzzle Timer")
     parser.add_argument(
         "--out",
         default=os.path.join(tempfile.gettempdir(), "cstimer-gtk-shots"),

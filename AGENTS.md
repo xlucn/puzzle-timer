@@ -77,14 +77,17 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   an action is reachable with no modifier keys and no accelerator before
   shipping it: Shift/Ctrl-click and Escape are the two things a phone does
   not have.
-- **Five relative paths are load-bearing for the packaged layout:**
-  `styles.addFile('../style.css', …)` in `src/main.ts`, the
-  `.ts`/`.js` worker branch in `src/scramble/service.ts`, `meta.ts`'s
-  `../../package.json` **and** `../../CHANGELOG.md` (the About dialog's
-  release notes are parsed from it), and the bare `node-gtk/register`
-  specifier — which resolves **from the cwd**, so the `/usr/bin` launcher has
-  to `cd` first. `src/` and `dist/` are siblings by design: moving either
-  breaks all of them. All five were verified working from `dist/`.
+- **Six relative paths are load-bearing for the packaged layout:**
+  `styles.addFile('../style.css', …)` in `src/main.ts`,
+  `Gtk.IconTheme.addSearchPath('../data/icons', …)` (the search path holds
+  *theme directories*, so it is the **parent** of `hicolor` — pointing it at
+  `hicolor` itself finds nothing), the `.ts`/`.js` worker branch in
+  `src/scramble/service.ts`, `meta.ts`'s `../../package.json` **and**
+  `../../CHANGELOG.md` (the About dialog's release notes are parsed from
+  it), and the bare `node-gtk/register` specifier, which resolves **from the
+  cwd**, so the `/usr/bin` launcher has to `cd` first. `src/` and `dist/`
+  are siblings by design, so one relative path serves both — moving either
+  breaks all six. `tools/icon_probe.mjs` checks the icon path headlessly.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**

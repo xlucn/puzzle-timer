@@ -1,4 +1,4 @@
-# csTimer GTK
+# Puzzle Timer
 
 A native Linux cube timer in the spirit of
 [csTimer](https://www.cstimer.net/): WCA-legal scrambles for 206 puzzle
