@@ -23,7 +23,7 @@ import Gio from 'gi:Gio-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
 const app = new Adw.Application({
-  applicationId: 'com.oliver.keyprobe',
+  applicationId: 'io.github.xlucn.PuzzleTimer.probe.key',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 

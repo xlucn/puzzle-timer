@@ -191,7 +191,9 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
 - `node --import tsx --import node-gtk/register tools/breakpoint_probe.mjs`
   — adaptive-layout plumbing on a nested display: breakpoints apply/unapply,
   all five bands fire on every crossing, `Gdk.Surface::layout` reports each
-  resize.
+  resize. Its bands come from `core/layout.ts`, and its walk starts 1700 px
+  wide, so the nested screen has to be wider than that (`1920x1080`) or the L
+  band never fires.
 - `node --import tsx --import node-gtk/register tools/icon_probe.mjs` —
   resolves both icon names through the theme; expect `ALL PASS`.
 

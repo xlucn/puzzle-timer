@@ -31,7 +31,7 @@ const solves = [
 ]
 
 const app = new Adw.Application({
-  applicationId: 'com.oliver.colviewprobe',
+  applicationId: 'io.github.xlucn.PuzzleTimer.probe.colview',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 

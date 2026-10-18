@@ -16,7 +16,7 @@ Gtk.init()
 
 const { BREAKPOINTS } = await import('../src/core/layout.ts')
 
-const app = new Adw.Application({ applicationId: 'org.cstimer.gtk.floorprobe' })
+const app = new Adw.Application({ applicationId: 'io.github.xlucn.PuzzleTimer.probe.floor' })
 const checks = []
 const check = (name, ok) => checks.push(`${ok ? 'PASS' : 'FAIL'} ${name}`)
 const read = (win) => {

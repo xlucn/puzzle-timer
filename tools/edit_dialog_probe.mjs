@@ -13,7 +13,7 @@ import GLib from 'gi:GLib-2.0'
 // The real formatter — the replica must not drift from the app's strings.
 import { formatSolve } from '../src/core/time.js'
 Gtk.init()
-const app = new Adw.Application({ applicationId: 'org.cstimer.gtk.editdialog' })
+const app = new Adw.Application({ applicationId: 'io.github.xlucn.PuzzleTimer.probe.editdialog' })
 const checks = []
 const check = (name, ok) => checks.push(`${ok ? 'PASS' : 'FAIL'} ${name}`)
 const MAX_COMMENT_LENGTH = 500

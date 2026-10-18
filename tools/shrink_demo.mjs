@@ -159,7 +159,7 @@ const OPTIONS = [
   },
 ]
 
-const app = new Adw.Application({ applicationId: 'org.cstimer.gtk.shrinkdemo' })
+const app = new Adw.Application({ applicationId: 'io.github.xlucn.PuzzleTimer.probe.shrinkdemo' })
 let started = false
 
 app.on('activate', () => {

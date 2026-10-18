@@ -30,7 +30,7 @@ const check = (ok, what) => {
 }
 
 const app = new Adw.Application({
-  applicationId: 'com.oliver.prefsprobe',
+  applicationId: 'io.github.xlucn.PuzzleTimer.probe.prefs',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 

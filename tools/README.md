@@ -13,7 +13,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (the sidebar plumbing) |
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
-| `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window |
+| `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its walk starts 1700 px wide, so run it on a wider screen (`1920x1080`) or the L band never fires |
 | `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets |
 | `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
 | `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the AGENTS floor-line numbers) |

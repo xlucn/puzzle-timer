@@ -521,7 +521,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ## 6. If you do port instead
 
 The unminified source is csTimer's `src/js/`, which lives at
-`/home/oliver/Code/clones/cstimer-master` (rev `2547d82`, 2026-08-07). The exact
+`~/Code/clones/cstimer-master` (rev `2547d82`, 2026-08-07). The exact
 file list the module is built from is Makefile's **`moduleSrc`** target.
 
 ### Scale

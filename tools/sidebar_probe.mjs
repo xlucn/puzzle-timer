@@ -35,7 +35,7 @@ const log = (...args) => console.error('[probe]', ...args)
 const width = (widget) => (typeof widget.getSize === 'function' ? widget.getSize(Gtk.Orientation.HORIZONTAL) : -1)
 
 const app = new Adw.Application({
-  applicationId: 'com.oliver.sidebarprobe',
+  applicationId: 'io.github.xlucn.PuzzleTimer.probe.sidebar',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 

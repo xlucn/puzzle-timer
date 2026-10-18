@@ -20,8 +20,9 @@
  * window (it would let every later verification drive sizes in-process
  * instead of fighting CSD shadows with `xdotool windowsize`).
  *
- * Run:
- *   Xephyr :99 -screen 1280x800 -ac -br &
+ * Run (the screen has to be wider than the first step, or the L band never
+ * fires and the walk silently loses a crossing):
+ *   Xephyr :99 -screen 1920x1080 -ac -br &
  *   DISPLAY=:99 GDK_BACKEND=x11 node --import tsx --import node-gtk/register \
  *     tools/breakpoint_probe.mjs
  *
@@ -32,21 +33,37 @@ import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
+import { BREAKPOINTS } from '../src/core/layout.js'
+
 const started = Number(GLib.getMonotonicTime())
 const log = (...args) =>
   console.error('[probe]', `${((Number(GLib.getMonotonicTime()) - started) / 1e6).toFixed(2)}s`, ...args)
 
-/** The bands main.ts will use, in the order it will add them (L first). */
+/**
+ * The same five bands main.ts adds, in the same order (L first), built from
+ * the same thresholds. A copy of the numbers lived here once and drifted when
+ * `selectorRowMax` moved 600 → 540, leaving a probe that tested bands the app
+ * had stopped using.
+ */
 const BANDS = [
-  ['L', 'min-width: 1600px'],
-  ['M', 'min-width: 1200px and max-width: 1599px'],
-  ['B', 'min-width: 601px and max-width: 800px'],
-  ['C', 'min-width: 481px and max-width: 600px'],
-  ['S', 'max-width: 480px'],
+  ['L', `min-width: ${BREAKPOINTS.largeMin}px`],
+  [
+    'M',
+    `min-width: ${BREAKPOINTS.mediumMin}px and max-width: ${BREAKPOINTS.largeMin - 1}px`,
+  ],
+  [
+    'B',
+    `min-width: ${BREAKPOINTS.selectorRowMax + 1}px and max-width: ${BREAKPOINTS.drawerMax}px`,
+  ],
+  [
+    'C',
+    `min-width: ${BREAKPOINTS.smallMax + 1}px and max-width: ${BREAKPOINTS.selectorRowMax}px`,
+  ],
+  ['S', `max-width: ${BREAKPOINTS.smallMax}px`],
 ]
 
 const app = new Adw.Application({
-  applicationId: 'com.oliver.breakpointprobe',
+  applicationId: 'io.github.xlucn.PuzzleTimer.probe.breakpoint',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 
@@ -109,14 +126,14 @@ app.on('activate', () => {
   // Does set_default_size move a window that is already on screen? Each step
   // crosses exactly one boundary, so a missing apply/unapply is obvious.
   const walk = [
-    [1000, 1700, 900], // none → L
-    [2000, 1400, 900], // L → M
-    [3000, 900, 900], // M → (none)
-    [4000, 700, 900], // → B
-    [5000, 550, 900], // B → C
-    [6000, 450, 900], // C → S
-    [7000, 550, 500], // S → C, and a short window for the height signal
-    [8000, 900, 540], // → (none), home
+    [1000, BREAKPOINTS.largeMin + 100, 900], // (none) → L
+    [2000, BREAKPOINTS.mediumMin + 100, 900], // L → M
+    [3000, BREAKPOINTS.drawerMax + 100, 900], // M → (none)
+    [4000, BREAKPOINTS.drawerMax - 100, 900], // → B
+    [5000, BREAKPOINTS.smallMax + 20, 900], // B → C
+    [6000, BREAKPOINTS.smallMax - 80, 900], // C → S
+    [7000, BREAKPOINTS.smallMax + 20, 500], // S → C, and a short window for the height signal
+    [8000, BREAKPOINTS.drawerMax + 100, 540], // → (none), home
   ]
   for (const [delay, width, height] of walk) {
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, delay, () => {
@@ -127,7 +144,7 @@ app.on('activate', () => {
   }
 
   GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 9500, () => {
-    log('done — expect 8 apply/unapply pairs, one per boundary crossed, none missed')
+    log('done — 8 steps, each crossing one boundary: 6 applies and 6 unapplies, none missed')
     app.quit()
     return GLib.SOURCE_REMOVE
   })

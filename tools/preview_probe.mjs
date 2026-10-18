@@ -12,7 +12,7 @@ import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 import GLib from 'gi:GLib-2.0'
 Gtk.init()
-const app = new Adw.Application({ applicationId: 'org.cstimer.gtk.previewprobe' })
+const app = new Adw.Application({ applicationId: 'io.github.xlucn.PuzzleTimer.probe.preview' })
 const checks = []
 const check = (name, ok) => checks.push(`${ok ? 'PASS' : 'FAIL'} ${name}`)
 
