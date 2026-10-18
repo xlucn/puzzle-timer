@@ -1,4 +1,4 @@
-# cstimer-gtk — implementation plan
+# Puzzle Timer — implementation plan
 
 A native Linux cube timer that works like <https://cstimer.net/>, built with
 GTK4 + libadwaita via node-gtk. This document is the durable plan and the
@@ -492,7 +492,7 @@ closes the section. A number never moves: only the queue does.
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
-| **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/cstimer-gtk` launches from outside the source tree |
+| **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree |
 
 **Post-MVP backlog:** stackmat (§1), then packaging if ever needed.
 
@@ -635,10 +635,11 @@ is name-only for the same reason.
     repo. The file also still lacks a `repository` field and still carries the
     scaffold's placeholder `description`, both of which the repo now makes
     easy to fill in.
-  - **App id** — `APP_ID = 'com.oliver.cstimergtk'` (note it already
-    differs from the package name `cstimer-gtk`): it is the About
-    `applicationIcon`, the `.desktop` filename and the `WM_CLASS`. Settle it
-    *before* the first tag; afterwards changing it is a migration.
+  - **App id** — `APP_ID = 'com.oliver.cstimergtk'`, which differs from the
+    package name `puzzle-timer`. It is the GApplication id and the
+    `WM_CLASS`; it is **no longer** the About `applicationIcon` or the
+    `.desktop` filename, both of which are the icon name `puzzle-timer` now.
+    Settle it before the first public release; after that it is a migration.
   - **XDG data dir — do not change.** `store.ts` hardcodes
     `APP_DIR = 'cstimer-gtk'` and the sessions live in
     `~/.local/share/cstimer-gtk`. Renaming the app must not silently repoint
@@ -1141,7 +1142,7 @@ guidelines prefer to avoid (everything should be in `source=()`). The clean
 alternative is listing every tarball — but node-gtk's production closure alone
 is 113 packages, so start pragmatic and tighten later if it bothers you.
 
-**Checkpoint for the user:** `makepkg -si`, then launch `/usr/bin/cstimer-gtk`
+**Checkpoint for the user:** `makepkg -si`, then launch `/usr/bin/puzzle-timer`
 from a directory that is *not* the source tree.
 
 ### M0 — landed 2026-09-30

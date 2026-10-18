@@ -1,4 +1,4 @@
-# Building and running cstimer-gtk
+# Building and running Puzzle Timer
 
 Everything here assumes a source checkout. For what the app *is*, see the
 [README](./README.md).
@@ -64,7 +64,7 @@ loop automatically.
 | `npm run dev`            | Run with live CSS reload — edit `style.css`, the window restyles, no restart. |
 | `npm run dev:app-reload` | Like `dev`, but also restarts the app when you edit `src/` (`node --watch`). |
 | `npm start`              | Run once without building.                                        |
-| `npm test`               | Vitest over `src/core/` and `src/platform/store.test.ts` — no display needed. |
+| `npm test`               | Vitest over `src/core/` and `src/platform/` — no display needed. |
 | `npm run build`          | Type-check and compile `src/` to `dist/` with `tsc`.             |
 | `npm run typecheck`      | Type-check only, no output.                                       |
 | `npm run generate-types` | (Re)generate TypeScript types for the GI namespaces you use.      |
@@ -102,6 +102,9 @@ npm run generate-types
 - **Headless scramble check:** `node --import tsx tools/scramble_probe.ts
   --quiet` generates all 206 scramble types through the real worker; expect
   `206/206 types generated`.
+- **Icon check:** `node --import tsx --import node-gtk/register
+  tools/icon_probe.mjs` resolves both icon names through the theme; expect
+  `ALL PASS`.
 
 ## Learn more
 

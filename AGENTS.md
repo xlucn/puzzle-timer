@@ -1,4 +1,4 @@
-# cstimer-gtk — project instructions
+# Puzzle Timer — project instructions
 
 Native Linux cube timer (csTimer-like), built with GTK4 + libadwaita.
 Full plan, technical decisions, and research evidence: **[PLAN.md](./PLAN.md)**.
@@ -168,9 +168,9 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
 - `npm run dev` — start app with CSS hot-reload
 - `npm start` — start app
 - `npm run typecheck` — run after changing TypeScript
-- `npm test` — Vitest over `src/core/` **and** `src/platform/store.test.ts`
+- `npm test` — Vitest over `src/core/` **and** `src/platform/`
   (pure logic: timer state machine, stats math, sessions, layout rules,
-  scramble feed, store)
+  scramble feed, store, meta)
 - `node --import tsx tools/scramble_probe.ts --quiet` — generates all 206
   scramble types through the real worker (headless, no display needed); expect
   `206/206 types generated`
@@ -182,6 +182,8 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   — adaptive-layout plumbing on a nested display: breakpoints apply/unapply,
   all five bands fire on every crossing, `Gdk.Surface::layout` reports each
   resize.
+- `node --import tsx --import node-gtk/register tools/icon_probe.mjs` —
+  resolves both icon names through the theme; expect `ALL PASS`.
 
 ### Manual UI verification (not part of `npm test`)
 

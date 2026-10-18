@@ -1,6 +1,6 @@
 # Design
 
-The current-state architecture of cstimer-gtk and the decisions behind it —
+The current-state architecture of Puzzle Timer and the decisions behind it —
 distilled from [PLAN.md](./PLAN.md), which remains the historical record
 (every milestone, measurement, and superseded idea lives there).
 
@@ -41,6 +41,9 @@ src/
 │   └── meta.ts          version/license/URLs, read from package.json
 └── ui/                 GTK widgets — the only place that imports gi:*
 ```
+
+`data/` sits beside `src/` — the hicolor icon tree (full-colour and
+symbolic) plus `puzzle-timer.desktop`.
 
 Three rules fall out of this split, and they are the ones most worth not
 breaking:
@@ -90,10 +93,10 @@ breaking:
   ready→release starts the 15 s countdown (graded `+2` at 15 s, `DNF` at
   17 s); the second starts the solve. Cues at 8 s and 12 s fire exactly once
   each per inspection. Esc cancels.
-- **Touch mirrors the keyboard.** A gesture emits the same `keyDown`/
-  `keyUp` calls Space does, and list gestures end in the same `remove()` →
-  undo-toast path — so there is exactly one state machine, one deletion
-  path, and one undo, whatever the input device.
+- **Touch mirrors the keyboard (M14 — not built yet).** A gesture will emit
+  the same `keyDown`/`keyUp` calls Space does, and list gestures will end in
+  the same `remove()` → undo-toast path — so there is exactly one state
+  machine, one deletion path, and one undo, whatever the input device.
 - **One version, one place.** The app version comes from `package.json` via
   `src/platform/meta.ts`, never a literal.
 
@@ -102,9 +105,9 @@ PLAN.md decision 11.)
 
 ## csTimer compatibility
 
-csTimer's data-file format is implemented as a pure codec
-(`src/core/csTimerFormat.ts`, round-trip tested); only the file chooser and
-the toast are UI. Two findings from csTimer's own source shape the export: a
+csTimer's data-file format will land as a pure codec
+(`src/core/csTimerFormat.ts`, round-trip tested — M10, not built yet); only
+the file chooser and the toast are UI. Two findings from csTimer's own source shape the export: a
 file carrying `properties` makes csTimer clear its `localStorage`, and
 importing into csTimer **overwrites** sessions rather than merging — so an
 export must carry `properties = { sessionN, sessionData }`, and importing
