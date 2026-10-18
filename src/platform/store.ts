@@ -9,9 +9,9 @@
  *
  * Layout:
  *
- *   ~/.local/share/cstimer-gtk/prefs.json               app settings
- *   ~/.local/share/cstimer-gtk/sessions/_index.json     which sessions exist + which is active
- *   ~/.local/share/cstimer-gtk/sessions/default.json    one file of solves per session
+ *   ~/.local/share/puzzle-timer/prefs.json               app settings
+ *   ~/.local/share/puzzle-timer/sessions/_index.json     which sessions exist + which is active
+ *   ~/.local/share/puzzle-timer/sessions/default.json    one file of solves per session
  *
  * The index is the source of truth for names and the active session; each
  * session file keeps the original shape (`{version: 1, solves}`), so a
@@ -47,7 +47,7 @@ export const SESSION_FILE_VERSION = 1
 /** Bumped only when the index shape changes incompatibly. */
 export const INDEX_FILE_VERSION = 1
 
-const APP_DIR = 'cstimer-gtk'
+const APP_DIR = 'puzzle-timer'
 const SESSION_SUBDIR = 'sessions'
 const INDEX_FILE = '_index.json'
 const PREFERENCES_FILE = 'prefs.json'

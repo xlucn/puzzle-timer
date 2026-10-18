@@ -33,18 +33,21 @@ function currentSection(): string {
     .find((part) => part.startsWith(`[${APP_VERSION}]`)) ?? ''
 }
 
-/** The section's first bullet with its wrapped continuation lines joined. */
-function firstBullet(section: string): string {
+/** The section's bullets, each with its wrapped continuation lines joined. */
+function bullets(section: string): string[] {
   const lines = section.split('\n')
-  const start = lines.findIndex((line) => line.startsWith('- '))
-  if (start < 0) return ''
-  let bullet = lines[start].slice(2)
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i].trim()
-    if (line === '' || line.startsWith('- ') || line.startsWith('#')) break
-    bullet += ` ${line}`
+  const out: string[] = []
+  for (let start = 0; start < lines.length; start += 1) {
+    if (!lines[start].startsWith('- ')) continue
+    let bullet = lines[start].slice(2)
+    for (let i = start + 1; i < lines.length; i += 1) {
+      const line = lines[i].trim()
+      if (line === '' || line.startsWith('- ') || line.startsWith('#')) break
+      bullet += ` ${line}`
+    }
+    out.push(bullet)
   }
-  return bullet
+  return out
 }
 
 describe('meta', () => {
@@ -60,13 +63,18 @@ describe('meta', () => {
   })
 
   it('keeps hard-wrapped changelog lines inside their own bullet', () => {
-    const bullet = firstBullet(currentSection())
-    const html = releaseNotesHtml()
     // The bug this guards: a wrapped line became its own <p>, so the words of
-    // one bullet ended up split across paragraphs and out of order.
-    expect(bullet.length).toBeGreaterThan(60)
+    // one bullet ended up split across paragraphs and out of order. Walking
+    // every bullet covers the wrapped ones — the ones that break — and no
+    // longer depends on the first of them being long enough to wrap.
+    const list = bullets(currentSection())
+    const html = releaseNotesHtml()
+    expect(list.length).toBeGreaterThan(0)
     expect(html).not.toBeNull()
-    expect(plain(html ?? '')).toContain(plainMarkdown(bullet))
+    const text = plain(html ?? '')
+    for (const bullet of list) {
+      expect(text, `bullet lost or split: ${bullet}`).toContain(plainMarkdown(bullet))
+    }
   })
 
   it('renders the current section as markup, not raw markdown', () => {

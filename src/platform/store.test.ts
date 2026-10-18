@@ -24,7 +24,7 @@ import * as store from './store.js'
 
 /** One data home per run; the store reads it through the environment. */
 const dataHome = fs.mkdtempSync(path.join(os.tmpdir(), 'cstimer-store-'))
-const sessionsDir = () => path.join(dataHome, 'cstimer-gtk', 'sessions')
+const sessionsDir = () => path.join(dataHome, 'puzzle-timer', 'sessions')
 
 const solve = (id: number): Solve => ({
   id,

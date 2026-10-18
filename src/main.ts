@@ -48,7 +48,7 @@ import { createStatsStrip } from './ui/statsStrip.js'
 import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
-const APP_ID = 'com.oliver.cstimergtk'
+const APP_ID = 'io.github.xlucn.PuzzleTimer'
 const APP_NAME = 'Puzzle Timer'
 /** Matches the hicolor tree under data/icons. */
 const ICON_NAME = 'puzzle-timer'

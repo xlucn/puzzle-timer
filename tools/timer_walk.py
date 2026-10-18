@@ -40,7 +40,7 @@ def main(argv=None) -> int:
     parser.add_argument("--window", default="Puzzle Timer")
     parser.add_argument(
         "--out",
-        default=os.path.join(tempfile.gettempdir(), "cstimer-gtk-shots"),
+        default=os.path.join(tempfile.gettempdir(), "puzzle-timer-shots"),
         help="directory for the PNGs (default: %(default)s)",
     )
     parser.add_argument(

@@ -22,7 +22,7 @@ pub fn repo_root() -> PathBuf {
         }
         if !dir.pop() {
             panic!(
-                "could not find the cstimer-gtk repo root above {}",
+                "could not find the puzzle-timer repo root above {}",
                 env!("CARGO_MANIFEST_DIR")
             );
         }

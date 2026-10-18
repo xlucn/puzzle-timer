@@ -262,7 +262,7 @@ python3 tools/xtest.py --window "Puzzle Timer" \
 # Per-session scramble type: the index file is ground truth for this
 # feature — screenshots go stale (trap 2), so pair every switch with jq.
 jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
-    ~/.local/share/cstimer-gtk/sessions/_index.json
+    ~/.local/share/puzzle-timer/sessions/_index.json
 
 # Adaptive layout: the whole band walk is sizes and keys, and every step
 # announces the tier it applied. Ctrl+B is `app.sidebar` and Escape closes the
@@ -289,8 +289,8 @@ DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (
 #   • the label reads `…` under that squeeze rather than shoving the
 #     window controls over the edge.
 jq '(.sessions[] | select(.id == "default")).scrambleType = "dmdso"' \
-    ~/.local/share/cstimer-gtk/sessions/_index.json > /tmp/idx && \
-    cp /tmp/idx ~/.local/share/cstimer-gtk/sessions/_index.json
+    ~/.local/share/puzzle-timer/sessions/_index.json > /tmp/idx && \
+    cp /tmp/idx ~/.local/share/puzzle-timer/sessions/_index.json
 # …restart, walk 1700/900/700/541/540, then restore with _index.json.bak.
 ```
 

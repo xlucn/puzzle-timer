@@ -35,7 +35,7 @@ const PLAYERS: Array<(file: string) => [string, string[]]> = [
 ]
 
 function wavFor(pulses: 1 | 2): string {
-  const file = join(tmpdir(), `cstimer-gtk-beep-${pulses}.wav`)
+  const file = join(tmpdir(), `puzzle-timer-beep-${pulses}.wav`)
   if (existsSync(file)) return file
 
   const pulseSamples = Math.round((SAMPLE_RATE * PULSE_MS) / 1000)

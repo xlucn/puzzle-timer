@@ -635,16 +635,23 @@ is name-only for the same reason.
     repo. The file also still lacks a `repository` field and still carries the
     scaffold's placeholder `description`, both of which the repo now makes
     easy to fill in.
-  - **App id** — `APP_ID = 'com.oliver.cstimergtk'`, which differs from the
-    package name `puzzle-timer`. It is the GApplication id and the
-    `WM_CLASS`; it is **no longer** the About `applicationIcon` or the
-    `.desktop` filename, both of which are the icon name `puzzle-timer` now.
-    Settle it before the first public release; after that it is a migration.
-  - **XDG data dir — do not change.** `store.ts` hardcodes
-    `APP_DIR = 'cstimer-gtk'` and the sessions live in
-    `~/.local/share/cstimer-gtk`. Renaming the app must not silently repoint
-    that at an empty directory: either leave it alone, or add a one-time
-    migration that renames the old directory when the new one is absent.
+  - **App id — settled 2026-10-19.**
+    `'com.oliver.cstimergtk'` → `'io.github.xlucn.PuzzleTimer'`, the
+    `io.github.<owner>.<App>` convention for a project with no domain of its
+    own, which the Flathub app ids cited above already follow. It is the
+    GApplication id and the `WM_CLASS`, and it is **not** the About
+    `applicationIcon` or the `.desktop` filename — both are the icon name
+    `puzzle-timer`. The installed launcher's window association is a
+    checkpoint for M16: if GNOME does not pair the window with
+    `puzzle-timer.desktop`, the fix is a `StartupWMClass` key.
+  - **XDG data dir — renamed once, before publishing.** `APP_DIR` is
+    `'puzzle-timer'` and the sessions live in `~/.local/share/puzzle-timer`.
+    There is no migration code because nothing has ever been installed from
+    this project; the old directory was moved by hand
+    (`mv ~/.local/share/cstimer-gtk ~/.local/share/puzzle-timer`). The rule
+    holds from here: renaming again would silently repoint at an empty
+    directory, so it would need a one-time migration that renames the old
+    directory when the new one is absent.
 - **Icon.** *(Direction decided 2026-10-05; **landed 2026-10-17**. Still
   open: the baseline against HIG `template.svg`.)*
   - **In the repo:** `data/icons/hicolor/scalable/apps/puzzle-timer.svg`
@@ -686,21 +693,21 @@ is name-only for the same reason.
   - **32 px finding:** the silhouette still reads as a cube, but the permuted
     top band smears — the Ga detail is a 64/128 px feature. Accept that, or
     have the symbolic variant carry the message.
-  - **Still open:** baseline alignment against HIG `template.svg`, the
-    **symbolic variant** the HIG requires, and the icon name.
+  - **Still open:** baseline alignment against HIG `template.svg`. The
+    symbolic variant and the icon name landed 2026-10-17.
   - **Generator:** the state and the SVG come from one rerunnable script,
     `tools/icon/ga-icon.mjs` — plain Node, no `gi:`, no display, so it runs
     headless like the rest of `tools/`:
     `node tools/icon/ga-icon.mjs [out.svg] [elevationDegrees]`. It defaults
-    to writing `ga-cube.svg` beside itself. Its **output is not committed
-    yet** — the artwork lands with M13, along with the icon name.
-  - **Plumbing:** a scalable SVG, `Gtk.IconTheme.add_search_path()` into the
-    repo (a source checkout has no install prefix to drop hicolor icons
-    into), a `.desktop` file with `Icon=`, and the icon name in `main.ts`.
-    AppStream `metainfo.xml` belongs to packaging, which stays out of scope.
-    Until then the About dialog asks for `applicationIcon: APP_ID`, which
-    resolves to nothing, so it shows the generic icon — either drop that
-    property or point it at the chosen icon name.
+    to writing `ga-cube.svg` beside itself. The committed artwork under
+    `data/icons/hicolor/scalable/apps/` is its output.
+  - **Plumbing — landed 2026-10-17:** the SVG and its symbolic variant under
+    `data/icons/hicolor`, `Gtk.IconTheme.addSearchPath()` into the repo (a
+    source checkout has no install prefix to drop hicolor icons into),
+    `data/puzzle-timer.desktop` with `Icon=puzzle-timer`, and the About
+    dialog's `applicationIcon` now pointing at that name rather than
+    `APP_ID`. AppStream `metainfo.xml` belongs to packaging, which stays out
+    of scope.
 
 **Release checklist**
 

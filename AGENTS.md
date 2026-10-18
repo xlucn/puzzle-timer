@@ -106,7 +106,9 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   (evidence in PLAN.md §5). Attribute csTimer and `cstimer_module` in the
   About dialog.
 - **Every user-visible string goes through `t()`** (`src/core/i18n.ts`) —
-  no bare literals in `src/ui/`, in the menus, in the toasts or in the
+  **M9's rule, not in force yet**: neither `core/i18n.ts` nor `src/locales/`
+  exists and `src/ui/` is still full of literals. Once they land: no bare
+  literals in `src/ui/`, in the menus, in the toasts or in the
   tooltips. The catalogs are TS modules, not JSON: `src/locales/en.ts` is the
   source of truth and every other locale is typed
   `Record<keyof typeof en, Message>`, so a missing or misspelled key is a
@@ -139,6 +141,14 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   CHANGELOG, CONTRIBUTING, BUILD, DESIGN, and the in-app strings (About
   `comments`, later the `.desktop` file and the AppStream summary). Exempt as
   working documents: PLAN.md, AGENTS.md, RUST-PORT.md.
+- **CHANGELOG entries describe what the user gets, not what was built.** The
+  summary names the release in plain words and carries **no milestone
+  number**; a paragraph is fine when the release deserves one, and it may
+  speak in the first person. Bullets are one clause each, in the user's
+  language: no rationale, no widget class names or internal identifiers, no
+  measurements (those live in PLAN.md), no bold lead-in on every bullet, and
+  no tooling or generator work. Admit what is still broken rather than
+  leaving it out. `### Project` holds research and process.
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
   argument — a handler takes exactly the signal's own parameters — and what it
   returns becomes the signal's return value (that is how a `boolean`-returning
