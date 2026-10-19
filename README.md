@@ -1,78 +1,74 @@
 # Puzzle Timer
 
-A native Linux cube timer in the spirit of
-[csTimer](https://www.cstimer.net/): WCA-legal scrambles for 206 puzzle
-types, inspection, sessions, and per-session statistics. Built with GTK 4 +
-libadwaita — a real desktop app, not a web page in a shell.
+A speed cubing timer for GNOME desktop, with GTK4 and libadwaita.
+It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
+types. The UI is also inspired by csTimer, but designed to blend in with GNOME's design language.
+
+This app is currently in early development. The code is in TypeScript and is written with the help of AI agents. Future plans include porting the code to Rust or vala, and manually maintaining the codebase as much as possible. The design is mostly settled, though.
+
+![Puzzle Timer's main window](docs/main-window.png)
+
+## AI disclosure
+
+Probably important to dress this issue at the beginning. After reading this, you may choose whether to use the app or not, at your own discretion.
+
+The app started as a quick personal project to build a GNOME app with the help of csTimer's nodejs module. I don't want to start with learning GTK4 and libadwaita, or languages like nodejs, Rust, vala. So, I used AI coding agents to help me write the code.
+
+The agents are given a set of design ideas and rules on startup. As the project progresses, I test the app and provide feedback to the agents. Most of the times, the feedback and suggestions are very specific, since I want the app to be developed exactly as I want. For example, sometimes the AI will tend to manually construct a widget, while there is already a well-designed libadwaita widget available. I will do some research and tell AI to use this or that widget instead. That's mainly due to the AI agents' limitations in understanding the UI design: what is good design, what is GNOME's design language, or even, how to properly use GTK4 and libadwaita.
+
+So, here is what is done by me, at the current stage:
+- The design of the app, including features and UI layout.
+- Instructing the AI agents to write the code, in OpenCode.
+- Researching and testing the app, and providing feedback to the AI agents.
+- Some documents, currently [README.md](./README.md) and [CHANGELOG.md](./CHANGELOG.md).
+- The app icon. That is completely hand-drawn, with Inkscape and love.
+
+## Features
+
+- **Timer** — Currently support start and stop timer with keyboard.
+- **Inspection** — WCA compliant 15-second inspection.
+- **Scrambles** — 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
+  including WCA puzzles:
+  - 2x2
+  - 3x3
+  - 4x4
+  - 5x5
+  - 6x6
+  - 7x7
+  - 3x3 Blindfolded
+  - 3x3 Multi-Blindfolded
+  - 4x4 Blindfolded
+  - 5x5 Blindfolded
+  - 3x3 Fewest Moves
+  - 3x3 One-Handed
+  - Clock (RIP)
+  - Megaminx
+  - Pyraminx
+  - Skewb
+  - FTO(Face-turning Octahedron)
+  - Square-1
+- **Sessions** — create/rename/switch/delete, per-session scramble type.
+- **Statistics** — ao5/ao12/mo3, targets, etc.
+- **Solve records** — `+2`/`DNF`, comments, scramble. Editable.
 
 ## Install
 
-You need GTK ≥ 4.22 and libadwaita (with their GObject-Introspection data),
-plus **Node.js ≥ 20.6**.
+You need `nodejs`, and install `node-gtk`'s dependencies as instructed [here](https://github.com/romgrk/node-gtk/).
 
-- **Fedora:** `sudo dnf install gtk4-devel libadwaita-devel gobject-introspection-devel`
-- **Debian/Ubuntu:** `sudo apt install libgtk-4-dev libadwaita-1-dev gobject-introspection`
-- **Arch:** `sudo pacman -S gtk4 libadwaita gobject-introspection`
-- **macOS (Homebrew):** `brew install gtk4 libadwaita gobject-introspection`
-
-Then:
-
+Then clone or download this repo, and install needed nodejs packages:
 ```sh
-npm install   # installs dependencies and generates TypeScript types
-npm start     # run the app
+npm install
+```
+And, start the app:
+```sh
+npm start
 ```
 
-A window should appear. `npm run dev` additionally hot-reloads `style.css`
-while the app runs — edit, save, and the window restyles instantly.
+## Credits
 
-## What it does
-
-- **Timer** — hold Space, release to start, stop on the next press; µs-accurate
-  timing and key-repeat safe.
-- **WCA inspection** — the first release starts the 15 s countdown (8 s / 12 s
-  beeps), the second starts the solve, graded `+2` ≥ 15 s and `DNF` ≥ 17 s;
-  Esc cancels. Toggled in Preferences → Timer.
-- **Scrambles** — 206 puzzle types (3×3 through megaminx, square-1, clock,
-  multi-blind relays …), always WCA-legal, generated off the main thread so
-  the timer never stutters, with the next scramble prefetched.
-- **Sessions** — create/rename/switch/delete (`Ctrl+S` menu, `Ctrl+N`, `F2`,
-  `Ctrl+Delete`); every session owns its solve list, statistics **and its
-  current scramble type** (switching restores each one). Everything is saved
-  to disk automatically and survives restarts.
-- **Statistics & solves** — ao5/ao12/mo3 with the official trimming rules,
-  bests and a PB target; penalties `+2`/`DNF`, comments, and an edit dialog
-  (`Ctrl+E`, or `Ctrl+1`/`Ctrl+2`/`Ctrl+3` to grade the selected solve
-  directly). `Ctrl+T` opens the full Statistics dialog.
-- **Keyboard first** — every menu and dialog action has an accelerator; the
-  in-app reference is under the sidebar app menu → *Keyboard Shortcuts*.
-- **Dark mode** — follows the system, or forced in Preferences → Appearance.
-
-## How this was written
-
-Written with the assistance of AI/LLM tools.
-
-## Changelog
-
-Every stage is tagged and described in [CHANGELOG.md](./CHANGELOG.md).
-`0.0.x` marks internal stages — one per milestone that has landed — and
-`0.1.0` will be the first public source release. The same file feeds the
-About dialog's release notes.
+- csTimer's scramble generation module, [cstimer_module](https://www.npmjs.com/package/cstimer_module).
+- Icon inspiration from Reversi. "[Great Artists Steal](https://blogs.gnome.org/tbernard/2019/12/30/designing-an-icon-for-your-app/)". I am not an artist at all, but I did it nevertheless. Thanks!
 
 ## License
 
-GPL-3.0-or-later — see [LICENSE](./LICENSE). Not a preference: this project
-ports GPL-3.0 code from
-[csTimer](https://github.com/cs0x7f/cstimer) (scramble generation via
-`cstimer_module`, statistics rules) — the About dialog credits both.
-
-## More documentation
-
-| File | For |
-| --- | --- |
-| [BUILD.md](./BUILD.md) | Building, running, and testing from source in detail |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute — conventions and workflow |
-| [DESIGN.md](./DESIGN.md) | How the code is structured, and why |
-| [PLAN.md](./PLAN.md) | The project's development history and milestone record |
-| [CHANGELOG.md](./CHANGELOG.md) | What changed, in each tagged stage |
-| [AGENTS.md](./AGENTS.md) | Rules the AI coding agents follow in this repo |
-| [tools/README.md](./tools/README.md) | The scripted UI-verification harness |
+GPL-3.0-or-later, see [LICENSE](./LICENSE) for details.
