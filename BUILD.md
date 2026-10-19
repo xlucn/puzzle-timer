@@ -13,7 +13,7 @@ librsvg needed).
 - **Fedora:** `sudo dnf install gtk4-devel libadwaita-devel gobject-introspection-devel`
 - **Debian/Ubuntu:** `sudo apt install libgtk-4-dev libadwaita-1-dev gobject-introspection`
 - **Arch:** `sudo pacman -S gtk4 libadwaita gobject-introspection`
-- **macOS (Homebrew):** `brew install gtk4 libadwaita gobject-introspection`
+- **macOS (Homebrew):** `brew install gtk4 libadwaita gobject-introspection` — untested; the app has only been run on Linux.
 
 The `-dev`/`-devel` packages also ship the `.gir` files used to embed GNOME's
 API documentation into the generated TypeScript types (shown on hover in your
