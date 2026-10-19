@@ -566,8 +566,9 @@ of it as future work:**
   `package.json`;
 - `Adw.AboutWindow` → `Adw.AboutDialog`, which is also what Statistics,
   Preferences and the type picker already use;
-- the AI/LLM disclosure present in **both** places, same sentence in each:
-  the README's *How this was written* section and the About `comments`.
+- the AI/LLM disclosure present in **both** places: the README and the About
+  `comments` (the README section has since grown into the full disclosure,
+  and About keeps the one-line version of it).
 
 **Half A complete (2026-10-17).** The user confirmed the What's New page
 renders — version, links, this stage's notes and the "Built with"
