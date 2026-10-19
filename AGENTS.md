@@ -122,9 +122,17 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   (`Adw.AboutWindow` is deprecated), and its licence enum is
   `Gtk.License.GPL_3_0`, which means *3.0 or later* and matches
   `package.json`'s `GPL-3.0-or-later` (`GPL_3_0_ONLY` does not).
-- **Say plainly that AI/LLM assistance was used**: the README's *How this
-  was written* section and the About dialog's `comments` line both carry it.
-  Reword one and you reword both — they are the same statement in two places.
+- **Say plainly that AI/LLM assistance was used, and say it early**: the
+  README's *AI disclosure* section sits above Features and Install, so a
+  reader can decide before installing, and it says who did what, with which
+  tools, and how the work was directed. The About dialog's `comments` carries
+  the one-line version of the same fact. They are **not** verbatim twins: the
+  README can grow a paragraph, the About line cannot — reword one for a new
+  fact and check the other still agrees.
+- **The licence is stated in four places and they must agree**: `LICENSE`
+  (the GPL-3.0 text), `package.json`'s `"license"` field, the README's
+  `## License` line, and the About dialog. Dropping any one of them is how a
+  public release ends up without a licence.
 - **Code comments are for peer developers, not a development diary**
   ([CONTRIBUTING.md](./CONTRIBUTING.md) has the full policy): present tense,
   only what the code cannot say itself — the *why*, a constraint, or a
@@ -141,6 +149,13 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   CHANGELOG, CONTRIBUTING, BUILD, DESIGN, and the in-app strings (About
   `comments`, later the `.desktop` file and the AppStream summary). Exempt as
   working documents: PLAN.md, AGENTS.md, RUST-PORT.md.
+- **The hand-written docs speak in the author's first person.** The README
+  says "I used AI coding agents", not "the project was developed with". A
+  claim earns a concrete example where an adjective would otherwise stand
+  (the AI building a widget by hand while libadwaita already has one). A
+  feature bullet says what the user gets and leaves the implementation out —
+  accuracy figures, prefetching, accelerator lists. An unfinished area is
+  marked, not hidden ("Currently …"). `3x3`, not `3×3`, outside the UI.
 - **CHANGELOG entries describe what the user gets, not what was built.** The
   summary names the release in plain words and carries **no milestone
   number**; a paragraph is fine when the release deserves one, and it may
