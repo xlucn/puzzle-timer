@@ -2,7 +2,7 @@
 
 ![Puzzle Timer's icon](./data/icons/hicolor/scalable/apps/puzzle-timer.svg)
 
-A speed cubing timer for GNOME desktop, with GTK4 and libadwaita.
+A speed cubing timer, mainly targeting Linux and designed for GNOME desktop and mobile platforms, with GTK4 and libadwaita.
 It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
 types. The UI is also inspired by csTimer, but designed to blend in with GNOME's design language.
 
@@ -31,9 +31,10 @@ Here is what is done by me, at the current stage:
 
 ## Features
 
-- **Timer** — Currently support start and stop timer with keyboard.
-- **Inspection** — WCA compliant 15-second inspection.
-- **Scrambles** — 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
+- **Mobile friendly**: Should work well on mobile devices, in both portrait and landscape orientations.
+- **Timer**: Currently support start and stop timer with keyboard.
+- **Inspection**: WCA compliant 15-second inspection.
+- **Scrambles**: 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
   including WCA puzzles:
   - 2x2
   - 3x3
@@ -53,9 +54,9 @@ Here is what is done by me, at the current stage:
   - Skewb
   - FTO(Face-turning Octahedron)
   - Square-1
-- **Sessions** — create/rename/switch/delete, per-session scramble type.
-- **Statistics** — ao5/ao12/mo3, targets, etc.
-- **Records** — `+2`/`DNF`, comments, scramble. Editable.
+- **Sessions**: create/rename/switch/delete, per-session scramble type.
+- **Statistics**: ao5/ao12/mo3, targets, etc.
+- **Records**: `+2`/`DNF`, comments, scramble. Editable.
 
 ## Install
 
