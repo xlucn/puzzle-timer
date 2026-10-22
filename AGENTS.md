@@ -160,14 +160,16 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   claim earns a concrete example where an adjective would otherwise stand
   (the AI building a widget by hand while libadwaita already has one). A
   feature bullet says what the user gets and leaves the implementation out —
-  accuracy figures, prefetching, accelerator lists. An unfinished area is
-  marked, not hidden ("Currently …"). `3x3`, not `3×3`, outside the UI.
+  accuracy figures, prefetching, accelerator lists. Bold marks the term a
+  bullet is about and is followed by a colon, never used for emphasis inside
+  a sentence. An unfinished area is marked, not hidden ("Currently …").
+  `3x3`, not `3×3`, outside the UI.
 - **CHANGELOG entries describe what the user gets, not what was built.** The
   summary names the release in plain words and carries **no milestone
   number**; a paragraph is fine when the release deserves one, and it may
   speak in the first person. Bullets are one clause each, in the user's
   language: no rationale, no widget class names or internal identifiers, no
-  measurements (those live in PLAN.md), no bold lead-in on every bullet, and
+  measurements (those live in PLAN.md), no bold inside a bullet, and
   no tooling or generator work. Admit what is still broken rather than
   leaving it out. `### Project` holds research and process.
 - **node-gtk signal handlers**: the emitter is *not* passed as the first
