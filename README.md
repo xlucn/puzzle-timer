@@ -1,10 +1,14 @@
 # Puzzle Timer
 
+![Puzzle Timer's icon](./data/icons/hicolor/scalable/apps/puzzle-timer.svg)
+
 A speed cubing timer for GNOME desktop, with GTK4 and libadwaita.
 It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
 types. The UI is also inspired by csTimer, but designed to blend in with GNOME's design language.
 
-This app is currently in early development. The code is in TypeScript and is written with the help of AI agents. Future plans include porting the code to Rust or vala, and manually maintaining the codebase as much as possible. The design is mostly settled, though.
+This app is currently in early development. The code is in TypeScript and is written with the help of AI agents. The design is mostly settled, though.
+
+There are plans porting to Rust or vala in the future.
 
 ![Puzzle Timer's main window](docs/main-window.png)
 
@@ -16,7 +20,9 @@ The app started as a quick personal project to build a GNOME app with the help o
 
 The agents are given a set of design ideas and rules on startup. As the project progresses, I test the app and provide feedback to the agents. Most of the times, the feedback and suggestions are very specific, since I want the app to be developed exactly as I want. For example, sometimes the AI will tend to manually construct a widget, while there is already a well-designed libadwaita widget available. I will do some research and tell AI to use this or that widget instead. That's mainly due to the AI agents' limitations in understanding the UI design: what is good design, what is GNOME's design language, or even, how to properly use GTK4 and libadwaita.
 
-So, here is what is done by me, at the current stage:
+So, in short, the app is not all written by AI automatically with just a few prompts. It's an app designed by me, who relies on AI's help to implement the design. Not only that, I am constantly learning and doing research, hoping to do more coding or optimization myself.
+
+Here is what is done by me, at the current stage:
 - The design of the app, including features and UI layout.
 - Instructing the AI agents to write the code, in OpenCode.
 - Researching and testing the app, and providing feedback to the AI agents.
@@ -49,7 +55,7 @@ So, here is what is done by me, at the current stage:
   - Square-1
 - **Sessions** — create/rename/switch/delete, per-session scramble type.
 - **Statistics** — ao5/ao12/mo3, targets, etc.
-- **Solve records** — `+2`/`DNF`, comments, scramble. Editable.
+- **Records** — `+2`/`DNF`, comments, scramble. Editable.
 
 ## Install
 

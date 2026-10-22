@@ -9,6 +9,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0] — 2026-10-22
 
+First release ready for public use.
+
 ### Added
 
 - The icon is updated, and there is a symbolic variant for small sizes.
@@ -31,7 +33,7 @@ As of this release, the app is much more polished and usable.
 
 ### Added
 
-- The solve list in the sidebar shows **ao5 and ao12**.
+- The solve list in the sidebar shows ao5 and ao12.
 - The solve edit dialog is completely reworked with libadwaita widgets.
 - A header button to copy the scramble texts.
 - A header button to change the puzzle type, replacing the two drop-down
@@ -88,7 +90,7 @@ As of this release, the app is much more polished and usable.
 - Add +2 and DNF penalties and comments to solves. Modifiable through a dialog.
 - WCA inspection: a 15-second countdown with 8 s and 12 s cues, `+2` at 15 s,
   `DNF` at 17 s, `Escape` to cancel.
-- Each session remembers its **scramble type**; switching restores it.
+- Each session remembers its scramble type; switching restores it.
 
 ## [0.0.4] — 2026-10-01
 
@@ -108,11 +110,11 @@ As of this release, the app is much more polished and usable.
 
 **Add scrambles from csTimer through `cstimer_module`.**
 
-- Scramble generation in a **`worker_threads` worker** so that it never blocks
+- Scramble generation in a `worker_threads` worker so that it never blocks
   the UI. A 4x4 WCA scramble might take ~1 second so this is important.
 - The next scramble is always prefetched, so it is on screen the instant
   a solve finishes.
-- A two-level puzzle type selector over **206 puzzle types**.
+- A two-level puzzle type selector over 206 puzzle types.
 
 ## [0.0.1] — 2026-09-30
 
