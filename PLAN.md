@@ -12,20 +12,23 @@ able to continue at the current milestone.
 **MVP (M0–M5):** timers, scrambles, sessions, statistics.
 
 **Scheduled (M7–M16, decided 2026-10-05; M16 added 2026-10-06, M8 added
-2026-10-10; queue reordered 2026-10-16).** The queue is **M13 → M14 → M15**
-first — release readiness, then touch input, then the phone-runtime verdict —
-followed by M7–M12 and M16. Numbers are stable identifiers, not queue
-positions (§6). Two of the adjacencies are dependencies rather than
-preferences: i18n lands ahead of every string-heavy feature, so those are
-written translated instead of swept afterwards, and M13 comes before M16
-because an AUR package needs a name, an icon and a tag to point at:
+2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
+`0.1.0`).** The queue is **M14 → M15** first — touch input, then the
+phone-runtime verdict — followed by M7–M12 and M16. Numbers are stable
+identifiers, not queue positions (§6). Two of the adjacencies are
+dependencies rather than preferences: i18n lands ahead of every string-heavy
+feature, so those are written translated instead of swept afterwards, and
+M13 came before M16 because an AUR package needs a name, an icon and a tag to
+point at:
 
-- **M13 — release readiness.** Start versioning and prepare a public source
-  release: one version source of truth (`package.json`), a CHANGELOG, an
-  About dialog that matches reality (it currently shows a *hardcoded*
-  `0.1.0`, the wrong licence enum, and a **deprecated** widget), a user-first
-  README that states plainly how AI/LLM assistance was used, plus an icon and
-  a public name. The last two are gated on open decisions — see §6 M13.
+- **M13 — release readiness (landed 2026-10-22).** Versioning from
+  `package.json` through `platform/meta.ts`, a CHANGELOG for every tagged
+  stage, an About dialog that matches reality (version, repository, issue
+  URL, release notes parsed from the changelog, `GPL_3_0`), a README written
+  by the author that states plainly how AI/LLM assistance was used, a
+  hand-drawn icon with a symbolic variant, the public name **Puzzle Timer**,
+  the app id `io.github.xlucn.PuzzleTimer`, and the `v0.1.0` tag — see §6
+  M13 and §7.
 - **M14 — touch input, and the narrow-window leftovers.** Today the app
   cannot start a solve without a Space key: there is **not one gesture or
   touch controller in `src/`**. Touch-hold on the timer mirrors Space exactly
@@ -471,8 +474,9 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M13 → M14 → M15**, then M7–M12 and M16; the landed M0–M6 log
-closes the section. A number never moves: only the queue does.
+The queue is **M14 → M15**, then M7–M12 and M16; M13 landed on 2026-10-22
+as `v0.1.0`, and the landed M0–M6 log closes the section. A number never
+moves: only the queue does.
 
 | # | Deliverable | Done when |
 |---|---|---|
@@ -496,11 +500,11 @@ closes the section. A number never moves: only the queue does.
 
 **Post-MVP backlog:** stackmat (§1), then packaging if ever needed.
 
-### M13 — scheduled (release readiness)
+### M13 — landed 2026-10-22 (release readiness)
 
-Two halves. **A is decision-free and may be pulled forward at any time** —
-it is what makes the release publishable; B is gated on the two open
-decisions at the end of this block.
+Both halves landed and `v0.1.0` is tagged and pushed. The sub-blocks below keep
+the decisions and the evidence that produced them, and the release checklist at
+the end of the block is green — it is the recipe for the next cut.
 
 **A — versioning, tagging and disclosure**
 
@@ -1726,10 +1730,11 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M7–M16 scheduled — queue reordered 2026-10-16** — **M13 release
-  readiness → M14 touch input → M15 phone-runtime verdict**, then M7 size
-  preferences → M8 scramble type options → M9 i18n → M10 csTimer
-  import/export → M11 records & statistics → M12 charts → M16 AUR package.
+- **M7–M16 scheduled — queue reordered 2026-10-16** — **M14 touch input →
+  M15 phone-runtime verdict**, then M7 size preferences → M8 scramble type
+  options → M9 i18n → M10 csTimer import/export → M11 records & statistics →
+  M12 charts → M16 AUR package. M13 is out of the queue: it landed 2026-10-22
+  as `v0.1.0`, tagged and pushed.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
   changelog entries. Nothing was dropped: M7–M12 and M16 remain scheduled.
@@ -1743,17 +1748,10 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M10: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  M13 is down to the **release cut**: the **icon** landed 2026-10-22 as a
-  hand-drawn pair, recorded in the M13 block, and it closed the baseline item
-  the generated cube left open. The **public name is settled**: `Puzzle
-  Timer`, adopted 2026-10-07 with the repo `xlucn/puzzle-timer`, and its
-  rename checklist in the M13 block — `package.json`, `APP_NAME`, the README
-  and About links, the app id — all landed 2026-10-19. What is left before
-  the first tag is `0.1.0` itself: the version bump, the CHANGELOG section
-  and the annotated tag.
-  **M16 (AUR) has two blockers**, both written into its §6 block: that tag,
-  and the repo's **privacy** — `makepkg` fetches over
-  plain HTTP, so the sources must be public at tag time. The draft PKGBUILD
+  **M16 (AUR) has one blocker left**, written into its §6 block: the repo's
+  **privacy** — `makepkg` fetches over plain HTTP, so the sources must be
+  public at tag time. The `v0.1.0` tag was the other one, and it is cut. The
+  draft PKGBUILD
   and the size measurements live there too, along with the first two things to
   test: Arch's `typescript` 6.0.3 against our declared `^5.5.0`, and whether
   the built `dist/` runs at all.
@@ -1762,20 +1760,29 @@ Evidence:
   its own block. Probes that gate M10, M12 and M14
   (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
   competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
-  out at the top of their milestone blocks. **Ordering caveat:** M14 (touch)
-  follows M13 by user call, not by dependency — so the first public tag
-  (`0.1.0`, cut at M13) ships **without** touch input, and the keyboard stays
-  the only way to drive it. Accepted; if that stops being accepted, M14 moves
-  ahead of M13 and `0.1.0` waits for it.
+  out at the top of their milestone blocks. **Ordering caveat, now history:**
+  M14 (touch) followed M13 by user call, not by dependency, so `0.1.0`
+  shipped **without** touch input and the keyboard is still the only way to
+  drive it. That is the first thing M14 is for.
+- **M13 landed 2026-10-22 — `v0.1.0` tagged and pushed.** What a cold session
+  needs: the version comes only from `package.json` through
+  `platform/meta.ts`, and the About dialog parses its release notes out of
+  CHANGELOG.md; the README is the author's own text, with the AI disclosure
+  above Features and the licence stated in four places; the icon is
+  hand-drawn, so its generator and the PLL Ga brief went with `tools/icon/`;
+  the probe scripts carry `io.github.xlucn.PuzzleTimer.probe.<name>` ids so a
+  personal one cannot creep back; and the harness probes now derive their
+  bands from `core/layout.ts`. The release checklist at the end of §6 M13 is
+  green and is the recipe for the next cut.
 - **M6 landed 2026-10-02** — adaptive layout is in and verified (the dated
   block in §6 has the decisions and the measurements). What a cold session
   needs to know: `src/core/layout.ts` owns every threshold, the sidebar's
   `show-sidebar` is a plain libadwaita binding (do not add intent memory
   back), and sizes are read from the *surface* because widgets lag a pass
-  behind during a resize. `npm test` = **219 tests**; the manual band walk
+  behind during a resize. `npm test` = **406 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
-  **Next milestone: M13 (release readiness)** — see the bullet above; M14
-  (touch input) and M15 (the phone-runtime verdict) follow it. M7–M12 and
+  **Next milestone: M14 (touch input)** — see §6; M15 (the phone-runtime
+  verdict) follows it. M7–M12 and
   M16 are scheduled but deferred, not dropped. The still-unscheduled backlog
   is stackmat and the rest of packaging (Flatpak, deb), which only M15 can
   reopen (§1).

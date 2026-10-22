@@ -43,7 +43,8 @@ src/
 ```
 
 `data/` sits beside `src/` — the hicolor icon tree (full-colour and
-symbolic) plus `puzzle-timer.desktop`.
+symbolic) plus `puzzle-timer.desktop`. `docs/` holds the README's screenshot:
+documentation, not something an install ships.
 
 Three rules fall out of this split, and they are the ones most worth not
 breaking:

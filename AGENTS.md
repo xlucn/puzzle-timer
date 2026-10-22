@@ -88,6 +88,12 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   cwd**, so the `/usr/bin` launcher has to `cd` first. `src/` and `dist/`
   are siblings by design, so one relative path serves both — moving either
   breaks all six. `tools/icon_probe.mjs` checks the icon path headlessly.
+- **Probe scripts take app ids under
+  `io.github.xlucn.PuzzleTimer.probe.<name>`** — never a personal one
+  (`com.oliver.*`) or a stale project one (`org.cstimer.gtk.*`). The id only
+  has to be valid and distinct from the app's, for single-instance reasons,
+  but it is the one place in `tools/` where the author's name used to leak
+  into a released tree.
 - Solve list must use `Gtk.ColumnView` (virtualized), never `Gtk.ListBox`
   (builds all rows; sessions can hold thousands of solves).
 - **`Gtk.Overlay` children are not counted in the parent's size request**
