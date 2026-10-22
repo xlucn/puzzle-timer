@@ -31,7 +31,7 @@ Here is what is done by me, at the current stage:
 
 ## Features
 
-- **Mobile friendly**: Should work well on mobile devices, in both portrait and landscape orientations.
+- **Adaptive layout**: Designed to fit portrait and landscape windows of desktop and mobile devices. Touch input is planned.
 - **Timer**: Currently support start and stop timer with keyboard.
 - **Inspection**: WCA compliant 15-second inspection.
 - **Scrambles**: 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
