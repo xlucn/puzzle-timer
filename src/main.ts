@@ -467,6 +467,28 @@ app.on('activate', () => {
   })
   header.packEnd(imageToggle)
 
+  // Escape's job with no keyboard: an inspection otherwise has no visible
+  // way out. The button taps the same Escape key — `keyDown` then `keyUp` —
+  // so there is one cancellation route, and it exists only while inspecting;
+  // the timer subscription below shows and hides it.
+  const cancelInspection = new Gtk.Button({
+    label: 'Cancel',
+    tooltipText: 'Cancel the inspection (Esc)',
+    // `destructive-action` is Adwaita's alert red for a button; the inspection
+    // is abandoned, so it reads as the one action that ends something.
+    cssClasses: ['destructive-action'],
+    visible: false,
+  })
+  // A click is a tap, not a held key: keyDown without the matching keyUp
+  // would leave Escape in the pressed set, and the next cancel would be
+  // ignored as auto-repeat.
+  cancelInspection.on('clicked', () => {
+    const now = nowMs()
+    timer.keyDown('escape', now)
+    timer.keyUp('escape', now)
+  })
+  header.packEnd(cancelInspection)
+
   // Record against the scramble on screen — read before advance() swaps in
   // the pre-generated one. Null only while the very first scramble is still
   // generating; record anyway.
@@ -597,12 +619,19 @@ app.on('activate', () => {
 
   /**
    * Move the scramble controls between header and bottom bar (all together:
-   * narrow keeps the header to toggle and title, the bar gets the actions).
-   * The title never moves — it is the HeaderBar's titleWidget at every
-   * width, so the stale-title-widget trap (remove() clears the bin but not
-   * the property) is unreachable by construction.
+   * narrow keeps the header to toggle, title and Cancel, the bar gets the
+   * scramble actions). The bar only appears in that narrow tier and while
+   * the timer does not own the view; `syncBottomBar` owns the reveal. The
+   * title never moves — it is the HeaderBar's titleWidget at every width, so
+   * the stale-title-widget trap (remove() clears the bin but not the
+   * property) is unreachable by construction.
    */
   let selectorsInRow = false
+  /** True while the timer owns the view, from inspection through the solve. */
+  let timerFocus = false
+  function syncBottomBar(): void {
+    content.revealBottomBars = selectorsInRow && !timerFocus
+  }
   function placeSelectors(inRow: boolean): void {
     if (inRow === selectorsInRow) return
     selectorsInRow = inRow
@@ -614,16 +643,20 @@ app.on('activate', () => {
       header.remove(imageToggle)
       imageToggle.hexpand = true
       selectorBar.append(imageToggle)
-      content.revealBottomBars = true
+      syncBottomBar()
     } else {
-      content.revealBottomBars = false
+      syncBottomBar()
       selectorBar.remove(imageToggle)
       imageToggle.hexpand = false
+      // Cancel is pinned to the header's end at every width; re-pack it last
+      // so it stays rightmost once the image toggle returns.
+      header.remove(cancelInspection)
       header.packEnd(imageToggle)
       for (const widget of scrambleControls) {
         selectorBar.remove(widget)
         header.packStart(widget)
       }
+      header.packEnd(cancelInspection)
     }
   }
 
@@ -799,10 +832,61 @@ app.on('activate', () => {
     })
   }
 
+  /**
+   * Inspection and solving are the timer's own view: hide the scramble, its
+   * diagram, the hint/averages and the selector bar. The header stays — it
+   * carries Cancel and the app's controls — and everything returns when the
+   * solve stops.
+   */
+  const applyTimerFocus = (state: TimerState): void => {
+    // Stay focused through the hold that follows an inspection, so the
+    // scramble does not flash back between the countdown and the solve.
+    const focused =
+      state === 'inspecting' ||
+      state === 'running' ||
+      ((state === 'holding' || state === 'ready') && timerFocus)
+    if (focused === timerFocus) return
+    timerFocus = focused
+    scramblePanel.setChromeVisible(!focused)
+    timerView.setChromeVisible(!focused)
+    syncBottomBar()
+    if (!focused) updateDiagram()
+  }
+
   timer.subscribe(() => {
     render()
+    cancelInspection.setVisible(timer.state === 'inspecting')
+    applyTimerFocus(timer.state)
     ensureTicking()
   })
+
+  // ---- touch: the main content is the start key -----------------------
+  // The same keyDown/keyUp calls the keyboard makes, with the same key id,
+  // so core/timer.ts never learns whether a finger or Space started the
+  // hold (decision 15). GestureClick reports pointer and touch alike. The
+  // gesture sits on the content under the bars, not on the readout: a phone
+  // should not have to hit the digits, and the header/selector buttons stay
+  // out of the target so they never arm a solve by accident.
+  const timerGesture = new Gtk.GestureClick({ button: 1 })
+  timerGesture.on('pressed', () => {
+    // A focused text entry owns the press, exactly as in the key handler.
+    const focus = window.getFocus() as { getText?: () => string } | null
+    if (focus !== null && typeof focus.getText === 'function') return
+    // keyDown's running branch stops the solve for any fresh key, so this
+    // needs no separate stop path.
+    timer.keyDown(START_KEY, nowMs())
+  })
+  timerGesture.on('released', () => {
+    timer.keyUp(START_KEY, nowMs())
+  })
+  // A competing gesture — the scramble's scroll, mainly — can cancel the
+  // sequence without a release, and an unpaired release can arrive when the
+  // implicit grab is lost. Either way the key must come back up, or the hold
+  // would outlive the press and the next press would be ignored as repeat.
+  const endHold = () => timer.keyUp(START_KEY, nowMs())
+  timerGesture.on('cancel', endHold)
+  timerGesture.on('unpaired-release', endHold)
+  mainContent.addController(timerGesture)
 
   // ---- keyboard: hold Space to arm, release to start, any key to stop ----
   // CAPTURE phase so the timer sees keys before any focused widget consumes

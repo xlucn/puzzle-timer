@@ -31,8 +31,8 @@ Here is what is done by me, at the current stage:
 
 ## Features
 
-- **Adaptive layout**: Designed to fit portrait and landscape windows of desktop and mobile devices. Touch input is planned.
-- **Timer**: Currently support start and stop timer with keyboard.
+- **Adaptive layout**: Designed to fit portrait and landscape windows of desktop and mobile devices.
+- **Timer**: Start and stop with the keyboard, the mouse or a finger.
 - **Inspection**: WCA compliant 15-second inspection.
 - **Scrambles**: 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
   including WCA puzzles:

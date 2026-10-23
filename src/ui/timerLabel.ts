@@ -50,12 +50,12 @@ styles.add(`
 `)
 
 const HINTS: Record<TimerState, string> = {
-  idle: 'Hold Space to start',
+  idle: 'Hold Space or the timer to start',
   holding: 'Keep holding…',
   ready: 'Release to start',
   inspecting: 'Inspection — Space starts, Esc cancels',
-  running: 'Press any key to stop',
-  stopped: 'Hold Space for next solve',
+  running: 'Press any key or tap to stop',
+  stopped: 'Hold Space or the timer for the next solve',
 }
 
 /**
@@ -109,9 +109,26 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   widget.append(hint)
   if (options?.statsStrip !== undefined) widget.append(options.statsStrip.widget)
 
+  /** The hint and averages are context; a running timer shows only digits. */
+  let chromeVisible = true
+  const statsWidget = options?.statsStrip?.widget
+  const applyChrome = (): void => {
+    hint.setVisible(chromeVisible)
+    if (statsWidget !== undefined) statsWidget.setVisible(chromeVisible)
+  }
+
   return {
     /** Container to place in the window. */
     widget,
+    /**
+     * Hide the hint and the averages for the distraction-free timer view;
+     * the readout stays, and the size class is untouched.
+     */
+    setChromeVisible(visible: boolean): void {
+      if (visible === chromeVisible) return
+      chromeVisible = visible
+      applyChrome()
+    },
     /**
      * The readout's size class follows the window's tier
      * (src/core/layout.ts). The state classes on screen are reapplied, so a

@@ -7,7 +7,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 
 | File | What it does |
 |---|---|
-| `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click (aimed, then verified with `pointer`), screenshot (`shot`/`rootshot`), list windows (`wins`) |
+| `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click (aimed, then verified with `pointer`), hold and drag the pointer (`down`/`up`/`drag`), screenshot (`shot`/`rootshot`), list windows (`wins`) |
 | `timer_walk.py` | Walks the timer through all five states and captures each one |
 | `keyprobe.mjs` | Minimal node-gtk app that logs raw key events (for plumbing bugs) |
 | `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (the sidebar plumbing) |
@@ -259,6 +259,20 @@ python3 tools/xtest.py --window "Puzzle Timer" \
     press Down release Down sleep 0.3 \
     press Return release Return sleep 1.5 shot type-switched.png
 
+# Touch path — no touch device needed: XTEST supplies a press-hold.
+# The main content is the start key (same keyDown/keyUp as Space), so
+# click-and-hold anywhere under the bars works with the mouse too; the
+# timer's centre is just a convenient aim. With inspection on (the default)
+# the first hold-release arms the 15 s countdown and the second starts the
+# solve; a Cancel button appears at the header's end while inspecting (same
+# path as Escape). The scramble, hint/averages and bottom bar hide for the
+# inspection and solve; the header stays. At 900x540 the timer's centre is
+# ≈560,300; Cancel sits around x≈690, y≈22. At the 360 floor it is the
+# rightmost header control. Re-aim both, coords drift with the layout.
+python3 tools/xtest.py --window "Puzzle Timer" \
+    down 560 300 sleep 0.7 up sleep 0.8 \
+    down 560 300 sleep 0.7 up sleep 1.2 \
+    tap x
 # Per-session scramble type: the index file is ground truth for this
 # feature — screenshots go stale (trap 2), so pair every switch with jq.
 jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
@@ -267,7 +281,7 @@ jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
 # Adaptive layout: the whole band walk is sizes and keys, and every step
 # announces the tier it applied. Ctrl+B is `app.sidebar` and Escape closes the
 # drawer (only while one is up), so neither needs the pointer.
-W=$(DISPLAY=:99 xdotool search --name csTimer | head -1)
+W=$(DISPLAY=:99 xdotool search --name "Puzzle Timer" | head -1)
 tail -f /tmp/m6.log | grep --line-buffered '\[layout\]\|\[sidebar\]' &
 DISPLAY=:99 xdotool windowsize --sync $W 700 540   # drawer, selectors still in the header
 DISPLAY=:99 xdotool windowsize --sync $W 550 480   # selectors leave for their own row
@@ -277,6 +291,9 @@ DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip
 DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (the cap at every tier), timer l
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
 # which is why the log prints `890x530 (win 530)` for a 900x540 window.
+# The diagram line reports position too — `diagram WxH at x,y vs timer x,y
+# WxH → clear|overlap` — and `diagram none` where the tier has no room for it
+# (short *and* narrow: 360x294 and 600x360 shed it, 650x360 keeps it).
 
 # Long labels do not move the selectors out: the header's control is
 # one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to

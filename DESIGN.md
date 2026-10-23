@@ -94,10 +94,17 @@ breaking:
   ready→release starts the 15 s countdown (graded `+2` at 15 s, `DNF` at
   17 s); the second starts the solve. Cues at 8 s and 12 s fire exactly once
   each per inspection. Esc cancels.
-- **Touch mirrors the keyboard (M14 — not built yet).** A gesture will emit
-  the same `keyDown`/`keyUp` calls Space does, and list gestures will end in
-  the same `remove()` → undo-toast path — so there is exactly one state
-  machine, one deletion path, and one undo, whatever the input device.
+- **Touch mirrors the keyboard where it can.** The main content view's
+  `Gtk.GestureClick` emits the same `keyDown`/`keyUp` calls Space does — the
+  whole area under the bars, not just the digits, is the start key — and
+  the countdown's Cancel button in the header takes Escape's path — so there
+  is exactly one state machine, one deletion path, and one undo, whatever
+  the input device. While inspecting or solving, the scramble, hints,
+  averages and bottom bar hide; the header stays. The solve list keeps GTK's
+  own Ctrl/Shift-click multi-select; touch has no modifier, so the list
+  carries no touch gesture of its own. Deletion has no gesture either: a
+  swipe gives no visible hint that it exists, so it stays on the footer's
+  Delete button.
 - **One version, one place.** The app version comes from `package.json` via
   `src/platform/meta.ts`, never a literal.
 

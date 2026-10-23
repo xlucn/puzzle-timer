@@ -244,6 +244,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   const picture = new Gtk.Picture({
     alternativeText: 'Scramble diagram',
     canShrink: true,
+    // Decorative: a press over the picture must reach the content's timer
+    // gesture underneath, not stop at the picture.
+    canTarget: false,
     contentFit: Gtk.ContentFit.CONTAIN,
     // END/END anchors it in the corner (FILL would stretch it over the
     // overlay's room). It never overlaps the stats strip — that row is
@@ -313,6 +316,11 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   let diagramMaxWidth = IMAGE_MAX_WIDTH
   let diagramMaxHeight = IMAGE_MAX_HEIGHT
 
+  /** The panel and diagram are hidden while the timer has the floor. */
+  let chromeVisible = true
+  /** Whether the current scramble produced a paintable (caps may refuse it). */
+  let pictureReady = false
+
   let spinning = false
   const setSpinning = (on: boolean) => {
     if (on === spinning) return
@@ -370,8 +378,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       // size *is* the cap — recomputed here on tier changes, since
       // setDiagramMax clears currentSvg and this block re-runs.
       const fit = svg === null ? null : svgPaintable(svg, diagramMaxWidth, diagramMaxHeight)
+      pictureReady = fit !== null
       picture.setPaintable(fit)
-      picture.setVisible(fit !== null)
+      picture.setVisible(chromeVisible && pictureReady)
     }
   }
 
@@ -384,6 +393,17 @@ export function createScramblePanel(options: ScramblePanelOptions) {
      */
     image: picture,
     render,
+    /**
+     * Hide the scramble and its diagram for the distraction-free timer view.
+     * Render keeps the picture hidden until this is called with `true` again,
+     * so a prefetched scramble cannot flash back mid-solve.
+     */
+    setChromeVisible(visible: boolean): void {
+      if (visible === chromeVisible) return
+      chromeVisible = visible
+      widget.setVisible(visible)
+      picture.setVisible(visible && pictureReady)
+    },
     /**
      * How wide the scramble text may ask to be, and how tall the slot may
      * grow — both from the window's tier. The label's own `maxWidthChars`

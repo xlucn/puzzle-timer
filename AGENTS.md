@@ -76,7 +76,9 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   — so there stays one state machine, one deletion path and one undo. Check
   an action is reachable with no modifier keys and no accelerator before
   shipping it: Shift/Ctrl-click and Escape are the two things a phone does
-  not have.
+  not have. Multi-select is the deliberate exception — the list keeps
+  GTK's Ctrl/Shift-click and drops the custom touch path; every action on a
+  single solve is still reachable by touch.
 - **Six relative paths are load-bearing for the packaged layout:**
   `styles.addFile('../style.css', …)` in `src/main.ts`,
   `Gtk.IconTheme.addSearchPath('../data/icons', …)` (the search path holds
@@ -250,7 +252,11 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   state change. `<Ctrl+B>` toggles the list, `Escape` closes the drawer
   (only while one is up). Expected: one line per change, **zero**
   `AdwToastOverlay exceeds …` warnings, and `[layout] 360x294 (win 294)` at
-  the floor (xdotool `370×304`; `370×640` gives `360x630`).
+  the floor (xdotool `370×304`; `370×640` gives `360x630`). A `[layout]
+  diagram` line carries the picture's position and verdict —
+  `… at x,y vs timer x,y WxH → clear|overlap` — or `diagram none` where the
+  tier sheds it (short *and* narrow: 360×294/360×360/540×360/600×360 shed,
+  640×294 and 650×360 keep it).
 - Type chooser (same keyboard-only rule): **both layouts open the same
   dialog**. Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)
@@ -313,10 +319,12 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   the sidebar toggle (chain: app menu, the scramble's scroller — no ring,
   arrow keys scroll a tall one, the label itself is not focusable —,
   image, type, copy, refresh; the header's forward order is
-  refresh → copy → select → image, and the centred title
-  (`Adw.WindowTitle`) is not focusable) — `Return` closes the sidebar, and `<Ctrl+S>`
-  from that state must reveal it *and* pop the menu (the `ensureVisible`
-  path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
+  refresh → copy → select → image, plus a Cancel button at the end
+  *only while inspecting*; the scramble controls move into the bottom
+  toolbar on a narrow window, but Cancel stays in the header, and the
+  centred title (`Adw.WindowTitle`) is not focusable) — `Return` closes the
+  sidebar, and `<Ctrl+S>` from that state must reveal it *and* pop the menu
+  (the `ensureVisible` path in `src/ui/sessionMenu.ts`). The shortcuts dialog is **not** a
   separate toplevel — `Adw.ShortcutsDialog` draws inside the app's own
   surface, so `xwininfo -root -tree` finds nothing for it: capture it with
   `maim -i 0x<app window id>` and close it with
@@ -341,11 +349,18 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   anyway (tools/README traps 4–5). If an action has no key yet, add one —
   `app.setAccelsForAction(...)` in `src/main.ts` plus an
   `Adw.ShortcutsDialog` entry in `src/ui/shortcuts.ts` — before testing it.
-- **Gestures are drivable the same way**: XTEST gives a long-press as
-  button-down → sleep → button-up, and a swipe as button-down plus motion,
-  so touch work is testable with no touch device at all. The rule above
+- **Pointer gestures are drivable the same way**: XTEST gives a hold as
+  button-down → sleep → button-up, and a drag as button-down plus motion —
+  `tools/xtest.py` has `down`/`up`/`drag` for exactly that — so touch work is
+  testable with no touch device at all. A click-and-hold in the main content
+  is the same drill: it is the start key (press-hold, release starts; with
+  inspection on, the first release arms the countdown and the second starts
+  the solve), and the decorative diagram passes presses through. Inspecting
+  or solving clears the scramble, hint/averages and bottom bar; the header
+  stays. The solve list has no touch gesture: multi-select stays on GTK's
+  Ctrl/Shift-click and deletion on the footer's Delete button. The rule above
   still holds — it is about *driving* the app, not about what input the app
-  accepts.
+  accepts. Recipes: `tools/README.md`.
 - Details and traps: `tools/README.md`.
 
 ### Fresh install
@@ -365,12 +380,12 @@ Stackmat is a **long-term** goal (see PLAN.md), not current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; don't redesign them, follow the
 milestone blocks):
-**Queue (2026-10-16): M13** release readiness → **M14** touch input →
-**M15** phone-runtime verdict → **M7** size preferences → **M8** scramble
-type options (independent of the rest, and its length control is
-deliberately **not** persisted) → **M9** i18n → **M10** csTimer
+**Queue (2026-10-23): M15** phone-runtime verdict → **M7** size preferences →
+**M8** scramble type options (independent of the rest, and its length
+control is deliberately **not** persisted) → **M9** i18n → **M10** csTimer
 import/export → **M11** records & statistics → **M12** charts → **M16** AUR
-package (blocked on M13 — PLAN.md §6 has the draft PKGBUILD and the size
+package (one blocker left — the repo must be public at tag time; PLAN.md §6
+has the draft PKGBUILD and the size
 measurements). Numbers are stable identifiers, not positions in the queue:
 reorder the queue, never the numbers.
 

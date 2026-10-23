@@ -68,6 +68,11 @@ OPS_HELP = """command list, executed in order:
   tap KEY [SECS]        press, wait (default 0.05 s), release
   type TEXT             type lowercase letters/digits (for search entries)
   click X Y [BUTTON]    click at window-relative pixels (default button 1)
+  down X Y [BUTTON]     press a button at window-relative pixels and hold it
+  up [BUTTON]           release the held button
+  drag X1 Y1 X2 Y2 [BUTTON] [STEPS] [SECS]
+                        press at (X1,Y1), move in STEPS (default 10) over
+                        SECS (default 0.3), release at (X2,Y2)
   warp X Y              move the pointer there, without clicking (hover tests)
   pointer               print where X thinks the pointer is, and what is under it
   sleep SECS            wait
@@ -238,6 +243,7 @@ class App:
         self.root = self.x11.XDefaultRootWindow(self.d)
         self.title = title
         self._held: set[str] = set()  # keys we pressed and have not released yet
+        self._held_buttons: set[int] = set()  # mouse buttons likewise
         self.prev_focus = 0           # focus owner to restore in close()
         self.win = _find_window(self.x11, self.d, self.root, title, timeout)
         print(f"window: {title!r} = 0x{self.win:x}")
@@ -262,6 +268,9 @@ class App:
             for key in sorted(getattr(self, "_held", set())):
                 print(f"safety: releasing still-held key {key!r}")
                 self.release(key)
+            for button in sorted(getattr(self, "_held_buttons", set())):
+                print(f"safety: releasing still-held button {button}")
+                self.button_up(button)
             prev = getattr(self, "prev_focus", 0)
             if prev and prev != self.win:
                 self.x11.XSetInputFocus(self.d, prev, 2, 0)  # RevertToParent
@@ -543,6 +552,46 @@ class App:
         """
         self._aim(x, y)
 
+    def button_down(self, x: int, y: int, button: int = 1):
+        """Press a button at window-relative pixels and leave it held."""
+        self._aim(x, y)
+        self.xtst.XTestFakeButtonEvent(self.d, button, 1, 0)
+        self.x11.XFlush(self.d)
+        self._held_buttons.add(button)
+
+    def button_up(self, button: int = 1):
+        """Release a button left held by `down` (shutdown releases the rest)."""
+        self.xtst.XTestFakeButtonEvent(self.d, button, 0, 0)
+        self.x11.XFlush(self.d)
+        self._held_buttons.discard(button)
+
+    def drag(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        button: int = 1,
+        steps: int = 10,
+        seconds: float = 0.3,
+    ):
+        """Press, move in steps, release — a swipe or a scroll drag.
+
+        Each intermediate point is a warp: XWarpPointer generates the motion
+        events XTEST would, and it is the one pointer-moving call verified to
+        work on this display (see `warp`).
+        """
+        self.button_down(x1, y1, button)
+        pause = seconds / max(steps, 1)
+        for step in range(1, steps + 1):
+            x = round(x1 + (x2 - x1) * step / steps)
+            y = round(y1 + (y2 - y1) * step / steps)
+            self.x11.XWarpPointer(self.d, 0, self.win, 0, 0, 0, 0, x, y)
+            self.x11.XFlush(self.d)
+            time.sleep(pause)
+        self.button_up(button)
+        time.sleep(0.2)
+
     # -- capture -----------------------------------------------------------
     def size(self):
         scr, x, y = ctypes.c_ulong(), ctypes.c_int(), ctypes.c_int()
@@ -651,6 +700,31 @@ def _run(app: App, ops: list[str], force_repaint: bool):
                 button = int(ops[i])
                 i += 1
             app.click(x, y, button)
+        elif op == "down":
+            x, y = int(ops[i]), int(ops[i + 1])
+            i += 2
+            button = 1
+            if i < len(ops) and ops[i] in ("1", "2", "3"):
+                button = int(ops[i])
+                i += 1
+            app.button_down(x, y, button)
+        elif op == "up":
+            button = 1
+            if i < len(ops) and ops[i] in ("1", "2", "3"):
+                button = int(ops[i])
+                i += 1
+            app.button_up(button)
+        elif op == "drag":
+            x1, y1, x2, y2 = (int(ops[i + k]) for k in range(4))
+            i += 4
+            button, steps, seconds = 1, 10, 0.3
+            if i < len(ops) and ops[i] in ("1", "2", "3"):
+                button = int(ops[i])
+                i += 1
+            if i + 1 < len(ops) and _is_int(ops[i]) and _is_float(ops[i + 1]):
+                steps, seconds = int(ops[i]), float(ops[i + 1])
+                i += 2
+            app.drag(x1, y1, x2, y2, button, steps, seconds)
         elif op == "warp":
             app.warp(int(ops[i]), int(ops[i + 1]))
             i += 2

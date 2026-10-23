@@ -20,6 +20,8 @@
  * menu, the session switch row under it, then the list. A Gtk.ActionBar
  * footer slides in on selection (Edit, Delete); Delete travels the same
  * path as the button. Deleting several rows is one undo toast for the lot.
+ * Multi-select is GTK's own Ctrl/Shift-click; a touch screen has no
+ * equivalent, so the list carries no touch gesture of its own.
  *
  * A solve is graded through one edit dialog — penalty and comment together —
  * opened from the footer's Edit button, a double-click, or Ctrl+E. The

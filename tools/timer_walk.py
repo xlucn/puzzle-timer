@@ -26,12 +26,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from xtest import App  # noqa: E402
 
 EXPECTED = [
-    ("0-idle.png",    'dim time, hint "Hold Space to start"'),
+    ("0-idle.png",    'dim time, hint "Hold Space or the timer to start"'),
     ("1-holding.png", 'red 0.00, hint "Keep holding..."'),
     ("2-ready.png",   'green 0.00, hint "Release to start"'),
-    ("3-running.png", 'dark counting time, hint "Press any key to stop"'),
-    ("4-stopped.png", 'dark frozen result, hint "Hold Space for next solve"'),
-    ("5-idle.png",    'dim frozen result, hint "Hold Space to start"'),
+    ("3-running.png", 'dark counting time; scramble, hints, averages and bottom bar gone'),
+    ("4-stopped.png", 'dark frozen result, hint "Hold Space or the timer for the next solve"'),
+    ("5-idle.png",    'dim frozen result, hint "Hold Space or the timer to start"'),
 ]
 
 

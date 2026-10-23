@@ -13,8 +13,8 @@ able to continue at the current milestone.
 
 **Scheduled (M7–M16, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`).** The queue is **M14 → M15** first — touch input, then the
-phone-runtime verdict — followed by M7–M12 and M16. Numbers are stable
+`0.1.0`).** The queue is **M15** first — the phone-runtime verdict — followed
+by M7–M12 and M16; M14 (touch) landed on 2026-10-23. Numbers are stable
 identifiers, not queue positions (§6). Two of the adjacencies are
 dependencies rather than preferences: i18n lands ahead of every string-heavy
 feature, so those are written translated instead of swept afterwards, and
@@ -29,13 +29,14 @@ point at:
   hand-drawn icon with a symbolic variant, the public name **Puzzle Timer**,
   the app id `io.github.xlucn.PuzzleTimer`, and the `v0.1.0` tag — see §6
   M13 and §7.
-- **M14 — touch input, and the narrow-window leftovers.** Today the app
-  cannot start a solve without a Space key: there is **not one gesture or
-  touch controller in `src/`**. Touch-hold on the timer mirrors Space exactly
-  (decision 15), long press and swipe drive the solve list, and a **re-measure
-  of the 360×360 diagram/timer overlap** — the nudge whose clamp caused it was
-  dropped on 2026-10-05, so it may already be gone (see §6 M14). Entirely
-  desktop-verifiable with the existing harness — see §6.
+- **M14 — touch input, and the narrow-window leftovers (landed 2026-10-23).**
+  A solve starts with a finger or a click-and-hold, not only with Space:
+  touch-hold anywhere in the main content mirrors Space exactly (decision
+  15), inspection gained its missing cancel button in the header, the
+  scramble and bottom bar clear away while inspecting or solving, and the
+  **360×360 diagram/timer overlap** was re-measured and fixed — it
+  was real below 640 px wide, and the tier now sheds the picture there (see
+  §6 M14).
 - **M15 — phone runtime (an evaluation, not a port).** The verdict on
   whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
   node-gtk native binding build, audio without `pw-play`. Its deliverable is
@@ -314,16 +315,18 @@ src/
 15. **Touch is the same input model as the keyboard, not a second one.**
     `Timer` already speaks strings: `keyDown('space', now)` / `keyUp('space',
     now)` is what Space does and `keyDown('escape', now)` is what cancels an
-    inspection. A `Gtk.GestureClick` on the timer emits *those same calls*, so
+    inspection. A `Gtk.GestureClick` on the main content view emits *those
+    same calls*, so
     the hold threshold, the inspection countdown, the +2/DNF grading and the
     "a press while running stops the solve" rule carry over with **no new
     state-machine code and no second set of timings to keep in step**. The
     guards the keyboard path already has must be mirrored — a focused text
     entry owns the press, and press-while-running outranks everything else.
-    The same rule reaches the list: long press and swipe drive the selection
-    and the delete that Shift/Ctrl-click and right-click drive today, ending
-    in the same two-step `remove()`/`restore()` undo toast, so there stays
-    exactly one deletion path and one undo. Mouse and touch share
+    The list keeps GTK's own Ctrl/Shift-click multi-select: touch has no
+    modifier, and a custom toggle was not worth its code. Deletion stays on
+    the footer's Delete button and its two-step `remove()`/`restore()` undo
+    toast, so there stays exactly one deletion path and one undo. Mouse and
+    touch share
     `Gtk.GestureClick`, which is why this also gives a desktop user
     click-and-hold to start — a behaviour change worth knowing about before
     it ships, not a side effect to discover after.
@@ -494,7 +497,7 @@ moves: only the queue does.
 | **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
 | **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
-| **M14** | Touch input: `Gtk.GestureClick` on the timer (same `keyDown`/`keyUp` calls as Space), long-press + swipe on the solve list, inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
+| **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
 | **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree |
 
@@ -712,7 +715,15 @@ read the way you want it to.
 
 
 
-### M14 — scheduled (touch input, and the narrow-window leftovers)
+### M14 — landed 2026-10-23 (touch input, and the narrow-window leftovers)
+
+Both halves landed. Touch mirrors the keyboard exactly (decision 15): one
+state machine, one deletion path, one undo. The 360×360 question had a real
+answer — the picture *did* sit on the digits below 640 px wide — and the fix
+is a tier rule, not a nudge. Evidence below; `tools/xtest.py` gained
+`down`/`up`/`drag` for holds and drags. Two gestures were tried and then
+dropped — a left-swipe delete and a long-press selection mode, both for
+having no visible affordance (A — touch).
 
 Desktop-verifiable with the harness that already exists — no touch device
 needed (testing note below). The governing decision is 15: touch mirrors the
@@ -720,37 +731,51 @@ keyboard rather than becoming a second input model.
 
 **A — touch**
 
-- **The timer.** `Gtk.GestureClick` on the timer widget: press →
-  `timer.keyDown(START_KEY, nowMs())`, release → `timer.keyUp(START_KEY,
-  nowMs())` — the exact string `keyId()` produces for Space, so
-  `core/timer.ts` is untouched. Mirror the keyboard path's two guards: a
+- **The main content view.** `Gtk.GestureClick` on the box under the header
+  and selector bar — the scramble panel and timer together, not the readout
+  alone: press → `timer.keyDown(START_KEY, nowMs())`, release →
+  `timer.keyUp(START_KEY, nowMs())` — the exact string `keyId()` produces
+  for Space, so `core/timer.ts` is untouched. The decorative diagram is
+  `canTarget: false`, so a press over it reaches the content below instead
+  of stopping at the picture. Mirror the keyboard path's two guards: a
   focused text entry owns the press (the check `key-pressed` already makes),
   and a press while `state === 'running'` stops the solve ahead of everything
   else (the `wasRunning` branch).
 - **Mouse gets it too.** `GestureClick` reports pointer and touch alike, so
-  click-and-hold on the timer would start a solve where today only Space
-  does. Decision 15 says that is wanted — say so in the changelog rather
-  than letting it arrive as a surprise.
+  click-and-hold anywhere in the main content starts a solve where only
+  Space used to. Decision 15 says that is wanted — the changelog says so
+  rather than letting it arrive as a surprise.
 - **Inspection has no way out without a keyboard.** Escape is the only
-  cancel for the 15 s countdown and there is no button. Add a control that
-  exists *only* while inspecting, calling `timer.keyDown('escape',
-  nowMs())`.
+  cancel for the 15 s countdown and there is no button. Add a button that
+  exists *only* while inspecting and calls `timer.keyDown('escape',
+  nowMs())`. It sits at the right end of the header at every width — the
+  bottom bar belongs to the scramble controls, and Cancel must stay
+  reachable when the timer has cleared everything else. An overlay is still
+  wrong: it would cover the readout.
+- **The timer takes the view.** While inspecting or solving, the scramble
+  panel, its diagram, the hint/averages and the bottom bar hide; the header
+  stays, carrying Cancel. The hold between an inspection and its solve stays
+  in the clear view, so the scramble does not flash back for the length of
+  that press.
 - **The solve list** (`timesList.ts`):
-  - `Gtk.GestureLongPress` on the `Gtk.ColumnView` → select the row under
-    the finger and reveal the footer. Pointer multi-select is Shift/Ctrl-click,
-    which a phone does not have.
-  - While that mode is on, a plain tap toggles membership instead of
-    replacing the selection — a flag in front of `Gtk.MultiSelection`, not a
-    second selection model.
-  - `Gtk.GestureSwipe` left → delete, straight into the existing
-    `remove()` → undo toast → `restore()` path. No new deletion path.
-- **Probe both risks before writing UI.** (1) Gesture competition: a
-  `ColumnView` already owns click/selection gestures, and GTK gesture groups
-  make a losing gesture *fail* rather than let both fire. (2) Swipe vs.
-  kinetic scroll: it needs `|dx| ≫ |dy|` plus a travel threshold, or the
-  scroll swallows every swipe. A `tools/*_probe` for each, before code.
+  - **Touch multi-select: tried, dropped (2026-10-23).** A long-press →
+    tap-toggle mode came first; a Select button → tap-toggle mode replaced
+    it. Both worked, but each cost a view-level gesture, a `pick`/`rowOf`
+    row map and a press-time selection snapshot for a case a phone rarely
+    needs. The list now keeps GTK's Ctrl/Shift-click highlight and no touch
+    gesture of its own; single-row deletion keeps its footer touch path.
+  - **Left swipe → delete: tried, dropped (2026-10-23).** The gesture worked
+    (it claimed the sequence once clearly horizontal, then needed ≥64 px at
+    ≥300 px/s), but a solve row showed nothing to suggest a swipe existed —
+    deletion looked like it had quietly disappeared rather than moved. It
+    stays on the footer's Delete button, with the existing `remove()` →
+    undo toast → `restore()` path. The probe that compared the swipe with
+    the scroller's pan went with it.
+- **Probe the risk before writing UI.** Gesture competition: a `ColumnView`
+  already owns click/selection gestures, and GTK gesture groups make a
+  losing gesture *fail* rather than let both fire. A `tools/*_probe` first.
 - **Testing note:** XTEST already supplies this — button-down, sleep,
-  button-up is a long-press; button-down plus motion is a swipe. No touch
+  button-up is a long-press; button-down plus motion is a drag. No touch
   device, no portal, no screenshots. AGENTS.md's keybindings rule is about
   *driving* the app and keeps standing; it never said what input the app may
   accept.
@@ -759,9 +784,35 @@ keyboard rather than becoming a second input model.
   `Ctrl+1/2/3` grading has no button — it stays reachable through Edit →
   the penalty group (radios until 2026-10-10, now an `Adw.ToggleGroup` in an
   `Adw.ActionRow`), which is enough — and Escape's jobs: closing dialogs
-  and the drawer both have visible equivalents already, inspection does not.
+  and the drawer both have visible equivalents already, inspection did not;
+  it has the header's cancel button now.
 
-**B — the narrow window still owes one fix**
+**Probe results (2026-10-23, for the dropped gesture design).**
+
+- **Gesture competition — both fire.** A view-level `Gtk.GestureClick` and
+  `Gtk.GestureLongPress` on a `Gtk.ColumnView` run alongside the view's own
+  selection gesture; the selection is not denied, so no gesture group or
+  claim dance is needed for press/release.
+- **Row lookup by identity works.** `view.pick()` returns the label, the
+  `GtkColumnViewCellWidget`, or the row widget depending on where the point
+  falls, and node-gtk hands back the *same JS wrapper* for the same GObject.
+  `rowOf` therefore maps all three (label, cell, row) to a position; an
+  identity map is enough and `pick` never needs a coordinate→row formula.
+- **GTK's click wins the ordering.** The selection change from the view's own
+  gesture lands *before* our `released` handler, so a tap toggle is rebuilt
+  from a selection snapshot taken at press — otherwise the tap would first
+  collapse the multi-selection and then toggle nothing.
+- **Swipe vs. scroll (measured, then dropped).** The swipe claimed the
+  sequence once the drag was clearly horizontal (`maxDx > 24 && maxDx >
+  maxDy * 2`); a delete then needed ≥64 px of travel, `|vx| ≥ 300` and
+  `|vx| ≥ 2|vy|`, leftward only. Mouse drags do not scroll, so the mouse
+  run could not reproduce the touch race — it proved the claim ordering and
+  the thresholds, not the end-to-end gesture. No row advertised any of it,
+  which is why the feature went.
+- **node-gtk shape to remember:** GTK's long-press delay is its 500 ms
+  default.
+
+**B — the narrow window's diagram**
 
 - **360×360 overlap — re-measure before fixing anything (2026-10-06).** The
   old explanation died with the nudge: `timerMargins`, `NUDGE_SLACK` and
@@ -781,6 +832,24 @@ keyboard rather than becoming a second input model.
   shrinks the diagram) and, per decision 14, must arrive **through
   `layoutFor()`**, never as a constant in `src/ui/` — and it has to compose
   with M7's `diagramScale`, so do it *after* M7.
+  **Measured 2026-10-23 — it still collided, and the tier now sheds it.**
+  `[layout] diagram` was extended to print position, not just size, and the
+  grid walk (3x3 picture, drawn ~200×150) gave: overlap at **360×294, 360×360,
+  540×360 and 600×360** (at 600 the timer's right edge reaches 389 against
+  the picture's left edge at 383), clear at **640×294** (~15 px) and
+  **650×360** (~20 px). Tall windows never collided — 360×640 clears
+  vertically (picture bottom 578, timer bottom 379), and 800×540, 900×540 and
+  1600×500 clear. So the rule is the conjunction, not height alone:
+  **`h ≤ shortMax` *and* `w < 640` → `diagramMaxWidth`/`Height` = 0**, with
+  `diagramShedMax: 640` beside `shortMax` in `BREAKPOINTS`. A non-positive cap
+  makes `svgPaintable()` return null, so the `Gtk.Picture` is hidden rather
+  than drawing the 1×1 speck the old `Math.max(1, …)` would have produced;
+  the picture is an overlay child, so hiding it costs the layout nothing.
+  Compose-with-M7 is trivial and deliberate: `diagramScale` multiplies the
+  caps, and `0 × scale = 0`. Unit cases: the four overlapping sizes → 0×0,
+  650×360 → 440×150, 800×540 and 1600×500 unchanged. Verified in the app at
+  360×294, 360×360, 540×360 and 600×360 (`diagram none`), and at 640×294,
+  650×360, 360×640, 800×540 and 1600×500 (`clear`, logged with position).
 - **Re-check the startup-only `AdwToastOverlay exceeds …` warning.** Its
   stated cause (a first frame measuring the selectors before any tier ran)
   went away with `headerSlack` on 2026-10-04 — so either it is gone and the
@@ -792,11 +861,21 @@ keyboard rather than becoming a second input model.
   picker, the keyboard reference, rename/delete, and the edit dialog at
   **360×640** (portrait phone) and **640×294** (landscape phone — tier B
   drawer, timer `s`, `scrambleMaxHeight` 100).
+  *(Done 2026-10-23: all five opened/closed at both sizes with zero
+  allocation or minimum-size warnings. One transient remains outside that
+  audit: dragging the window across the type picker's 540 breakpoint in a
+  single resize with the dialog **already open** logs five negative
+  `GtkRevealer`/`GtkBox` allocations in one frame — GTK's
+  `NavigationSplitView` collapsing while the dialog is re-clamped, which
+  opening the dialog at either floor size does not produce. No app code owns
+  that frame; recorded rather than papered over.)*
 
-**Checkpoint for the user:** click-and-hold the timer and release to start,
-with no keyboard anywhere near it; swipe a row to delete and undo from the
-toast; then resize to the 360×294 floor and confirm the diagram is off the
-digits.
+**Checkpoint for the user:** click-and-hold anywhere in the main content and
+release to start, with no keyboard anywhere near it; cancel an inspection
+with the Cancel button at the header's end at any window width; while the
+inspection runs and the solve is timed, the scramble, hints, averages and
+bottom bar should be gone, leaving the digits and header; and resize to the
+360×294 floor — the diagram should be gone and the digits clear.
 
 ### M15 — scheduled (phone runtime — an evaluation, not a port)
 
@@ -1730,11 +1809,11 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M7–M16 scheduled — queue reordered 2026-10-16** — **M14 touch input →
-  M15 phone-runtime verdict**, then M7 size preferences → M8 scramble type
+- **M7–M16 scheduled — queue reordered 2026-10-16** — **M15 phone-runtime
+  verdict** first, then M7 size preferences → M8 scramble type
   options → M9 i18n → M10 csTimer import/export → M11 records & statistics →
   M12 charts → M16 AUR package. M13 is out of the queue: it landed 2026-10-22
-  as `v0.1.0`, tagged and pushed.
+  as `v0.1.0`, tagged and pushed; M14 (touch input) joined it on 2026-10-23.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
   changelog entries. Nothing was dropped: M7–M12 and M16 remain scheduled.
@@ -1757,13 +1836,29 @@ Evidence:
   the built `dist/` runs at all.
   Open before M7, M8 and M9: nothing — M8's one open question (whether the
   bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
-  its own block. Probes that gate M10, M12 and M14
-  (`Gtk.FileDialog` async callbacks, `Gtk.DrawingArea.setDrawFunc`, gesture
-  competition on the `ColumnView`, and swipe vs. kinetic scroll) are called
-  out at the top of their milestone blocks. **Ordering caveat, now history:**
-  M14 (touch) followed M13 by user call, not by dependency, so `0.1.0`
-  shipped **without** touch input and the keyboard is still the only way to
-  drive it. That is the first thing M14 is for.
+  its own block. Probes that gate M10 and M12 (`Gtk.FileDialog` async
+  callbacks, `Gtk.DrawingArea.setDrawFunc`) are called
+  out at the top of their milestone blocks; M14's gesture probe went with
+  the long-press selection it measured, as did the swipe probe with the
+  swipe-to-delete it tested. **Ordering
+  caveat, now history:** M14 (touch) followed M13 by user call, not by
+  dependency, so `0.1.0` shipped **without** touch input; that gap closed on
+  2026-10-23.
+- **M14 landed 2026-10-23 — touch input and the floor's diagram fix.** What a
+  cold session needs: the main content view's `Gtk.GestureClick` calls the
+  same `timer.keyDown`/`keyUp(START_KEY)` the keyboard does, and the
+  inspection Cancel button in the header calls `keyDown('escape')` — one
+  state machine, never a second input model (decision 15). While inspecting
+  or solving, the scramble, hint/averages and bottom bar hide, leaving the
+  digits and header. The solve list has no touch selection: GTK's
+  Ctrl/Shift-click stays, and a
+  long-press tap-toggle mode was tried and dropped as more mechanism than
+  the case earned. A left-swipe delete was also dropped for having no
+  visible affordance, so deletion stays on the footer's Delete button.
+  `tools/xtest.py` grew `down`/`up`/`drag`, so XTEST drives holds and drags.
+  The diagram now sheds through `BREAKPOINTS.diagramShedMax` on a
+  short *and* narrow window (`layoutFor()` returns 0×0, meaning "do not
+  draw"); `[layout] diagram` logs position and overlap.
 - **M13 landed 2026-10-22 — `v0.1.0` tagged and pushed.** What a cold session
   needs: the version comes only from `package.json` through
   `platform/meta.ts`, and the About dialog parses its release notes out of
@@ -1779,10 +1874,9 @@ Evidence:
   needs to know: `src/core/layout.ts` owns every threshold, the sidebar's
   `show-sidebar` is a plain libadwaita binding (do not add intent memory
   back), and sizes are read from the *surface* because widgets lag a pass
-  behind during a resize. `npm test` = **406 tests**; the manual band walk
+  behind during a resize. `npm test` = **409 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
-  **Next milestone: M14 (touch input)** — see §6; M15 (the phone-runtime
-  verdict) follows it. M7–M12 and
+  **Next milestone: M15 (phone-runtime verdict)** — see §6. M7–M12 and
   M16 are scheduled but deferred, not dropped. The still-unscheduled backlog
   is stackmat and the rest of packaging (Flatpak, deb), which only M15 can
   reopen (§1).
@@ -1981,7 +2075,9 @@ Evidence:
   limit, not a ToolbarView bar overlap. **That measurement was taken with the
   nudge in place** — the nudge lifted the timer toward the bottom-right
   picture, and was dropped 2026-10-05, so this no longer describes the
-  current geometry. Re-measure before acting on it: M14 carries the item.
+  current geometry. **M14 re-measured it on 2026-10-23: at 360×360 it does
+  still collide, and the tier now sheds the diagram below 640 wide on a short
+  window (`BREAKPOINTS.diagramShedMax`) — see §6 M14 B for the grid.**
   The `390x350` above is the old floor's
   number, kept for what it proved.
 - **Height floor 360 → 294 (user call, 2026-10-15)** — the HIG sentence is
