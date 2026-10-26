@@ -261,6 +261,9 @@ app.on('activate', () => {
     if (removed.length > 0) offerUndo(target, removed)
   }
 
+  /** True while the timer owns the view, from inspection through the solve. */
+  let timerFocus = false
+
   // Built before createTimesList, which hosts it. Ctrl+S can arrive while
   // the sidebar is closed and a popover cannot anchor to an unmapped widget,
   // hence ensureVisible (see sessionMenu.ts).
@@ -270,6 +273,7 @@ app.on('activate', () => {
     window,
     getSolveCount: (id) => sessionFor(id).size,
     ensureVisible: () => sidebarToggle.setActive(true),
+    canOpen: () => !timerFocus,
   })
 
   // The app's one menu, in the sidebar. Two sections: Statistics alone, then
@@ -585,6 +589,10 @@ app.on('activate', () => {
     console.error(
       `[sidebar] show-sidebar=${split.getShowSidebar()} collapsed=${split.collapsed}`,
     )
+    // libadwaita re-shows a collapsed split view's sidebar when it uncollapses.
+    // The toggle is disabled for the timer's view, but that automatic reveal
+    // still has to be put back down.
+    if (timerFocus && split.getShowSidebar()) split.setShowSidebar(false)
     // No explicit layout pass here: showing/hiding the sidebar repaints the
     // view, and the next after-paint re-applies the tier.
   })
@@ -635,8 +643,6 @@ app.on('activate', () => {
    * property) is unreachable by construction.
    */
   let selectorsInRow = false
-  /** True while the timer owns the view, from inspection through the solve. */
-  let timerFocus = false
   function syncBottomBar(): void {
     content.revealBottomBars = selectorsInRow && !timerFocus
   }
@@ -835,10 +841,30 @@ app.on('activate', () => {
   }
 
   /**
+   * The sidebar is part of the distraction-free view too: remember whether it
+   * was open when the timer takes over, hide it and grey out its toggle, and
+   * put that state back when the timer stops. Ctrl+B is disabled meanwhile.
+   * Called on the focus transition only, not on every timer update.
+   */
+  let sidebarWasShown = false
+  function applySidebarFocus(focused: boolean): void {
+    if (focused) {
+      sidebarWasShown = split.getShowSidebar()
+      sidebarToggle.setSensitive(false)
+      sidebarAction.enabled = false
+      split.setShowSidebar(false)
+    } else {
+      split.setShowSidebar(sidebarWasShown)
+      sidebarToggle.setSensitive(true)
+      sidebarAction.enabled = true
+    }
+  }
+
+  /**
    * Inspection and solving are the timer's own view: hide the scramble, its
-   * diagram, the hint/averages and the selector bar. The header stays — it
-   * carries Cancel and the app's controls — and everything returns when the
-   * solve stops.
+   * diagram, the hint/averages, the selector bar and the solve list, and grey
+   * out the list and diagram toggles. The header stays — it carries Cancel and
+   * the app's controls — and everything returns when the solve stops.
    */
   const applyTimerFocus = (state: TimerState): void => {
     // Stay focused through the hold that follows an inspection, so the
@@ -851,6 +877,9 @@ app.on('activate', () => {
     timerFocus = focused
     scramblePanel.setChromeVisible(!focused)
     timerView.setChromeVisible(!focused)
+    // The diagram is hidden, so its toggle would only turn a hidden image on.
+    imageToggle.setSensitive(!focused)
+    applySidebarFocus(focused)
     syncBottomBar()
   }
 
@@ -912,6 +941,7 @@ app.on('activate', () => {
     if (key === null) return false
 
     const wasRunning = timer.state === 'running'
+    const wasInspecting = timer.state === 'inspecting'
 
     // Delete removes the selected solve — but while a solve is running every
     // key means "stop", so the branch below gets it first.
@@ -920,8 +950,10 @@ app.on('activate', () => {
     timer.keyDown(key, nowMs())
 
     // Consume the start key so it cannot activate a focused widget, and any
-    // key press that stopped a running solve.
-    return wasRunning || key === START_KEY
+    // key press that stopped a running solve. Escape that cancelled an
+    // inspection is consumed too, so the drawer handler cannot close the list
+    // `applySidebarFocus` has just restored.
+    return wasRunning || key === START_KEY || (wasInspecting && key === 'escape')
   })
 
   keyController.on('key-released', (keyval) => {
@@ -931,10 +963,9 @@ app.on('activate', () => {
 
   // Escape also closes an open drawer — in the *bubble* phase, which runs
   // last. Anything that wanted the key first has already had it by then (an
-  // open dialog or popover, or the capture controller above stopping a run),
-  // so the drawer only gives way when Escape had nothing better to do. The
-  // timer's own Escape job — cancelling an inspection — happened in capture
-  // and is unaffected: both can fire.
+  // open dialog or popover, or the capture controller above cancelling an
+  // inspection or stopping a run), so the drawer only gives way when Escape
+  // had nothing better to do.
   const drawerKeyController = new Gtk.EventControllerKey()
   drawerKeyController.setPropagationPhase(Gtk.PropagationPhase.BUBBLE)
   window.addController(drawerKeyController)

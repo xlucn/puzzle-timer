@@ -103,11 +103,14 @@ breaking:
   is exactly one state machine, one deletion path, and one undo, whatever
   the input device. Touch is always accepted; mouse control is opt-in, so a
   stray click cannot arm a solve by default. While inspecting or solving, the
-  scramble, hints, averages and bottom bar hide; the header stays. The solve
-  list keeps GTK's own Ctrl/Shift-click multi-select; touch has no modifier,
-  so the list carries no touch gesture of its own. Deletion has no gesture
-  either: a swipe gives no visible hint that it exists, so it stays on the
-  footer's Delete button.
+  scramble, hints, averages, bottom bar and solve list hide; the list's header
+  toggle and the diagram toggle grey out, while the header itself stays. The
+  list's previous open/closed state returns when the solve stops. Ctrl+B and
+  Ctrl+S are inert while the timer owns the view. The solve list keeps GTK's
+  own Ctrl/Shift-click multi-select; touch has no modifier, so the list
+  carries no touch gesture of its own. Deletion has no gesture either: a swipe
+  gives no visible hint that it exists, so it stays on the footer's Delete
+  button.
 - **One version, one place.** The app version comes from `package.json` via
   `src/platform/meta.ts`, never a literal.
 

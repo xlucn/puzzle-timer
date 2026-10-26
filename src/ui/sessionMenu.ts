@@ -34,6 +34,11 @@ export interface SessionMenuOptions {
    * only has to reveal the host — the menu pops itself once the button maps.
    */
   ensureVisible: () => void
+  /**
+   * Whether the menu may open now. Returning false keeps Ctrl+S inert while
+   * the sidebar is hidden for the timer's distraction-free view.
+   */
+  canOpen: () => boolean
 }
 
 /*
@@ -218,6 +223,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
   // clicks fight the physical mouse).
   const openAction = Gio.SimpleAction.new('sessionOpen', null)
   openAction.on('activate', () => {
+    if (!options.canOpen()) return
     if (button.active) {
       button.popdown()
       return
