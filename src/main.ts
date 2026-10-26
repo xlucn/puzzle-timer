@@ -24,7 +24,12 @@ import { fileURLToPath } from 'node:url'
 
 import { styles } from 'node-gtk/styles'
 
-import { BREAKPOINTS, layoutFor, type DiagramPlacement } from './core/layout.js'
+import {
+  BREAKPOINTS,
+  layoutFor,
+  type ContentSize,
+  type DiagramPlacement,
+} from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
@@ -528,10 +533,10 @@ app.on('activate', () => {
   const mainContent = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   mainContent.append(scramblePanel.widget)
 
-  // The timer and diagram are both children of this grid. A wide window puts
-  // them in one row, one column each; a narrow tall one stacks the rows; a
-  // narrow short one has only the timer. applyDiagramPlacement() re-attaches
-  // them.
+  // The timer and diagram are both children of this grid. A landscape content
+  // area puts them in one row, one column each; a portrait one stacks the
+  // rows; a narrow short one has only the timer. applyDiagramPlacement()
+  // re-attaches them.
   const lowerArea = new Gtk.Grid({
     rowSpacing: 8,
     hexpand: true,
@@ -734,6 +739,17 @@ app.on('activate', () => {
     }
   }
 
+  /**
+   * The content area between the toolbar bars, which is what the timer and
+   * diagram actually share. Zero until the first allocation, so the caller
+   * can leave it out and let layoutFor() fall back to the window aspect.
+   */
+  function measuredMainContent(): ContentSize | undefined {
+    const width = mainContent.getWidth()
+    const height = mainContent.getHeight()
+    return width > 0 && height > 0 ? { width, height } : undefined
+  }
+
   /** Apply the tier for the window's current size. Safe to call any time. */
   function applyLayout(): void {
     if (!layoutReady) return
@@ -757,7 +773,10 @@ app.on('activate', () => {
     // selectors for no reason. The surface's first `layout` brings the
     // real numbers.
     if (width <= 0 || height <= 0) return
-    const tier = layoutFor(width, height)
+    // The width bands still come from the window rectangle; the content area
+    // only decides whether the diagram goes beside the timer or below it.
+    const contentSize = measuredMainContent()
+    const tier = layoutFor(width, height, contentSize)
 
     if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
     if (split.maxSidebarWidth !== tier.sidebarMax) split.maxSidebarWidth = tier.sidebarMax
@@ -771,7 +790,8 @@ app.on('activate', () => {
     // through its bands (and a cheap way to spot a tier decided from a stale
     // measurement, which is the one thing a breakpoint could get wrong).
     const signature =
-      `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}): ` +
+      `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}, ` +
+      `content ${contentSize ? `${contentSize.width}x${contentSize.height}` : 'unallocated'}): ` +
       `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
       `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
       `timer ${tier.timerSize}, diagram ${tier.diagramPlacement}, ` +

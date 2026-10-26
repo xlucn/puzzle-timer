@@ -77,7 +77,9 @@ breaking:
   `Adw.ToastOverlay` for undo, and `Adw.StatusPage` for empty states.
   Every size threshold lives in `core/layout.ts` as pure functions;
   `main.ts` only measures and applies. Size preferences *scale* the tiers,
-  they never replace them. A short, narrow window sheds the scramble diagram
+  they never replace them. The diagram sits beside the timer only while the
+  content area is no taller than wide; a portrait content area stacks it
+  below so the timer can centre, and a short, narrow window sheds it entirely
   (a zero cap, not a smaller constant) rather than letting it sit on the
   timer.
 - **`Gtk.ColumnView`, not `Gtk.ListBox`.** A session can hold thousands of

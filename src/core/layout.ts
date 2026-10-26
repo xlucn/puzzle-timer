@@ -15,6 +15,10 @@
  *                                selectors in the header or in their own row,
  *                                how big the timer / scramble / diagram get.
  *
+ *   layoutFor(width, height,     the same, with the content area's allocation
+ *             mainContent)       deciding whether the diagram has room beside
+ *                                the timer or below it.
+ *
  * Units are **logical px** everywhere: GTK lays out in logical px and the
  * compositor scales them up (tools/README.md trap 6), so these numbers match
  * `setDefaultSize`, `minSidebarWidth`, and the sizes the widgets report.
@@ -101,6 +105,12 @@ export type DiagramPlacement = 'wide' | 'tall-narrow' | 'none'
  */
 const DIAGRAM_SIDE_MAX_WIDTH = 180
 
+/** The content area between the toolbar bars, in logical px. */
+export interface ContentSize {
+  width: number
+  height: number
+}
+
 /** Everything that changes with the window's size, decided in one call. */
 export interface LayoutTier {
   /** Sidebar overlays the content instead of sharing the width with it. */
@@ -136,17 +146,32 @@ const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, va
  * from every breakpoint handler, so it must stay cheap and total: same inputs,
  * same output, no matter which one asked.
  *
- * Width bands alone decide everything, selectors included — the row takes them
- * over at `selectorRowMax` and nowhere else. Long labels are not a factor:
- * the header's selector is an icon button and the type text lives in the
- * window title, whose `Adw.WindowTitle` template labels ellipsize (see
- * src/ui/scrambleTypeButton.ts and src/ui/scrambleTypeTitle.ts), so the
- * header's *min* stays small, it absorbs whatever it is given, and the labels
- * have a place to go.
+ * The width bands decide the sidebar, the selector row, the timer tier and
+ * the scramble width; height decides the short-window caps. The diagram
+ * placement is the one rule that also reads the content area's aspect. Long
+ * labels are not a factor: the header's selector is an icon button and the
+ * type text lives in the window title, whose `Adw.WindowTitle` template
+ * labels ellipsize (see src/ui/scrambleTypeButton.ts and
+ * src/ui/scrambleTypeTitle.ts), so the header's *min* stays small, it absorbs
+ * whatever it is given, and the labels have a place to go.
+ *
+ * `mainContent` is optional because the first layout pass runs before GTK has
+ * allocated it. With no measurement, the window's own aspect stands in; the
+ * after-paint pass supplies the real content area.
  */
-export function layoutFor(width: number, height: number): LayoutTier {
+export function layoutFor(
+  width: number,
+  height: number,
+  mainContent?: ContentSize,
+): LayoutTier {
   const w = sane(width)
   const h = sane(height)
+  const measuredWidth = sane(mainContent?.width ?? 0)
+  const measuredHeight = sane(mainContent?.height ?? 0)
+  const hasContent = measuredWidth > 0 && measuredHeight > 0
+  const contentWidth = hasContent ? measuredWidth : w
+  const contentHeight = hasContent ? measuredHeight : h
+  const contentTall = contentHeight > contentWidth
 
   const drawer = w <= BREAKPOINTS.drawerMax
 
@@ -190,11 +215,15 @@ export function layoutFor(width: number, height: number): LayoutTier {
     if (h >= BREAKPOINTS.tallMin) tier.scrambleMaxHeight = 220
   }
 
-  // The header's own width band is the wide/narrow split: wide windows put
-  // the timer and diagram in one row, narrow tall ones stack the rows, and
-  // narrow short ones shed the picture.
-  const wide = w > BREAKPOINTS.selectorRowMax
-  tier.diagramPlacement = wide ? 'wide' : h <= BREAKPOINTS.shortMax ? 'none' : 'tall-narrow'
+  // The width band decides whether the window is narrow enough to stack at
+  // all; above it, the content area's aspect decides whether the timer and
+  // diagram have room side by side. A portrait tablet is wide in window terms
+  // (800 > 540) but its content is tall, so the timer gets a full-width row.
+  if (w <= BREAKPOINTS.selectorRowMax) {
+    tier.diagramPlacement = h <= BREAKPOINTS.shortMax ? 'none' : 'tall-narrow'
+  } else {
+    tier.diagramPlacement = contentTall ? 'tall-narrow' : 'wide'
+  }
   if (tier.diagramPlacement === 'wide') {
     tier.diagramMaxWidth = Math.min(tier.diagramMaxWidth, DIAGRAM_SIDE_MAX_WIDTH)
   } else if (tier.diagramPlacement === 'none') {

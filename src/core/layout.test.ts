@@ -72,6 +72,35 @@ describe('layoutFor — the diagram follows the room', () => {
     expect(layoutFor(360, 700).diagramPlacement).toBe('tall-narrow')
   })
 
+  it('stacks a wide window when its content area is taller than wide', () => {
+    expect(
+      layoutFor(800, 1280, { width: 790, height: 1240 }).diagramPlacement,
+    ).toBe('tall-narrow')
+    expect(
+      layoutFor(1024, 1366, { width: 1010, height: 1300 }).diagramPlacement,
+    ).toBe('tall-narrow')
+    expect(layoutFor(800, 1280, { width: 790, height: 940 }).diagramPlacement).toBe(
+      'tall-narrow',
+    )
+  })
+
+  it('keeps a square content area side by side', () => {
+    expect(layoutFor(800, 1000, { width: 790, height: 790 }).diagramPlacement).toBe(
+      'wide',
+    )
+    expect(layoutFor(800, 1000, { width: 790, height: 791 }).diagramPlacement).toBe(
+      'tall-narrow',
+    )
+  })
+
+  it('falls back to the window aspect before the content is allocated', () => {
+    expect(layoutFor(800, 1280).diagramPlacement).toBe('tall-narrow')
+    expect(layoutFor(1280, 800).diagramPlacement).toBe('wide')
+    expect(layoutFor(800, 1280, { width: 0, height: 0 }).diagramPlacement).toBe(
+      'tall-narrow',
+    )
+  })
+
   it('sheds it on a narrow short window', () => {
     for (const [w, h] of [
       [360, 294], // the window floor

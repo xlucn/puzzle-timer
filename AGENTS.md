@@ -257,11 +257,14 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   (only while one is up). Expected: one line per change, **zero**
   `AdwToastOverlay exceeds …` warnings, and `[layout] 360x294 (win 294)` at
   the floor (xdotool `370×304`; `370×640` gives `360x630`). The same line
-  names the diagram placement: `diagram wide` on any window wider than the
-  540 content-width band, `diagram tall-narrow` on a narrow tall one, and
+  names the diagram placement: `diagram wide` on a window wider than 540
+  whose content area is no taller than wide, `diagram tall-narrow` on a
+  narrow tall window or a portrait content area, and
   `diagram none` where a narrow short one sheds it (surface
-  360×294/360×360/540×360 shed, 600×360 keeps it). The picture is flush
-  bottom-right in every live placement.
+  360×294/360×360/540×360 shed, 600×360 keeps it). The content area is the
+  `mainContent` box between the toolbar bars, so a portrait tablet stacks the
+  rows and centres the timer even though its window is wider than 540. The
+  picture is flush bottom-right in every live placement.
 - Type chooser (same keyboard-only rule): **both layouts open the same
   dialog**. Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)

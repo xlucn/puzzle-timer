@@ -293,12 +293,16 @@ DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-s
 DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
 DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (the cap at every tier), timer l
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
-# which is why the log prints `890x530 (win 530)` for a 900x540 window.
-# The same line names the diagram placement: `diagram wide` on any window
-# wider than the 540 content-width band, `diagram tall-narrow` on a narrow
-# tall one, and `diagram none` where a narrow short one sheds it (surface
-# 360x294/360x360/540x360 shed it, 600x360 keeps it). The picture is flush
-# bottom-right in every live placement.
+# which is why the log prints `890x530 (win 530, content 650x484)` for a
+# 900x540 window with the sidebar open. `content` is the mainContent box
+# between the toolbar bars — the area the timer and diagram actually share.
+# The same line names the diagram placement: `diagram wide` on a window wider
+# than the 540 content-width band whose content is no taller than wide,
+# `diagram tall-narrow` on a narrow tall window or a portrait content area,
+# and `diagram none` where a narrow short one sheds it (surface
+# 360x294/360x360/540x360 shed it, 600x360 keeps it). A portrait tablet
+# (800x1280) therefore stacks the rows and centres the timer. The picture is
+# flush bottom-right in every live placement.
 
 # Long labels do not move the selectors out: the header's control is
 # one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to
