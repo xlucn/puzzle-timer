@@ -90,6 +90,16 @@ export function createPreferences(options: PreferencesPanelOptions) {
     })
     timerGroup.add(holdRow)
 
+    const mouseRow = new Adw.SwitchRow({
+      title: 'Mouse control',
+      subtitle: 'Hold the left mouse button in the main area to start and stop the timer',
+      active: prefs.mouseStart,
+    })
+    mouseRow.on('notify::active', () => {
+      options.set({ mouseStart: mouseRow.active })
+    })
+    timerGroup.add(mouseRow)
+
     const inspectionRow = new Adw.SwitchRow({
       title: 'WCA inspection',
       subtitle: 'Count down from 15 s before the solve starts',

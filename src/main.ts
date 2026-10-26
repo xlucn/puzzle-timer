@@ -864,11 +864,13 @@ app.on('activate', () => {
   // ---- touch: the main content is the start key -----------------------
   // The same keyDown/keyUp calls the keyboard makes, with the same key id,
   // so core/timer.ts never learns whether a finger or Space started the
-  // hold (decision 15). GestureClick reports pointer and touch alike. The
-  // gesture sits on the content under the bars, not on the readout: a phone
-  // should not have to hit the digits, and the header/selector buttons stay
-  // out of the target so they never arm a solve by accident.
-  const timerGesture = new Gtk.GestureClick({ button: 1 })
+  // hold (decision 15). Touch is always accepted; the mouse is opt-in via
+  // `mouseStart`, so `touchOnly` keeps a stray click from arming a solve by
+  // default. The gesture sits on the content under the bars, not on the
+  // readout: a phone should not have to hit the digits, and the
+  // header/selector buttons stay out of the target so they never arm a
+  // solve by accident.
+  const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })
   timerGesture.on('pressed', () => {
     // A focused text entry owns the press, exactly as in the key handler.
     const focus = window.getFocus() as { getText?: () => string } | null
@@ -1016,6 +1018,7 @@ app.on('activate', () => {
     store.savePreferences(prefs)
 
     if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
+    if ('mouseStart' in patch) timerGesture.touchOnly = !prefs.mouseStart
     if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
     // imageFor reads `prefs`, so a re-render shows or drops the diagram (the
     // SVG is already cached). The equal-`active` mirror back is a no-op in

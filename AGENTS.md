@@ -358,9 +358,11 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   button-down → sleep → button-up, and a drag as button-down plus motion —
   `tools/xtest.py` has `down`/`up`/`drag` for exactly that — so touch work is
   testable with no touch device at all. A click-and-hold in the main content
-  is the same drill: it is the start key (press-hold, release starts; with
-  inspection on, the first release arms the countdown and the second starts
-  the solve), and the decorative diagram passes presses through. Inspecting
+  is the same drill once **Mouse control** is enabled in Preferences; mouse
+  input is off by default, and the gesture is `touchOnly` until then. It is
+  the start key (press-hold, release starts; with inspection on, the first
+  release arms the countdown and the second starts the solve), and the
+  decorative diagram passes presses through. Inspecting
   or solving clears the scramble, hint/averages and bottom bar; the header
   stays. The solve list has no touch gesture: multi-select stays on GTK's
   Ctrl/Shift-click and deletion on the footer's Delete button. The rule above

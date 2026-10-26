@@ -368,6 +368,7 @@ describe('store — preferences', () => {
       inspection: false,
       inspectionSound: false,
       scrambleImage: false,
+      mouseStart: true,
       colorScheme: 'dark',
     }
 

@@ -12,6 +12,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Support starting the timer by click-hold-release of a mouse or
   press-hold-release of a finger anywhere in the main area.
 - Support stopping the timer by clicking with the mouse or tapping with the finger.
+- Mouse control is opt-in; touch and the keyboard work without it.
 - Added a Cancel button during inspection.
 - Distraction free while inspecting or solving: everything but the timer is hidden.
 

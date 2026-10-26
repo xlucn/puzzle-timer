@@ -14,6 +14,10 @@ import {
 } from './preferences.js'
 
 describe('normalizePreferences', () => {
+  it('keeps mouse control off by default', () => {
+    expect(DEFAULT_PREFERENCES.mouseStart).toBe(false)
+  })
+
   it('returns the defaults for a missing or unusable file', () => {
     expect(normalizePreferences(undefined)).toEqual(DEFAULT_PREFERENCES)
     expect(normalizePreferences(null)).toEqual(DEFAULT_PREFERENCES)
@@ -27,6 +31,7 @@ describe('normalizePreferences', () => {
       inspection: false,
       inspectionSound: false,
       scrambleImage: false,
+      mouseStart: true,
       colorScheme: 'dark',
     }
     expect(normalizePreferences(stored)).toEqual(stored)
@@ -48,6 +53,7 @@ describe('normalizePreferences', () => {
       inspection: 'yes', // not a boolean → default
       inspectionSound: false, // the one good value in the file
       scrambleImage: 0, // not a boolean → default
+      mouseStart: 'yes', // not a boolean → default (off)
       colorScheme: 'neon', // unknown → default
     })
     expect(prefs).toEqual({ ...DEFAULT_PREFERENCES, inspectionSound: false })

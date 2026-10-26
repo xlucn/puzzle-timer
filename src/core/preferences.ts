@@ -30,6 +30,8 @@ export interface Preferences {
   inspectionSound: boolean
   /** Show a picture of the scramble when its type has one (SVG, via Gtk.Svg). */
   scrambleImage: boolean
+  /** Whether a mouse press can start and stop the timer; touch and keys always can. */
+  mouseStart: boolean
   /** Light/dark theming; `system` follows the desktop. */
   colorScheme: ColorScheme
 }
@@ -47,6 +49,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   inspection: true,
   inspectionSound: true,
   scrambleImage: true,
+  mouseStart: false,
   colorScheme: 'system',
 }
 
@@ -84,6 +87,7 @@ export function normalizePreferences(value: unknown): Preferences {
     inspection: flag('inspection'),
     inspectionSound: flag('inspectionSound'),
     scrambleImage: flag('scrambleImage'),
+    mouseStart: flag('mouseStart'),
     colorScheme,
   }
 }

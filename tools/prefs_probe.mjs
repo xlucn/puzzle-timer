@@ -97,6 +97,13 @@ app.on('activate', () => {
       hold.value = 0.55 // a user step / typed value
     }
 
+    const mouse = findRow(dialog, 'Mouse control')
+    check(mouse !== null, 'found the Mouse control SwitchRow')
+    if (mouse !== null) {
+      check(mouse.getActive() === false, 'mouse control starts OFF (default)')
+      mouse.setActive(true)
+    }
+
     const inspection = findRow(dialog, 'WCA inspection')
     check(inspection !== null, 'found the WCA inspection SwitchRow')
     if (inspection !== null) inspection.setActive(false)
@@ -138,8 +145,13 @@ app.on('activate', () => {
         patches.some((p) => p.inspection === false),
         'SwitchRow reported inspection off',
       )
+      check(
+        patches.some((p) => p.mouseStart === true),
+        'SwitchRow reported mouse control on',
+      )
       check(prefs.holdThresholdMs === 550, 'the merged preference holds 550 ms')
       check(prefs.inspection === false, 'the merged preference has inspection off')
+      check(prefs.mouseStart === true, 'the merged preference has mouse control on')
       check(prefs.inspectionSound === true, 'untouched fields survive the merge')
       check(
         patches.some((p) => p.colorScheme === 'dark'),

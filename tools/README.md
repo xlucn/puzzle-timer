@@ -260,8 +260,9 @@ python3 tools/xtest.py --window "Puzzle Timer" \
     press Return release Return sleep 1.5 shot type-switched.png
 
 # Touch path — no touch device needed: XTEST supplies a press-hold.
-# The main content is the start key (same keyDown/keyUp as Space), so
-# click-and-hold anywhere under the bars works with the mouse too; the
+# The main content is the start key (same keyDown/keyUp as Space). Mouse
+# input is off by default; enable Mouse control in Preferences before using
+# a click-and-hold, or drive the touch path with a real touch device. The
 # timer's centre is just a convenient aim. With inspection on (the default)
 # the first hold-release arms the 15 s countdown and the second starts the
 # solve; a Cancel button appears at the header's end while inspecting (same
