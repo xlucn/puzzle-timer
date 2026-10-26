@@ -14,6 +14,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Support stopping the timer by clicking with the mouse or tapping with the finger.
 - Added a Cancel button during inspection.
 - Distraction free while inspecting or solving: everything but the timer is hidden.
+
+### Changed
+
+### Fixed
+
+- The scramble diagram no longer covers the timer on a short, narrow window.
+
 ## [0.1.0] — 2026-10-22
 
 First release ready for public use.

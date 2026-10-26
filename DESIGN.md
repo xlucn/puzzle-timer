@@ -77,7 +77,9 @@ breaking:
   `Adw.ToastOverlay` for undo, and `Adw.StatusPage` for empty states.
   Every size threshold lives in `core/layout.ts` as pure functions;
   `main.ts` only measures and applies. Size preferences *scale* the tiers,
-  they never replace them.
+  they never replace them. A short, narrow window sheds the scramble diagram
+  (a zero cap, not a smaller constant) rather than letting it sit on the
+  timer.
 - **`Gtk.ColumnView`, not `Gtk.ListBox`.** A session can hold thousands of
   solves; ColumnView is virtualized and only builds the rows on screen. The
   model is a list of solve *ids*, and cells read their text from the session

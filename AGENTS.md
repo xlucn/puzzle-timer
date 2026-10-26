@@ -237,6 +237,10 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   RemoteDesktop consent **even for key taps**, and the unanswered dialog steals
   focus mid-run — on a nested X server XTEST is plain X11
   and never asks. Full recipe: `tools/README.md` → "Recommended workflow".
+- **Stop the test app when the run ends.** `pkill -f 'src/main[.]ts'` and
+  confirm no instance remains; do not leave it running in Xephyr. If you
+  started the nested display for the run, stop that too — the user tests on
+  Wayland outside X11.
 - `python3 tools/timer_walk.py` — walks the timer through all five states and
   screenshots each; the app must be running on X11
   (`GDK_BACKEND=x11 npm start`).
@@ -252,11 +256,12 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   state change. `<Ctrl+B>` toggles the list, `Escape` closes the drawer
   (only while one is up). Expected: one line per change, **zero**
   `AdwToastOverlay exceeds …` warnings, and `[layout] 360x294 (win 294)` at
-  the floor (xdotool `370×304`; `370×640` gives `360x630`). A `[layout]
-  diagram` line carries the picture's position and verdict —
-  `… at x,y vs timer x,y WxH → clear|overlap` — or `diagram none` where the
-  tier sheds it (short *and* narrow: 360×294/360×360/540×360/600×360 shed,
-  640×294 and 650×360 keep it).
+  the floor (xdotool `370×304`; `370×640` gives `360x630`). The same line
+  names the diagram placement: `diagram wide` on any window wider than the
+  540 content-width band, `diagram tall-narrow` on a narrow tall one, and
+  `diagram none` where a narrow short one sheds it (surface
+  360×294/360×360/540×360 shed, 600×360 keeps it). The picture is flush
+  bottom-right in every live placement.
 - Type chooser (same keyboard-only rule): **both layouts open the same
   dialog**. Above 540 the current type shows as the header's
   **title/subtitle** (`Adw.WindowTitle`, centred natively — not a Tab stop)

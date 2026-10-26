@@ -57,6 +57,44 @@ describe('layoutFor — width tiers', () => {
   })
 })
 
+describe('layoutFor — the diagram follows the room', () => {
+  it('uses one row and two columns on every wide window', () => {
+    expect(layoutFor(selectorRowMax + 1, 360).diagramPlacement).toBe('wide')
+    expect(layoutFor(640, 360).diagramPlacement).toBe('wide')
+    expect(layoutFor(900, shortMax).diagramPlacement).toBe('wide')
+    expect(layoutFor(900, shortMax + 1).diagramPlacement).toBe('wide')
+    expect(layoutFor(1600, 900).diagramPlacement).toBe('wide')
+  })
+
+  it('stacks the rows on a narrow tall window', () => {
+    expect(layoutFor(selectorRowMax, shortMax + 1).diagramPlacement).toBe('tall-narrow')
+    expect(layoutFor(360, 590).diagramPlacement).toBe('tall-narrow') // 16:9 phone content
+    expect(layoutFor(360, 700).diagramPlacement).toBe('tall-narrow')
+  })
+
+  it('sheds it on a narrow short window', () => {
+    for (const [w, h] of [
+      [360, 294], // the window floor
+      [360, 360],
+      [selectorRowMax, 360],
+      [selectorRowMax, shortMax],
+    ]) {
+      const tier = layoutFor(w, h)
+      expect(tier.diagramPlacement).toBe('none')
+      expect([tier.diagramMaxWidth, tier.diagramMaxHeight]).toEqual([0, 0])
+    }
+  })
+
+  it('keeps the tier caps, narrowed only in the wide layout', () => {
+    expect(layoutFor(640, 360).diagramMaxWidth).toBe(180)
+    expect(layoutFor(640, 360).diagramMaxHeight).toBe(150)
+    expect(layoutFor(800, 540).diagramMaxHeight).toBe(150)
+    expect(layoutFor(1600, 500).diagramMaxWidth).toBe(180)
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(440)
+    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(180)
+  })
+})
+
 describe('layoutFor — the selectors leave only at ≤540', () => {
   it('follows the width band alone, at every band edge', () => {
     // The width band is the whole rule: the header's selector is one button

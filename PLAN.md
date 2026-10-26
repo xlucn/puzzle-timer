@@ -143,7 +143,7 @@ src/
 │   ├── scrambleTypeTitle.ts   header: Adw.WindowTitle — category / type
 │   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors — UNHOOKED 2026-10-04
 │   ├── scrambleTypePicker.ts  shared Adw.Dialog chooser (opened by one button)
-│   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (overlay)
+│   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (docked)
 │   ├── timesList.ts      Gtk.ColumnView of solves
 │   ├── statsStrip.ts     ao5/ao12 line under the timer
 │   ├── statsPanel.ts     statistics (Adw.Dialog)

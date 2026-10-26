@@ -6,9 +6,8 @@
  *
  * Display rule for the three possible states:
  *   scramble   → show it (wrapped, display only — copy is the header's
- *                button / Ctrl+C), diagram floating in the view's
- *                bottom-right corner when the type has one (main.ts places
- *                it, see `image`);
+ *                button / Ctrl+C), diagram in the lower area when the type
+ *                has one (main.ts owns its dock, see `image`);
  *   generating → the previous scramble stays as a dimmed ghost (`.pending`)
  *                with the spinner + status over it: the slot keeps the
  *                *text's* height, so the timer holds still (first load has
@@ -20,8 +19,8 @@
  *
  * The image follows the same ghost rule, looked up from the scramble on
  * screen (or its ghost), so it swaps in the same frame the text does. The
- * panel does not *place* the picture — it is handed to an overlay
- * (main.ts), so its presence or size can never move the text or the timer.
+ * panel renders the picture but does not place it: main.ts owns the dock
+ * that puts it beside the timer or in its bottom-right cell.
  */
 import Adw from 'gi:Adw-1'
 import GLib from 'gi:GLib-2.0'
@@ -111,6 +110,9 @@ function svgPaintable(
   maxWidth: number,
   maxHeight: number,
 ): InstanceType<typeof Gtk.Svg> | null {
+  // A zero cap is the tier saying "no room for the picture" (a short, narrow
+  // window), not a 1×1 speck: the caller hides the Picture on null.
+  if (!(maxWidth > 0) || !(maxHeight > 0)) return null
   try {
     // csTimer's generator emits a fixed root: <svg width="W" height="H" …>.
     const root = svg.match(/^<svg\b([^>]*)>/)
@@ -235,22 +237,20 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     visible: false,
   })
 
-  // The diagram: same source as the text, same frame, but placed as an
-  // *overlay* child of the view (main.ts) — overlay children take no
-  // size-request space, so the picture cannot move the text or the timer.
-  // No card behind it: the SVGs arrive transparent, and a white backdrop
-  // reads as a stray box. Trade-off: black outlines go low-contrast on the
-  // dark theme — worth a scheme-aware card if it reads badly.
+  // The diagram: same source as the text, same frame, but placed by main.ts
+  // in the lower area beside the timer or in its bottom-right cell. No card
+  // behind it: the SVGs arrive transparent, and a white backdrop reads as a
+  // stray box. Trade-off: black outlines go low-contrast on the dark theme —
+  // worth a scheme-aware card if it reads badly.
   const picture = new Gtk.Picture({
     alternativeText: 'Scramble diagram',
     canShrink: true,
     // Decorative: a press over the picture must reach the content's timer
-    // gesture underneath, not stop at the picture.
+    // gesture, not stop at the picture.
     canTarget: false,
     contentFit: Gtk.ContentFit.CONTAIN,
-    // END/END anchors it in the corner (FILL would stretch it over the
-    // overlay's room). It never overlaps the stats strip — that row is
-    // centred and stops well left of the diagram's left edge.
+    // END keeps it flush right in the dock; the dock decides whether that is
+    // the bottom-right corner or the bottom-right of its own column.
     halign: Gtk.Align.END,
     valign: Gtk.Align.END,
     marginEnd: 16,
@@ -293,8 +293,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   const overlay = new Gtk.Overlay({ child: scroll })
   overlay.addOverlay(statusRow)
 
-  // The picture is deliberately *not* appended here: main.ts overlays it on
-  // the whole view so it can reach the bottom-right corner.
+  // The picture is deliberately *not* appended here: main.ts puts it in the
+  // lower area beside the timer or in its bottom-right cell.
   widget.append(overlay)
   widget.append(warmError)
 
@@ -367,8 +367,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // The diagram follows the scramble on screen *or its ghost* — same
     // lookup, same frame as the text, and it stays up while the next one
     // generates. Null means "no picture for this one" (type without an
-    // image, or images switched off): the overlay child just hides, and
-    // since overlay children cost no height, the timer cannot move.
+    // image, or images switched off): the picture hides and the dock
+    // collapses to zero in either placement.
     const svg =
       lastText !== null && lastType !== null ? options.getImage(lastType, lastText) : null
     if (svg !== currentSvg) {
@@ -388,8 +388,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     /** Container to place between the header bar and the timer. */
     widget,
     /**
-     * The diagram, for the caller to place as an overlay child (bottom-right
-     * corner of the view) — the panel renders it, the view owns its position.
+     * The diagram for the caller's lower-area dock — the panel renders it,
+     * main.ts decides whether it sits beside the timer or in its bottom-right
+     * cell.
      */
     image: picture,
     render,
@@ -422,8 +423,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     },
     /**
      * The diagram cap for this tier. The paintable's viewport was written
-     * against the old cap, so the cache is dropped and redrawn — the
-     * picture changes size, never its position.
+     * against the old cap, so the cache is dropped and redrawn; the
+     * picture's placement is main.ts's decision.
      */
     setDiagramMax(width: number, height: number): void {
       if (width === diagramMaxWidth && height === diagramMaxHeight) return
@@ -432,15 +433,5 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       currentSvg = null
       if (lastState !== null) render(lastState)
     },
-    /**
-     * The diagram's size *as drawn* — where the image actually is, since
-     * overlay children take no layout space. Zero before the first
-     * allocation; main.ts logs it on every change, it is the number most
-     * likely to reveal clipping.
-     */
-    diagramSize: (): { width: number; height: number } => ({
-      width: picture.getSize(Gtk.Orientation.HORIZONTAL),
-      height: picture.getSize(Gtk.Orientation.VERTICAL),
-    }),
   }
 }

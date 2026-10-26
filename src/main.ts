@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url'
 
 import { styles } from 'node-gtk/styles'
 
-import { BREAKPOINTS, layoutFor } from './core/layout.js'
+import { BREAKPOINTS, layoutFor, type DiagramPlacement } from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
@@ -360,8 +360,6 @@ app.on('activate', () => {
   let layoutReady = false
   feed.subscribe(() => {
     scramblePanel.render(feed.state)
-    // A new diagram logs and lifts itself on the next after-paint — its size
-    // is only real after that frame's allocation (see diagramSize()).
   })
 
   /**
@@ -515,20 +513,36 @@ app.on('activate', () => {
   // slot (placeSelectors). `toolbar` class + FLAT bars give the native flat
   // styling; the inter-button gap comes from the style, not spacing. The
   // image toggle rides right-aligned (halign END + the bar's only hexpand,
-  // so it takes the slack at natural width). updateDiagram uses the bar's
-  // measured height to keep the diagram clear of it.
+  // so it takes the slack at natural width).
   const selectorBar = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     cssClasses: ['toolbar'],
     marginStart: 12,
     marginEnd: 12,
   })
-  /** The diagram's own bottom margin, so the bottom-bar slot can be added/removed. */
-  const DIAGRAM_EDGE_MARGIN = scramblePanel.image.marginBottom
 
   const mainContent = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   mainContent.append(scramblePanel.widget)
-  mainContent.append(timerView.widget)
+
+  // The timer and diagram are both children of this grid. A wide window puts
+  // them in one row, one column each; a narrow tall one stacks the rows; a
+  // narrow short one has only the timer. applyDiagramPlacement() re-attaches
+  // them.
+  const lowerArea = new Gtk.Grid({
+    rowSpacing: 8,
+    hexpand: true,
+    vexpand: true,
+  })
+  timerView.widget.hexpand = true
+  lowerArea.attach(timerView.widget, 0, 0, 1, 1)
+  const diagramDock = new Gtk.Box({
+    orientation: Gtk.Orientation.HORIZONTAL,
+    halign: Gtk.Align.END,
+    valign: Gtk.Align.END, // bottom-right in every live placement
+  })
+  diagramDock.append(scramblePanel.image)
+  lowerArea.attach(diagramDock, 0, 1, 1, 1)
+  mainContent.append(lowerArea)
 
   const content = new Adw.ToolbarView({
     content: mainContent,
@@ -539,17 +553,12 @@ app.on('activate', () => {
   content.addTopBar(header)
   content.addBottomBar(selectorBar)
 
-  // Overlay children take no size-request space, so the picture cannot move
-  // the text or the timer at any window size.
-  const viewOverlay = new Gtk.Overlay({ child: content })
-  viewOverlay.addOverlay(scramblePanel.image)
-
   // START puts the list on the left. `collapsed` is not set here — applyLayout
   // decides, per window width. With the default `pinSidebar`, collapsing
   // hides the list and uncollapsing shows it again, so a resize out and back
   // restores what you had.
   const split = new Adw.OverlaySplitView({
-    content: viewOverlay,
+    content,
     sidebar: timesList.widget,
     sidebarPosition: Gtk.PackType.START,
     minSidebarWidth: BREAKPOINTS.sidebarMin,
@@ -576,8 +585,8 @@ app.on('activate', () => {
     console.error(
       `[sidebar] show-sidebar=${split.getShowSidebar()} collapsed=${split.collapsed}`,
     )
-    // No explicit updateDiagram() here: showing/hiding the sidebar repaints
-    // the view, and the diagram's next after-paint logs/lifts itself.
+    // No explicit layout pass here: showing/hiding the sidebar repaints the
+    // view, and the next after-paint re-applies the tier.
   })
 
   /**
@@ -611,8 +620,7 @@ app.on('activate', () => {
   //     only re-applies the tier in force.
   //   • Frame-clock after-paint: the fresh-allocation pass — band crossings,
   //     height-only resizes, and Adaptive Preview screen switches (which
-  //     raise no surface event) all land here. Also where the diagram's
-  //     post-allocation numbers are read.
+  //     raise no surface event) all land here.
 
   /** In header pack order, so one loop moves and repacks them together. */
   const scrambleControls = [refreshScramble, copyScramble, typeButton.widget]
@@ -660,10 +668,37 @@ app.on('activate', () => {
     }
   }
 
+  /**
+   * Put the diagram where the tier has room for it: wide puts the timer and
+   * dock in one row, tall-narrow stacks the rows, and short-narrow leaves
+   * only the timer. The dock is bottom-right in every live placement.
+   */
+  let placedDiagram: DiagramPlacement | null = null
+  function applyDiagramPlacement(placement: DiagramPlacement): void {
+    if (placement === placedDiagram) return
+    placedDiagram = placement
+
+    if (timerView.widget.getParent() === lowerArea) lowerArea.remove(timerView.widget)
+    if (diagramDock.getParent() === lowerArea) lowerArea.remove(diagramDock)
+    lowerArea.rowSpacing = 0
+    if (placement === 'wide') {
+      lowerArea.attach(timerView.widget, 0, 0, 1, 1)
+      lowerArea.attach(diagramDock, 1, 0, 1, 1)
+      scramblePanel.image.marginEnd = 8
+    } else if (placement === 'tall-narrow') {
+      lowerArea.rowSpacing = 8
+      lowerArea.attach(timerView.widget, 0, 0, 1, 1)
+      lowerArea.attach(diagramDock, 0, 1, 1, 1)
+      scramblePanel.image.marginEnd = 16
+    } else {
+      lowerArea.attach(timerView.widget, 0, 0, 1, 1)
+      scramblePanel.image.marginEnd = 16
+    }
+    diagramDock.setVisible(placement !== 'none')
+  }
+
   /** The last tier reported, so applyLayout's log speaks only on a change. */
   let lastTier = ''
-  /** The last diagram size reported (see updateDiagram). */
-  let lastDiagram = ''
 
   /**
    * The rectangle the app lives in: `window.content`'s allocation (the
@@ -724,7 +759,7 @@ app.on('activate', () => {
     timerView.setSize(tier.timerSize)
     scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
     scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
-    updateDiagram()
+    applyDiagramPlacement(tier.diagramPlacement)
 
     // One line per *change* — the evidence trail when the window is walked
     // through its bands (and a cheap way to spot a tier decided from a stale
@@ -733,44 +768,11 @@ app.on('activate', () => {
       `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}): ` +
       `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
       `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
-      `timer ${tier.timerSize}, sidebar max ${tier.sidebarMax}`
+      `timer ${tier.timerSize}, diagram ${tier.diagramPlacement}, ` +
+      `sidebar max ${tier.sidebarMax}`
     if (signature !== lastTier) {
       lastTier = signature
       console.error(`[layout] ${signature}`)
-    }
-  }
-
-  /**
-   * Log the diagram's on-screen size when it changes (overlay children are
-   * allocated, not requested — see tools/README.md, so this is where
-   * clipping shows up), and lift it clear of the bottom bar. Idempotent,
-   * writes only on change.
-   */
-  function updateDiagram(): void {
-    if (!layoutReady) return
-    // ToolbarView reports its current animated bottom-bar height — still 0
-    // on the frame the bar was revealed, so floor it with the bar's natural
-    // height; during a hide the reported height follows the animation down.
-    const bottomBarSpace = Math.max(
-      content.getBottomBarHeight(),
-      content.revealBottomBars ? selectorBar.measure(Gtk.Orientation.VERTICAL, -1)[1] : 0,
-    )
-
-    const diagram = scramblePanel.diagramSize()
-    const diagramSignature = `${diagram.width}x${diagram.height}`
-    if (diagramSignature !== lastDiagram) {
-      lastDiagram = diagramSignature
-      if (diagram.width > 0 || diagram.height > 0) {
-        console.error(`[layout] diagram ${diagramSignature}`)
-      }
-    }
-
-    // Overlay children paint above the content: lift the picture by the
-    // bar's full slot to keep it clear. A margin sits outside the
-    // allocation, so the picture's own size never moves.
-    const diagramBottom = DIAGRAM_EDGE_MARGIN + bottomBarSpace
-    if (scramblePanel.image.marginBottom !== diagramBottom) {
-      scramblePanel.image.marginBottom = diagramBottom
     }
   }
 
@@ -850,7 +852,6 @@ app.on('activate', () => {
     scramblePanel.setChromeVisible(!focused)
     timerView.setChromeVisible(!focused)
     syncBottomBar()
-    if (!focused) updateDiagram()
   }
 
   timer.subscribe(() => {
@@ -1100,10 +1101,10 @@ app.on('activate', () => {
 
   // The two continuous sources, both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
-  // but the short-window tier does), and any repaint — where the diagram's
-  // post-allocation numbers live and where applyLayout re-runs with fresh
-  // allocations, which is what carries every size change no breakpoint
-  // sees, the Adaptive Preview's emulated-screen switches included.
+  // but the short-window tier does), and any repaint, where applyLayout
+  // re-runs with fresh allocations and so carries every size change no
+  // breakpoint sees, the Adaptive Preview's emulated-screen switches
+  // included.
   const surface = window.getSurface()
   if (surface === null) {
     console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the tier')
@@ -1112,10 +1113,9 @@ app.on('activate', () => {
   }
   const frameClock = window.getFrameClock()
   if (frameClock === null) {
-    console.error('[layout] no frame clock — the diagram keeps its first size')
+    console.error('[layout] no frame clock — resizes will not get the after-paint pass')
   } else {
     frameClock.on('after-paint', () => {
-      updateDiagram()
       // The fresh-allocation pass: surface layout can only re-apply what is
       // already in force (the widgets have not caught up yet), and the
       // Adaptive Preview raises no surface event at all — so every real

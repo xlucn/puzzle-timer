@@ -291,9 +291,11 @@ DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip
 DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (the cap at every tier), timer l
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
 # which is why the log prints `890x530 (win 530)` for a 900x540 window.
-# The diagram line reports position too — `diagram WxH at x,y vs timer x,y
-# WxH → clear|overlap` — and `diagram none` where the tier has no room for it
-# (short *and* narrow: 360x294 and 600x360 shed it, 650x360 keeps it).
+# The same line names the diagram placement: `diagram wide` on any window
+# wider than the 540 content-width band, `diagram tall-narrow` on a narrow
+# tall one, and `diagram none` where a narrow short one sheds it (surface
+# 360x294/360x360/540x360 shed it, 600x360 keeps it). The picture is flush
+# bottom-right in every live placement.
 
 # Long labels do not move the selectors out: the header's control is
 # one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to

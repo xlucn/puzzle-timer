@@ -49,8 +49,11 @@ export const BREAKPOINTS = {
   mediumMin: 1200,
   /** ≥ 1600 → tier L: everything takes the room it is given. */
   largeMin: 1600,
-  /** Height ≤ 620 → the scramble slot gives height back to the timer. */
-  shortMax: 620,
+  /**
+   * Height ≤ 580 → the scramble slot gives height back to the timer. Kept
+   * below a 360×590 phone's content height so that phone keeps the diagram.
+   */
+  shortMax: 580,
   /** A window this short needs the smaller timer, whatever its width. */
   timerSmallMaxHeight: 480,
   /** Tier L only grows the scramble slot and the diagram when it is also tall. */
@@ -88,6 +91,16 @@ export const BREAKPOINTS = {
 /** Timer readout size class (src/ui/timerLabel.ts styles `.size-*`). */
 export type TimerSize = 's' | 'm' | 'l'
 
+/** How the timer and the scramble diagram share the lower area. */
+export type DiagramPlacement = 'wide' | 'tall-narrow' | 'none'
+
+/**
+ * Widest the picture may be beside the timer in the wide layout. The dock
+ * gets its own column, so this keeps that column compact and leaves the rest
+ * of the width to the timer.
+ */
+const DIAGRAM_SIDE_MAX_WIDTH = 180
+
 /** Everything that changes with the window's size, decided in one call. */
 export interface LayoutTier {
   /** Sidebar overlays the content instead of sharing the width with it. */
@@ -105,7 +118,12 @@ export interface LayoutTier {
    * `maxSidebarWidth` — the sidebar's cap; the same 320 at every tier.
    */
   sidebarMax: number
-  /** Diagram cap, px — the picture is scaled to fit before it is shown. */
+  /** Where the diagram sits, or `none` when this tier has no room for it. */
+  diagramPlacement: DiagramPlacement
+  /**
+   * Diagram cap, px — the picture is scaled to fit before it is shown. Zero
+   * means the tier has no corner for it and it is not drawn at all.
+   */
   diagramMaxWidth: number
   diagramMaxHeight: number
 }
@@ -147,6 +165,7 @@ export function layoutFor(width: number, height: number): LayoutTier {
     scrambleChars: 60,
     scrambleMaxHeight: h <= BREAKPOINTS.shortMax ? 100 : 160,
     sidebarMax: 320, // pinned at every tier
+    diagramPlacement: 'tall-narrow',
     diagramMaxWidth: 440,
     diagramMaxHeight: 150,
   }
@@ -169,6 +188,18 @@ export function layoutFor(width: number, height: number): LayoutTier {
       tier.diagramMaxHeight = 190
     }
     if (h >= BREAKPOINTS.tallMin) tier.scrambleMaxHeight = 220
+  }
+
+  // The header's own width band is the wide/narrow split: wide windows put
+  // the timer and diagram in one row, narrow tall ones stack the rows, and
+  // narrow short ones shed the picture.
+  const wide = w > BREAKPOINTS.selectorRowMax
+  tier.diagramPlacement = wide ? 'wide' : h <= BREAKPOINTS.shortMax ? 'none' : 'tall-narrow'
+  if (tier.diagramPlacement === 'wide') {
+    tier.diagramMaxWidth = Math.min(tier.diagramMaxWidth, DIAGRAM_SIDE_MAX_WIDTH)
+  } else if (tier.diagramPlacement === 'none') {
+    tier.diagramMaxWidth = 0
+    tier.diagramMaxHeight = 0
   }
 
   return tier
