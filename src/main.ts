@@ -580,6 +580,22 @@ app.on('activate', () => {
     showSidebar: sidebarToggle.active,
   })
 
+  // A collapsed split view constructed with `show-sidebar=false` can keep its
+  // shield child-visible: libadwaita leaves `show-progress` at 1 because the
+  // collapse's `set_show_sidebar(false)` sees the property already false and
+  // returns before resetting the progress. The shield then swallows the
+  // content's touch release. Hide it whenever the sidebar is closed; the
+  // split view only toggles the shield's child-visibility, not its visibility.
+  const findSplitShield = () => {
+    for (let child = split.getFirstChild(); child !== null; child = child.getNextSibling()) {
+      if (child.getCssName() === 'dimming') return child
+    }
+    return null
+  }
+  const splitShield = findSplitShield()
+  const syncShield = (): void => splitShield?.setVisible(split.getShowSidebar())
+  syncShield()
+
   // The list is a drawer below 800px. Adw.OverlaySplitView with the default
   // `pin-sidebar=false` already auto-hides on collapse and auto-shows on
   // uncollapse (libadwaita's "Overlay Sidebar" demo builds on this), so one
@@ -595,6 +611,7 @@ app.on('activate', () => {
     GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
   )
   split.on('notify::show-sidebar', () => {
+    syncShield()
     console.error(
       `[sidebar] show-sidebar=${split.getShowSidebar()} collapsed=${split.collapsed}`,
     )
