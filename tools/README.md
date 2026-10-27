@@ -266,10 +266,10 @@ python3 tools/xtest.py --window "Puzzle Timer" \
 # centre is just a convenient aim. With inspection on (the default) the
 # first release starts the 15 s countdown — a tap is enough — and the second
 # release starts the solve; a Cancel button appears at the header's end while
-# inspecting (same path as Escape). The scramble, hint/averages, bottom bar and
-# solve list hide for the inspection and solve; the list's toggle and the
-# diagram toggle grey out, while the header stays. The list returns to its
-# previous open/closed state when the solve stops. At 900x540 the timer's
+# inspecting (same path as Escape). Pressing start hides the scramble,
+# hint/averages, bottom bar and solve list; the list's toggle and the diagram
+# toggle grey out, while the header stays. The list returns to its previous
+# open/closed state when the timer is idle or stopped. At 900x540 the timer's
 # centre is ≈560,300; Cancel sits around x≈690, y≈22. At the 360 floor it is
 # the rightmost header control. Re-aim both, coords drift with the layout.
 python3 tools/xtest.py --window "Puzzle Timer" \

@@ -266,7 +266,10 @@ app.on('activate', () => {
     if (removed.length > 0) offerUndo(target, removed)
   }
 
-  /** True while the timer owns the view, from inspection through the solve. */
+  /**
+   * True while the timer owns the view, from the first start press through
+   * the solve.
+   */
   let timerFocus = false
 
   // Built before createTimesList, which hosts it. Ctrl+S can arrive while
@@ -863,8 +866,9 @@ app.on('activate', () => {
   /**
    * The sidebar is part of the distraction-free view too: remember whether it
    * was open when the timer takes over, hide it and grey out its toggle, and
-   * put that state back when the timer stops. Ctrl+B is disabled meanwhile.
-   * Called on the focus transition only, not on every timer update.
+   * put that state back when the timer returns to idle or stopped. Ctrl+B is
+   * disabled meanwhile. Called on the focus transition only, not on every
+   * timer update.
    */
   let sidebarWasShown = false
   function applySidebarFocus(focused: boolean): void {
@@ -881,19 +885,14 @@ app.on('activate', () => {
   }
 
   /**
-   * Inspection and solving are the timer's own view: hide the scramble, its
-   * diagram, the hint/averages, the selector bar and the solve list, and grey
-   * out the list and diagram toggles. The header stays — it carries Cancel and
-   * the app's controls — and everything returns when the solve stops.
+   * Arming, inspection and solving are the timer's own view: hide the
+   * scramble, its diagram, the hint/averages, the selector bar and the solve
+   * list, and grey out the list and diagram toggles. The header stays — it
+   * carries Cancel and the app's controls — and everything returns when the
+   * timer is idle or stopped.
    */
   const applyTimerFocus = (state: TimerState): void => {
-    // Stay focused through the hold that follows an inspection, so the
-    // scramble does not flash back between the countdown and the solve.
-    const focused =
-      state === 'inspecting' ||
-      state === 'running' ||
-      ((state === 'holding' || state === 'ready' || state === 'inspection-ready') &&
-        timerFocus)
+    const focused = state !== 'idle' && state !== 'stopped'
     if (focused === timerFocus) return
     timerFocus = focused
     scramblePanel.setChromeVisible(!focused)

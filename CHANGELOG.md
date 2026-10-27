@@ -14,8 +14,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Support stopping the timer by clicking with the mouse or tapping with the finger.
 - Mouse control is opt-in; touch and the keyboard work without it.
 - Added a Cancel button during inspection.
-- Distraction free while inspecting or solving: the scramble, diagram, hints,
-  averages and solve list step aside, leaving the timer and header.
+- Distraction free from the first start press through the solve: the scramble,
+  diagram, hints, averages and solve list step aside, leaving the timer and
+  header.
 
 ### Changed
 

@@ -366,11 +366,11 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   the start key: with inspection on, a press turns the readout green and its
   release starts the countdown; a second press-hold-release starts the solve.
   With inspection off, press-hold-release starts it. The decorative diagram
-  passes presses through. Inspecting
-  or solving clears the scramble, hint/averages, bottom bar and solve list;
-  the list's header toggle and the diagram toggle grey out, while the header
-  itself stays. The list's previous open/closed state returns when the solve
-  stops. Ctrl+B and Ctrl+S are inert while the timer owns the view. The solve
+  passes presses through. Pressing start clears the scramble, hint/averages,
+  bottom bar and solve list; the list's header toggle and the diagram toggle
+  grey out, while the header itself stays. The list's previous open/closed
+  state returns when the timer is idle or stopped. Ctrl+B and Ctrl+S are inert
+  while the timer owns the view. The solve
   list has no touch gesture: multi-select stays on GTK's Ctrl/Shift-click and
   deletion on the footer's Delete button. The rule above still holds — it is
   about *driving* the app, not about what input the app accepts. Recipes:
