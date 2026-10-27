@@ -7,13 +7,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-27
+
 Mainly added touch support and distraction-free mode.
 
 ### Added
 
-- Support starting and stopping the timer by a mouse a finger.
-- Added a Cancel button during inspection.
-- Distraction free during inspection and solve.
+- Support starting and stopping the timer by a mouse or a finger.
+- Added a cancel button during inspection.
+- Distraction free during inspection and solve: hide everything except the timer.
 
 ### Changed
 
@@ -22,7 +24,7 @@ Mainly added touch support and distraction-free mode.
 ### Fixed
 
 - The scramble diagram no longer covers the timer.
-- The timer no longer jumps between the stacked and side-by-side layouts while the solve list opens at 800 px.
+- The timer layout no longer jumps back and forth at the threshold of the sidebar toggle.
 
 ## [0.1.0] — 2026-10-22
 
@@ -140,7 +142,8 @@ As of this release, the app is much more polished and usable.
 - GTK 4 + libadwaita through node-gtk, written in TypeScript.
 - Hold Space and release to start, press to stop. Microsecond precision.
 
-[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/xlucn/puzzle-timer/tree/v0.2.0
 [0.1.0]: https://github.com/xlucn/puzzle-timer/tree/v0.1.0
 [0.0.8]: https://github.com/xlucn/puzzle-timer/tree/v0.0.8
 [0.0.7]: https://github.com/xlucn/puzzle-timer/tree/v0.0.7

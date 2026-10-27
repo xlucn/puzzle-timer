@@ -1,6 +1,6 @@
 {
   "name": "puzzle-timer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A native GTK4/libadwaita speedcubing timer — WCA scrambles for 206 puzzles, sessions and statistics, in the spirit of csTimer.",
   "homepage": "https://github.com/xlucn/puzzle-timer#readme",
   "bugs": {
