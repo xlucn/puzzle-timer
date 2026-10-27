@@ -20,7 +20,7 @@ src/
 ├── main.ts          bootstrap: application, window, header, actions, layout wiring
 ├── core/            ★ pure TypeScript — NO `gi:`, NO Node APIs
 │   ├── timer.ts         state machine: idle → holding → ready → running → stopped
-│   │                    (+ WCA inspection: 15 s → +2, 17 s → DNF)
+│   │                    (+ inspection-ready → inspecting: 15 s → +2, 17 s → DNF)
 │   ├── time.ts          formatting, penalty math, DNF-as-∞, inspection clock
 │   ├── stats.ts         ao5/ao12/mo3 trimming, best single/avg, PB target
 │   ├── session.ts       Solve & Session models, CRUD, undo, penalties, comments
@@ -94,10 +94,11 @@ breaking:
   the index, `restore()` puts it back), surfaced as one undo toast per
   batch. There is deliberately no `Ctrl+Z` — a shortcut that deletes a
   record is not intuitive; the toast is the undo.
-- **WCA inspection is a timer state, not a side feature.** The first
-  ready→release starts the 15 s countdown (graded `+2` at 15 s, `DNF` at
-  17 s); the second starts the solve. Cues at 8 s and 12 s fire exactly once
-  each per inspection. Esc cancels.
+- **WCA inspection is a timer state, not a side feature.** The first press
+  turns the readout green (`inspection-ready`) without a hold; its release
+  starts the 15 s countdown (graded `+2` at 15 s, `DNF` at 17 s), and the
+  second press-hold-release starts the solve. Cues at 8 s and 12 s fire
+  exactly once each per inspection. Esc cancels.
 - **Touch mirrors the keyboard where it can.** The main content view's
   `Gtk.GestureClick` emits the same `keyDown`/`keyUp` calls Space does — the
   whole area under the bars, not just the digits, is the start key — and

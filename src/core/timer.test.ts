@@ -417,6 +417,40 @@ describe('Timer — WCA inspection', () => {
     expect(timer.snapshot(t0 + 2_500).penalty).toBeUndefined()
   })
 
+  it('starts the inspection on a tap, without waiting for the hold threshold', () => {
+    const timer = new Timer()
+    timer.keyDown('space', T0)
+    expect(timer.state).toBe('inspection-ready')
+    expect(timer.snapshot(T0).holdProgress).toBe(1)
+
+    timer.keyUp('space', T0 + 50)
+    expect(timer.state).toBe('inspecting')
+    expect(timer.snapshot(T0 + 50).inspectionMs).toBe(0)
+  })
+
+  it('keeps inspection-ready through a long press instead of turning ready', () => {
+    const timer = new Timer()
+    timer.keyDown('space', T0)
+    timer.update(T0 + 5_000)
+
+    expect(timer.state).toBe('inspection-ready')
+    timer.keyUp('space', T0 + 5_050)
+    expect(timer.state).toBe('inspecting')
+  })
+
+  it('does not begin an inspection on the release that stopped a solve', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.keyDown('space', t0 + 1_000)
+    timer.keyUp('space', t0 + 1_400) // held ≥ 300 ms → running
+    timer.keyDown('space', t0 + 2_000) // stop
+    expect(timer.state).toBe('stopped')
+
+    timer.keyUp('space', t0 + 2_050)
+    expect(timer.state).toBe('stopped')
+  })
+
   it('ignores other keys, and Esc cancels so the next hold inspects from zero', () => {
     const timer = new Timer()
     const t0 = startInspection(timer, T0)
@@ -556,6 +590,27 @@ describe('Timer — WCA inspection', () => {
     expect(timer.snapshot(t0 + 5_100).inspectionMs).toBe(5_100) // not reset
   })
 
+  it('cancelPress abandons a hold without starting an inspection', () => {
+    const timer = new Timer()
+    timer.keyDown('space', T0)
+    expect(timer.state).toBe('inspection-ready')
+
+    timer.cancelPress('space', T0 + 50)
+    expect(timer.state).toBe('idle')
+    timer.keyUp('space', T0 + 60) // the cancelled press is already cleared
+    expect(timer.state).toBe('idle')
+  })
+
+  it('cancelPress during an inspection hold returns to the countdown', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.keyDown('space', t0 + 1_000)
+    timer.cancelPress('space', t0 + 1_100)
+    expect(timer.state).toBe('inspecting')
+    expect(timer.snapshot(t0 + 1_100).inspectionMs).toBe(1_100)
+  })
+
   it('inspection off: release starts the run directly, with no grade', () => {
     const timer = new Timer({ inspection: false })
     expect(timer.inspectionEnabled).toBe(false)
@@ -587,6 +642,29 @@ describe('Timer — WCA inspection', () => {
     timer.keyUp('space', t1 + 1_500)
     expect(timer.state).toBe('running')
     expect(timer.snapshot(t1 + 1_500).penalty).toBeUndefined()
+  })
+
+  it('toggling off mid-hold and releasing early returns to idle', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+
+    timer.keyDown('space', t0 + 1_000)
+    timer.setInspection(false, t0 + 1_100)
+    timer.keyUp('space', t0 + 1_200) // still short of the hold threshold
+
+    expect(timer.state).toBe('idle')
+    expect(timer.snapshot(t0 + 1_200).inspectionMs).toBe(0)
+  })
+
+  it('turning inspection off while inspection-ready cancels it', () => {
+    const timer = new Timer()
+    timer.keyDown('space', T0)
+    expect(timer.state).toBe('inspection-ready')
+
+    timer.setInspection(false, T0 + 50)
+    expect(timer.state).toBe('idle')
+    timer.keyUp('space', T0 + 60)
+    expect(timer.state).toBe('idle')
   })
 })
 

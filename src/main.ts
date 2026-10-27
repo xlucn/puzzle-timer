@@ -892,7 +892,8 @@ app.on('activate', () => {
     const focused =
       state === 'inspecting' ||
       state === 'running' ||
-      ((state === 'holding' || state === 'ready') && timerFocus)
+      ((state === 'holding' || state === 'ready' || state === 'inspection-ready') &&
+        timerFocus)
     if (focused === timerFocus) return
     timerFocus = focused
     scramblePanel.setChromeVisible(!focused)
@@ -933,14 +934,14 @@ app.on('activate', () => {
   })
   // A competing gesture — the scramble's scroll, mainly — can cancel the
   // sequence without a release, and an unpaired release can arrive when the
-  // implicit grab is lost. Either way the key must come back up, or the hold
-  // would outlive the press and the next press would be ignored as repeat.
-  const endHold = () => timer.keyUp(START_KEY, nowMs())
-  timerGesture.on('cancel', endHold)
-  timerGesture.on('unpaired-release', endHold)
+  // implicit grab is lost. Either way the key must come back up without
+  // starting the inspection that a real release would.
+  const cancelPress = () => timer.cancelPress(START_KEY, nowMs())
+  timerGesture.on('cancel', cancelPress)
+  timerGesture.on('unpaired-release', cancelPress)
   mainContent.addController(timerGesture)
 
-  // ---- keyboard: hold Space to arm, release to start, any key to stop ----
+  // ---- keyboard: Space starts an inspection or arms the timer; any key stops ----
   // CAPTURE phase so the timer sees keys before any focused widget consumes
   // them (Gtk.MenuButton in the header would otherwise swallow Space).
   const keyController = new Gtk.EventControllerKey()

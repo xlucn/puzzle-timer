@@ -181,11 +181,11 @@ read `$DISPLAY`):
    Note what `hold KEY SECS` means: press and **keep holding** for SECS — it
    does not release (only `tap` does). Pair it with an explicit `release KEY`,
    or use `press`/`sleep`/`release` for anything that arms the timer (e.g. the
-   WCA inspection hold). A run that ends with Space still held makes every
-   later shot in it show the same frozen `ready` frame — and the exit safety
-   then releases the key *after* the screenshots, silently starting whatever
-   the pending release was supposed to start (two "identical" frames and a
-   mystery leftover inspection).
+   hold that starts the solve after inspection). A run that ends with Space
+   still held makes every later shot in it show the same frozen `ready`
+   frame — and the exit safety then releases the key *after* the screenshots,
+   silently starting whatever the pending release was supposed to start (two
+   "identical" frames and a mystery leftover inspection).
 
 6. **HiDPI: screenshot pixels are physical, widget sizes are logical.** This
    machine runs the X11 session at scale 2 (`Xft.dpi: 192` = 96 × 2). The
@@ -259,19 +259,19 @@ python3 tools/xtest.py --window "Puzzle Timer" \
     press Down release Down sleep 0.3 \
     press Return release Return sleep 1.5 shot type-switched.png
 
-# Touch path — no touch device needed: XTEST supplies a press-hold.
+# Touch path — no touch device needed: XTEST supplies a tap or press-hold.
 # The main content is the start key (same keyDown/keyUp as Space). Mouse
 # input is off by default; enable Mouse control in Preferences before using
-# a click-and-hold, or drive the touch path with a real touch device. The
-# timer's centre is just a convenient aim. With inspection on (the default)
-# the first hold-release arms the 15 s countdown and the second starts the
-# solve; a Cancel button appears at the header's end while inspecting (same
-# path as Escape). The scramble, hint/averages, bottom bar and solve list hide
-# for the inspection and solve; the list's toggle and the diagram toggle grey
-# out, while the header stays. The list returns to its previous open/closed
-# state when the solve stops. At 900x540 the timer's centre is ≈560,300; Cancel
-# sits around x≈690, y≈22. At the 360 floor it is the rightmost header control.
-# Re-aim both, coords drift with the layout.
+# a click, or drive the touch path with a real touch device. The timer's
+# centre is just a convenient aim. With inspection on (the default) the
+# first release starts the 15 s countdown — a tap is enough — and the second
+# release starts the solve; a Cancel button appears at the header's end while
+# inspecting (same path as Escape). The scramble, hint/averages, bottom bar and
+# solve list hide for the inspection and solve; the list's toggle and the
+# diagram toggle grey out, while the header stays. The list returns to its
+# previous open/closed state when the solve stops. At 900x540 the timer's
+# centre is ≈560,300; Cancel sits around x≈690, y≈22. At the 360 floor it is
+# the rightmost header control. Re-aim both, coords drift with the layout.
 python3 tools/xtest.py --window "Puzzle Timer" \
     down 560 300 sleep 0.7 up sleep 0.8 \
     down 560 300 sleep 0.7 up sleep 1.2 \

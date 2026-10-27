@@ -39,12 +39,14 @@ styles.add(`
   .timer-display.size-s { font-size: 72px; }
   .timer-display.size-l { font-size: 128px; }
   /* State colours are semantics, not styling: idle dimmed while waiting,
-     red while holding, green at ready, orange through inspection and red
-     once doomed (≥ 17 s → the readout spells DNF). The running/stopped
-     states carry no rule on purpose — they are the default foreground. */
+     red while holding, green at ready or ready to inspect, orange through
+     inspection and red once doomed (≥ 17 s → the readout spells DNF). The
+     running/stopped states carry no rule on purpose — they are the default
+     foreground. */
   .timer-display.state-idle     { color: alpha(@window_fg_color, 0.55); }
   .timer-display.state-holding  { color: @error_color; }
-  .timer-display.state-ready    { color: @success_color; }
+  .timer-display.state-ready,
+  .timer-display.state-inspection-ready { color: @success_color; }
   .timer-display.state-inspecting          { color: @warning_color; }
   .timer-display.state-inspecting.expired  { color: @error_color; }
 `)
@@ -53,6 +55,7 @@ const HINTS: Record<TimerState, string> = {
   idle: 'Hold Space or the timer to start',
   holding: 'Keep holding…',
   ready: 'Release to start',
+  'inspection-ready': 'Release to inspect',
   inspecting: 'Inspection — Space starts, Esc cancels',
   running: 'Press any key or tap to stop',
   stopped: 'Hold Space or the timer for the next solve',

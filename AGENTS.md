@@ -363,9 +363,10 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   testable with no touch device at all. A click-and-hold in the main content
   is the same drill once **Mouse control** is enabled in Preferences; mouse
   input is off by default, and the gesture is `touchOnly` until then. It is
-  the start key (press-hold, release starts; with inspection on, the first
-  release arms the countdown and the second starts the solve), and the
-  decorative diagram passes presses through. Inspecting
+  the start key: with inspection on, a press turns the readout green and its
+  release starts the countdown; a second press-hold-release starts the solve.
+  With inspection off, press-hold-release starts it. The decorative diagram
+  passes presses through. Inspecting
   or solving clears the scramble, hint/averages, bottom bar and solve list;
   the list's header toggle and the diagram toggle grey out, while the header
   itself stays. The list's previous open/closed state returns when the solve

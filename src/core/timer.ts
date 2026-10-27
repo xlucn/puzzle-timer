@@ -5,18 +5,19 @@
  * All time is passed in by the caller as milliseconds from a monotonic clock,
  * which makes every transition deterministic and testable.
  *
- *   idle ──keydown(startKey)──▶ holding ──hold ≥ threshold──▶ ready
- *     ▲                          │                              │
- *     └──release too early───────┘                              │
- *                                                                │
+ *   idle/stopped ──keydown(startKey)──▶ holding ──hold ≥ threshold──▶ ready
+ *        ▲                               │                              │
+ *        └──release too early────────────┘ (inspection off)            │
+ *                                                                       │
  *   ready ──release(startKey)──▶ running ──any keydown──▶ stopped
- *                                                                 │
- *   stopped ──keydown(startKey)──▶ holding (next solve) ──────────┘
  *
- * With WCA inspection on (the default), the first ready→release does not
- * start a solve but enters `inspecting`; the hold/release dance then happens
- * again *inside* the inspection, and the second release starts the run —
- * carrying a penalty derived from the inspection's age at that instant:
+ * With WCA inspection on (the default), the first press goes straight to
+ * `inspection-ready` — green, no hold — and its release enters `inspecting`
+ * instead of starting a solve. The hold/release dance then happens again
+ * *inside* the inspection, and the second release starts the run — carrying a
+ * penalty derived from the inspection's age at that instant:
+ *
+ *   idle/stopped ──keydown──▶ inspection-ready ──release──▶ inspecting
  *
  *   inspecting ──keydown(startKey)──▶ holding ──▶ ready ──release──▶ running
  *       ▲                              │early       │
@@ -32,7 +33,14 @@
 import { type Penalty } from './time.js'
 import { MAX_HOLD_THRESHOLD_MS, MIN_HOLD_THRESHOLD_MS } from './preferences.js'
 
-export type TimerState = 'idle' | 'holding' | 'ready' | 'inspecting' | 'running' | 'stopped'
+export type TimerState =
+  | 'idle'
+  | 'holding'
+  | 'ready'
+  | 'inspection-ready'
+  | 'inspecting'
+  | 'running'
+  | 'stopped'
 
 /** WCA inspection limits (ms of inspection elapsed). */
 export const INSPECTION_MS = 15_000
@@ -42,7 +50,7 @@ export const INSPECTION_CUE_8S = 8_000
 export const INSPECTION_CUE_12S = 12_000
 
 export interface TimerConfig {
-  /** How long the start key must be held before the timer turns "ready". */
+  /** How long the start key must be held to arm a solve. */
   holdThresholdMs: number
   /** Identity of the key that starts the timer (the UI sends 'space'). */
   startKey: string
@@ -168,6 +176,11 @@ export class Timer {
     if (this.inspectionOn === enabled) return
     this.inspectionOn = enabled
 
+    if (!enabled && this.current === 'inspection-ready') {
+      this.transition('idle', now)
+      return
+    }
+
     if (!enabled && this.inspectionStartedAt > 0) {
       this.inspectionStartedAt = 0
       this.cue8Fired = false
@@ -205,7 +218,15 @@ export class Timer {
     switch (this.current) {
       case 'idle':
       case 'stopped':
-        if (key === this.config.startKey) this.beginHold(now)
+        if (key === this.config.startKey) {
+          if (this.inspectionOn) {
+            this.pendingPenalty = undefined
+            this.holdFromInspection = false
+            this.transition('inspection-ready', now)
+          } else {
+            this.beginHold(now)
+          }
+        }
         break
       case 'inspecting':
         if (key === this.config.startKey) this.beginHold(now)
@@ -215,6 +236,7 @@ export class Timer {
         // Any fresh key press stops the solve.
         this.stop(now)
         break
+      case 'inspection-ready':
       case 'holding':
       case 'ready':
         // Extra keys pressed while arming the timer are ignored.
@@ -226,15 +248,45 @@ export class Timer {
     if (!this.pressed.delete(key)) return
     if (key !== this.config.startKey) return
 
-    if (this.current === 'ready') {
+    if (this.current === 'inspection-ready') {
+      if (this.inspectionOn) this.beginInspection(now)
+      else this.transition('idle', now)
+    } else if (this.current === 'ready') {
       this.release(now)
     } else if (this.current === 'holding') {
-      // Released before the threshold: cancel rather than start. The cancel
-      // returns where the hold came from — mid-inspection the countdown is
-      // still running, a normal hold goes back to idle.
-      if (now - this.holdStartedAt >= this.config.holdThresholdMs) this.release(now)
-      else this.transition(this.holdFromInspection ? 'inspecting' : 'idle', now)
+      if (now - this.holdStartedAt >= this.config.holdThresholdMs) {
+        this.release(now)
+      } else if (this.holdFromInspection && this.inspectionOn) {
+        // The countdown is still running; only the attempted start is cancelled.
+        this.transition('inspecting', now)
+      } else if (this.inspectionOn && this.inspectionStartedAt === 0) {
+        // Inspection starts on the release, not on a completed hold.
+        this.beginInspection(now)
+      } else {
+        this.transition('idle', now)
+      }
     }
+  }
+
+  /**
+   * Abandon a press without treating it as a release. A gesture cancelled by
+   * a competing scroll or a lost grab must clear the pressed key, but must not
+   * start the inspection that a real release would.
+   */
+  cancelPress(key: string, now: number): void {
+    if (!this.pressed.delete(key)) return
+    if (key !== this.config.startKey) return
+
+    if (this.current === 'inspection-ready') {
+      this.transition('idle', now)
+      return
+    }
+    if (this.current !== 'holding' && this.current !== 'ready') return
+
+    this.transition(
+      this.inspectionOn && this.holdFromInspection ? 'inspecting' : 'idle',
+      now,
+    )
   }
 
   /**
@@ -276,7 +328,7 @@ export class Timer {
   }
 
   private progress(now: number): number {
-    if (this.current === 'ready') return 1
+    if (this.current === 'ready' || this.current === 'inspection-ready') return 1
     if (this.current !== 'holding') return 0
     const held = now - this.holdStartedAt
     if (held <= 0) return 0
@@ -290,7 +342,7 @@ export class Timer {
     this.transition('holding', now)
   }
 
-  /** The ready→release moment: begin the inspection, or start the run. */
+  /** The release moment: begin the inspection, or start the run. */
   private release(now: number): void {
     if (this.inspectionOn && this.inspectionStartedAt === 0) this.beginInspection(now)
     else this.start(now)
@@ -298,6 +350,7 @@ export class Timer {
 
   private beginInspection(now: number): void {
     this.inspectionStartedAt = now
+    this.holdFromInspection = false
     this.cue8Fired = false
     this.cue12Fired = false
     this.transition('inspecting', now)

@@ -75,7 +75,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // whole milliseconds is the storage contract, not a display concern.
     const holdRow = new Adw.SpinRow({
       title: 'Hold time',
-      subtitle: 'How long Space must be held before the timer arms',
+      subtitle: 'How long Space must be held to start the timer',
       digits: 2,
       numeric: true, // the entry takes digits only — no "1e3" nonsense
       adjustment: new Gtk.Adjustment({
@@ -92,7 +92,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     const mouseRow = new Adw.SwitchRow({
       title: 'Mouse control',
-      subtitle: 'Hold the left mouse button in the main area to start and stop the timer',
+      subtitle: 'Click to start inspection or stop; hold to start the timer',
       active: prefs.mouseStart,
     })
     mouseRow.on('notify::active', () => {

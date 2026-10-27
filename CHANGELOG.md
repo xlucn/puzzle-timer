@@ -19,6 +19,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Starting an inspection no longer needs a held key, click or touch;
+  releasing starts the countdown.
+
 ### Fixed
 
 - The scramble diagram no longer covers the timer on a short, narrow window.
