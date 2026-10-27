@@ -744,13 +744,27 @@ app.on('activate', () => {
 
   /**
    * The content area between the toolbar bars, which is what the timer and
-   * diagram actually share. Zero until the first allocation, so the caller
-   * can leave it out and let layoutFor() fall back to the window aspect.
+   * diagram actually share, plus the width the docked sidebar takes from it.
+   * Zero until the first allocation, so the caller can leave it out and let
+   * layoutFor() fall back to the window aspect.
    */
-  function measuredMainContent(): ContentSize | undefined {
+  function measuredMainContent(windowWidth: number): ContentSize | undefined {
     const width = mainContent.getWidth()
     const height = mainContent.getHeight()
-    return width > 0 && height > 0 ? { width, height } : undefined
+    if (!(width > 0 && height > 0)) return undefined
+    // The gap is the docked sidebar. The width band, not the split view's
+    // current `collapsed`, decides whether this pass is a drawer: the band is
+    // the value applyLayout is about to write, and reading `collapsed` here
+    // would still see the previous side-by-side state at the 800 crossing.
+    // `showSidebar` keeps a collapsing sidebar from leaving a stale gap, while
+    // the measured gap keeps a docking sidebar from reporting its width before
+    // the content has shrunk.
+    const docked = windowWidth > BREAKPOINTS.drawerMax && split.getShowSidebar()
+    return {
+      width,
+      height,
+      sidebarWidth: docked ? Math.max(0, split.getWidth() - width) : 0,
+    }
   }
 
   /** Apply the tier for the window's current size. Safe to call any time. */
@@ -777,8 +791,9 @@ app.on('activate', () => {
     // real numbers.
     if (width <= 0 || height <= 0) return
     // The width bands still come from the window rectangle; the content area
-    // only decides whether the diagram goes beside the timer or below it.
-    const contentSize = measuredMainContent()
+    // and its docked sidebar decide whether the diagram goes beside the timer
+    // or below it.
+    const contentSize = measuredMainContent(width)
     const tier = layoutFor(width, height, contentSize)
 
     if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
@@ -792,9 +807,18 @@ app.on('activate', () => {
     // One line per *change* — the evidence trail when the window is walked
     // through its bands (and a cheap way to spot a tier decided from a stale
     // measurement, which is the one thing a breakpoint could get wrong).
+    // The exact sidebar width is not part of the signature: it animates while
+    // the split view opens, and only "docked" vs "overlay" changes the tier.
+    const sidebarState =
+      contentSize === undefined
+        ? 'unallocated'
+        : (contentSize.sidebarWidth ?? 0) > 0
+          ? 'docked'
+          : 'overlay'
     const signature =
       `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}, ` +
-      `content ${contentSize ? `${contentSize.width}x${contentSize.height}` : 'unallocated'}): ` +
+      `content ${contentSize ? `${contentSize.width}x${contentSize.height}` : 'unallocated'}, ` +
+      `sidebar ${sidebarState}): ` +
       `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
       `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
       `timer ${tier.timerSize}, diagram ${tier.diagramPlacement}, ` +

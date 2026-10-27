@@ -17,7 +17,8 @@
  *
  *   layoutFor(width, height,     the same, with the content area's allocation
  *             mainContent)       deciding whether the diagram has room beside
- *                                the timer or below it.
+ *                                the timer or below it, and how much the
+ *                                docked sidebar shifts that balance.
  *
  * Units are **logical px** everywhere: GTK lays out in logical px and the
  * compositor scales them up (tools/README.md trap 6), so these numbers match
@@ -105,10 +106,32 @@ export type DiagramPlacement = 'wide' | 'tall-narrow' | 'none'
  */
 const DIAGRAM_SIDE_MAX_WIDTH = 180
 
+/**
+ * Wide layout thresholds, as content width / content height. The sidebar
+ * changes where the timer sits in the window, so the ratio changes with it.
+ *
+ * Hidden, the diagram's column pushes the timer about half a diagram left of
+ * centre, so wide waits for clearly landscape content. Docked, the sidebar
+ * pushes the content right by roughly the same amount, the timer stays near
+ * the window centre, and wide can tolerate taller content.
+ *
+ * The pair also has to survive the 240 px sidebar docking at 801: the shown
+ * ratio must stay at or below 561/800 of the hidden ratio, or a wide layout
+ * just before the dock collapses just after it.
+ */
+const WIDE_RATIO_HIDDEN = 1.4
+const WIDE_RATIO_SHOWN = 0.7
+
 /** The content area between the toolbar bars, in logical px. */
 export interface ContentSize {
   width: number
   height: number
+  /**
+   * Width the docked sidebar takes from the window. Zero while the sidebar
+   * overlays the content, is hidden, or has not allocated yet — the caller
+   * combines the state with the measured gap.
+   */
+  sidebarWidth?: number
 }
 
 /** Everything that changes with the window's size, decided in one call. */
@@ -142,13 +165,15 @@ export interface LayoutTier {
 const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, value) : 0)
 
 /**
- * The tier for a content width/height (logical px). Called on every resize and
- * from every breakpoint handler, so it must stay cheap and total: same inputs,
- * same output, no matter which one asked.
+ * The tier for a window size (logical px), with the measured content area when
+ * it is available. Called on every resize and from every breakpoint handler,
+ * so it must stay cheap and total: same inputs, same output, no matter which
+ * one asked.
  *
  * The width bands decide the sidebar, the selector row, the timer tier and
  * the scramble width; height decides the short-window caps. The diagram
- * placement is the one rule that also reads the content area's aspect. Long
+ * placement is the one rule that also reads the content area's aspect and
+ * whether the sidebar is docked. Long
  * labels are not a factor: the header's selector is an icon button and the
  * type text lives in the window title, whose `Adw.WindowTitle` template
  * labels ellipsize (see src/ui/scrambleTypeButton.ts and
@@ -169,9 +194,13 @@ export function layoutFor(
   const measuredWidth = sane(mainContent?.width ?? 0)
   const measuredHeight = sane(mainContent?.height ?? 0)
   const hasContent = measuredWidth > 0 && measuredHeight > 0
-  const contentWidth = hasContent ? measuredWidth : w
+  const sidebarDocked = sane(mainContent?.sidebarWidth ?? 0) > 0
+  const wideRatio = sidebarDocked ? WIDE_RATIO_SHOWN : WIDE_RATIO_HIDDEN
+  // Hidden, the content spans the window, so use the window width: the
+  // measured one still carries the shrunken width of a sidebar that is
+  // collapsing. Docked, the measured width is the real content width.
+  const contentWidth = sidebarDocked && hasContent ? measuredWidth : w
   const contentHeight = hasContent ? measuredHeight : h
-  const contentTall = contentHeight > contentWidth
 
   const drawer = w <= BREAKPOINTS.drawerMax
 
@@ -219,10 +248,13 @@ export function layoutFor(
   // all; above it, the content area's aspect decides whether the timer and
   // diagram have room side by side. A portrait tablet is wide in window terms
   // (800 > 540) but its content is tall, so the timer gets a full-width row.
+  // The sidebar's own width is part of that decision: a docked sidebar moves
+  // the content right, so the same content aspect can be balanced while wide.
   if (w <= BREAKPOINTS.selectorRowMax) {
     tier.diagramPlacement = h <= BREAKPOINTS.shortMax ? 'none' : 'tall-narrow'
   } else {
-    tier.diagramPlacement = contentTall ? 'tall-narrow' : 'wide'
+    tier.diagramPlacement =
+      contentWidth >= contentHeight * wideRatio ? 'wide' : 'tall-narrow'
   }
   if (tier.diagramPlacement === 'wide') {
     tier.diagramMaxWidth = Math.min(tier.diagramMaxWidth, DIAGRAM_SIDE_MAX_WIDTH)

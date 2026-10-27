@@ -84,11 +84,8 @@ describe('layoutFor — the diagram follows the room', () => {
     )
   })
 
-  it('keeps a square content area side by side', () => {
-    expect(layoutFor(800, 1000, { width: 790, height: 790 }).diagramPlacement).toBe(
-      'wide',
-    )
-    expect(layoutFor(800, 1000, { width: 790, height: 791 }).diagramPlacement).toBe(
+  it('keeps a square content area stacked while the sidebar is hidden', () => {
+    expect(layoutFor(790, 1000, { width: 790, height: 790 }).diagramPlacement).toBe(
       'tall-narrow',
     )
   })
@@ -121,6 +118,78 @@ describe('layoutFor — the diagram follows the room', () => {
     expect(layoutFor(1600, 500).diagramMaxWidth).toBe(180)
     expect(layoutFor(360, 700).diagramMaxWidth).toBe(440)
     expect(layoutFor(1600, 900).diagramMaxWidth).toBe(180)
+  })
+})
+
+describe('layoutFor — the sidebar shifts the wide threshold', () => {
+  it('requires more width when the sidebar is hidden', () => {
+    expect(
+      layoutFor(800, 800, { width: 800, height: 600, sidebarWidth: 0 }).diagramPlacement,
+    ).toBe('tall-narrow') // 800 < 1.4 × 600
+    expect(
+      layoutFor(840, 800, { width: 840, height: 600, sidebarWidth: 0 }).diagramPlacement,
+    ).toBe('wide') // 840 = 1.4 × 600
+  })
+
+  it('allows a taller content area once the sidebar is docked', () => {
+    expect(
+      layoutFor(801, 694, {
+        width: 800 - BREAKPOINTS.sidebarMin,
+        height: 648,
+        sidebarWidth: BREAKPOINTS.sidebarMin,
+      }).diagramPlacement,
+    ).toBe('wide') // 561 >= 0.7 × 648
+    expect(
+      layoutFor(801, 694, { width: 561, height: 648, sidebarWidth: 0 }).diagramPlacement,
+    ).toBe('tall-narrow')
+  })
+
+  it('reads the measured gap, not the show-sidebar flag', () => {
+    // At 801 the breakpoint has applied but the sidebar has not allocated yet.
+    // The gap is still zero, so the hidden ratio keeps the layout stacked
+    // until the content actually shrinks.
+    expect(
+      layoutFor(801, 694, { width: 800, height: 648, sidebarWidth: 0 }).diagramPlacement,
+    ).toBe('tall-narrow')
+    expect(
+      layoutFor(801, 694, { width: 561, height: 648, sidebarWidth: 240 }).diagramPlacement,
+    ).toBe('wide')
+  })
+
+  it('uses the window width while a collapsing sidebar is still allocated', () => {
+    // 800×562 is wide with the sidebar hidden. A stale 560-wide content
+    // allocation must not select tall for a frame on the way out.
+    expect(
+      layoutFor(800, 608, { width: 560, height: 562, sidebarWidth: 0 }).diagramPlacement,
+    ).toBe('wide')
+  })
+
+  it('never flips wide→tall when the sidebar docks at 801', () => {
+    for (let height = 500; height <= 800; height++) {
+      const hidden = layoutFor(800, height + 46, {
+        width: 800,
+        height,
+        sidebarWidth: 0,
+      })
+      if (hidden.diagramPlacement !== 'wide') continue
+      const docked = layoutFor(801, height + 46, {
+        width: 800 - BREAKPOINTS.sidebarMin,
+        height,
+        sidebarWidth: BREAKPOINTS.sidebarMin,
+      })
+      expect(docked.diagramPlacement, `content height ${height}`).toBe('wide')
+    }
+  })
+
+  it('keeps the wide layout across the dock for the heights that used to flip', () => {
+    for (const height of [562, 648, 800]) {
+      const docked = layoutFor(801, height + 46, {
+        width: 800 - BREAKPOINTS.sidebarMin,
+        height,
+        sidebarWidth: BREAKPOINTS.sidebarMin,
+      })
+      expect(docked.diagramPlacement, `content height ${height}`).toBe('wide')
+    }
   })
 })
 

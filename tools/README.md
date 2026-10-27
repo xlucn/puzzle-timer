@@ -293,14 +293,20 @@ DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-s
 DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
 DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (the cap at every tier), timer l
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
-# which is why the log prints `890x530 (win 530, content 650x484)` for a
-# 900x540 window with the sidebar open. `content` is the mainContent box
-# between the toolbar bars — the area the timer and diagram actually share.
-# The same line names the diagram placement: `diagram wide` on a window wider
-# than the 540 content-width band whose content is no taller than wide,
-# `diagram tall-narrow` on a narrow tall window or a portrait content area,
-# and `diagram none` where a narrow short one sheds it (surface
-# 360x294/360x360/540x360 shed it, 600x360 keeps it). A portrait tablet
+# which is why the log prints
+# `890x530 (win 530, content 650x484, sidebar docked)` for a 900x540 window
+# with the sidebar open. `content` is the mainContent box between the toolbar
+# bars — the area the timer and diagram actually share — and `sidebar` is
+# `docked` or `overlay` (the exact gap is not logged; it animates while the
+# split view opens). The same line names the diagram placement: `diagram wide`
+# on a window wider than the 540 content-width band whose content width is at
+# least 1.4× its height with the sidebar hidden, or at least 0.7× its height
+# with it docked; `diagram tall-narrow` below that threshold, and
+# `diagram none` where a narrow short one sheds it (surface
+# 360x294/360x360/540x360 shed it, 600x360 keeps it). The docked sidebar
+# offsets the diagram, so the shown threshold is deliberately looser; the gap
+# is measured only while the sidebar is docked, so neither the 800→801 handoff
+# nor a collapsing sidebar leaves a stale docked frame. A portrait tablet
 # (800x1280) therefore stacks the rows and centres the timer. The picture is
 # flush bottom-right in every live placement.
 

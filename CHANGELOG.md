@@ -22,6 +22,7 @@ Mainly added touch support and distraction-free mode.
 ### Fixed
 
 - The scramble diagram no longer covers the timer.
+- The timer no longer jumps between the stacked and side-by-side layouts while the solve list opens at 800 px.
 
 ## [0.1.0] — 2026-10-22
 
