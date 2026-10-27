@@ -600,7 +600,7 @@ app.on('activate', () => {
     // libadwaita re-shows a collapsed split view's sidebar when it uncollapses.
     // The toggle is disabled for the timer's view, but that automatic reveal
     // still has to be put back down.
-    if (timerFocus && split.getShowSidebar()) split.setShowSidebar(false)
+    if (!pressActive && timerFocus && split.getShowSidebar()) split.setShowSidebar(false)
     // No explicit layout pass here: showing/hiding the sidebar repaints the
     // view, and the next after-paint re-applies the tier.
   })
@@ -891,11 +891,21 @@ app.on('activate', () => {
    * The sidebar is part of the distraction-free view too: remember whether it
    * was open when the timer takes over, hide it and grey out its toggle, and
    * put that state back when the timer returns to idle or stopped. Ctrl+B is
-   * disabled meanwhile. Called on the focus transition only, not on every
+   * disabled meanwhile. Called when the focus layout is applied, not on every
    * timer update.
    */
   let sidebarWasShown = false
+  // A press that is still down when the timer takes focus must not have the
+  // distraction-free layout or the split view's show gesture changed under
+  // it: either cancels the sequence and suppresses the click gesture's
+  // release. Both are applied when the finger is up instead.
+  let pressActive = false
+  let appliedFocus = false
   function applySidebarFocus(focused: boolean): void {
+    // The drawer cannot be swiped open while the timer owns the view. The
+    // toggle and Ctrl+B are already out; without this, the edge swipe is a
+    // third way in that the distraction-free view would have to undo.
+    split.setEnableShowGesture(!focused)
     if (focused) {
       sidebarWasShown = split.getShowSidebar()
       sidebarToggle.setSensitive(false)
@@ -915,16 +925,21 @@ app.on('activate', () => {
    * carries Cancel and the app's controls — and everything returns when the
    * timer is idle or stopped.
    */
-  const applyTimerFocus = (state: TimerState): void => {
-    const focused = state !== 'idle' && state !== 'stopped'
-    if (focused === timerFocus) return
-    timerFocus = focused
+  const applyTimerLayout = (focused: boolean): void => {
     scramblePanel.setChromeVisible(!focused)
     timerView.setChromeVisible(!focused)
     // The diagram is hidden, so its toggle would only turn a hidden image on.
     imageToggle.setSensitive(!focused)
     applySidebarFocus(focused)
     syncBottomBar()
+  }
+
+  const applyTimerFocus = (state: TimerState): void => {
+    const focused = state !== 'idle' && state !== 'stopped'
+    timerFocus = focused
+    if (pressActive || focused === appliedFocus) return
+    appliedFocus = focused
+    applyTimerLayout(focused)
   }
 
   timer.subscribe(() => {
@@ -943,25 +958,57 @@ app.on('activate', () => {
   // readout: a phone should not have to hit the digits, and the
   // header/selector buttons stay out of the target so they never arm a
   // solve by accident.
+  const cancelPress = () => timer.cancelPress(START_KEY, nowMs())
+
+  // A press is a hold until it becomes a drag or another gesture takes the
+  // sequence. Do not connect the click gesture's `cancel`/`unpaired-release`:
+  // they carry a boxed `GdkEventSequence`, which node-gtk crashes wrapping on
+  // ARM. `stopped` is the no-argument path; its handler ignores the one stop
+  // that is not a cancellation, the double-click timeout.
+  let pressAt = 0
+  let pressInScramble = false
+  const doubleClickTime = Gtk.Settings.getDefault()?.gtkDoubleClickTime ?? 400
+
   const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })
-  timerGesture.on('pressed', () => {
+  timerGesture.on('pressed', (_nPress, x, y) => {
     // A focused text entry owns the press, exactly as in the key handler.
     const focus = window.getFocus() as { getText?: () => string } | null
     if (focus !== null && typeof focus.getText === 'function') return
+    // A second press while the first never released means its sequence was
+    // lost; clear the stale key before starting the new hold.
+    if (pressActive) cancelPress()
+    pressActive = true
+    pressAt = Date.now()
+    const [hasScrambleBounds, scrambleBounds] = scramblePanel.widget.computeBounds(mainContent)
+    pressInScramble =
+      hasScrambleBounds &&
+      x >= scrambleBounds.getX() &&
+      x < scrambleBounds.getX() + scrambleBounds.getWidth() &&
+      y >= scrambleBounds.getY() &&
+      y < scrambleBounds.getY() + scrambleBounds.getHeight()
     // keyDown's running branch stops the solve for any fresh key, so this
     // needs no separate stop path.
     timer.keyDown(START_KEY, nowMs())
   })
   timerGesture.on('released', () => {
+    pressActive = false
+    pressInScramble = false
     timer.keyUp(START_KEY, nowMs())
+    // A stop release does not change state, so apply the deferred layout here.
+    applyTimerFocus(timer.state)
   })
-  // A competing gesture — the scramble's scroll, mainly — can cancel the
-  // sequence without a release, and an unpaired release can arrive when the
-  // implicit grab is lost. Either way the key must come back up without
-  // starting the inspection that a real release would.
-  const cancelPress = () => timer.cancelPress(START_KEY, nowMs())
-  timerGesture.on('cancel', cancelPress)
-  timerGesture.on('unpaired-release', cancelPress)
+  // `stopped` is the no-argument cancellation path for a press the scroller
+  // takes over. It also fires on the double-click timeout while a stationary
+  // finger is still down; ignore that one by its timing, or a long hold would
+  // cancel itself. A press on the timer is a hold even if the finger drifts,
+  // so only the scramble's stop cancels.
+  timerGesture.on('stopped', () => {
+    if (!pressActive || !pressInScramble) return
+    if (Math.abs(Date.now() - pressAt - doubleClickTime) < 50) return
+    pressActive = false
+    pressInScramble = false
+    cancelPress()
+  })
   mainContent.addController(timerGesture)
 
   // ---- keyboard: Space starts an inspection or arms the timer; any key stops ----
