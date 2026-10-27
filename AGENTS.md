@@ -79,6 +79,26 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   not have. Multi-select is the deliberate exception — the list keeps
   GTK's Ctrl/Shift-click and drops the custom touch path; every action on a
   single solve is still reachable by touch.
+- **The drawer's edge belongs to the drawer.** While the sidebar is a closed
+  drawer, a press in libadwaita's 32px edge-swipe target must not arm the
+  timer: `isDrawerEdgePress()` in `core/layout.ts` decides, and the timer
+  gesture *denies its sequence* so `Adw.OverlaySplitView` can claim the
+  swipe. Skipping `keyDown` alone is not enough — the gesture still owns the
+  sequence. While the timer owns the view the show gesture is disabled too,
+  since the toggle and Ctrl+B already are. Connect `stopped` (no arguments),
+  never `cancel`/`unpaired-release`: those carry a boxed `GdkEventSequence`
+  that node-gtk crashes wrapping on ARM. `stopped` also fires on the
+  double-click timeout while a stationary finger is down, so the handler
+  ignores that one by timing; otherwise a long hold cancels itself. Only a
+  press that started on the scramble is cancelled by `stopped` (the scroller
+  takes that sequence); a drift on the timer is still a hold. The
+  distraction-free layout must also wait until the finger is up: hiding the
+  scramble and selector bar moves the timer under the press and cancels the
+  touch before its release (`applyTimerFocus()` defers while `pressActive`).
+  A collapsed `Adw.OverlaySplitView` built with `show-sidebar=false` can keep
+  its `dimming` shield visible because libadwaita leaves `show-progress` at 1;
+  hide that shield while the sidebar is closed or it swallows the content's
+  touch release.
 - **Six relative paths are load-bearing for the packaged layout:**
   `styles.addFile('../style.css', …)` in `src/main.ts`,
   `Gtk.IconTheme.addSearchPath('../data/icons', …)` (the search path holds
