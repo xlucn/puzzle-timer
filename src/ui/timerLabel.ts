@@ -48,7 +48,7 @@ styles.add(`
   .timer-display.state-ready,
   .timer-display.state-inspection-ready { color: @success_color; }
   .timer-display.state-inspecting          { color: @warning_color; }
-  .timer-display.state-inspecting.expired  { color: @error_color; }
+  .timer-display.expired                   { color: @error_color; }
 `)
 
 const HINTS: Record<TimerState, string> = {
@@ -144,17 +144,21 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
     },
     /** Redraw for a new snapshot. */
     render(snapshot: TimerSnapshot) {
-      // Inspection counts down (then +2 / DNF); a stopped solve shows its
-      // graded result — `formatSolve` adds the "+" or prints DNF, so the
-      // readout always matches what the list will record.
-      const text =
-        snapshot.state === 'inspecting'
-          ? formatInspection(snapshot.inspectionMs)
-          : snapshot.state === 'stopped' && snapshot.penalty !== undefined
-            ? formatSolve(snapshot.elapsedMs, snapshot.penalty)
-            : formatTime(snapshot.elapsedMs)
+      // The inspection countdown stays up through the hold that starts the
+      // run: `holding` and `ready` are still scored by the inspection age.
+      // A stopped solve shows its graded result — `formatSolve` adds the "+"
+      // or prints DNF, so the readout always matches what the list records.
+      const inInspection =
+        snapshot.state === 'inspecting' ||
+        (snapshot.inspectionMs > 0 &&
+          (snapshot.state === 'holding' || snapshot.state === 'ready'))
+      const text = inInspection
+        ? formatInspection(snapshot.inspectionMs)
+        : snapshot.state === 'stopped' && snapshot.penalty !== undefined
+          ? formatSolve(snapshot.elapsedMs, snapshot.penalty)
+          : formatTime(snapshot.elapsedMs)
       state = snapshot.state
-      expired = snapshot.state === 'inspecting' && snapshot.inspectionMs >= INSPECTION_DNF_MS
+      expired = inInspection && snapshot.inspectionMs >= INSPECTION_DNF_MS
       label.setLabel(text)
       applyClasses()
       hint.setLabel(HINTS[snapshot.state])

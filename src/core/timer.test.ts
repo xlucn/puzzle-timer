@@ -417,6 +417,26 @@ describe('Timer — WCA inspection', () => {
     expect(timer.snapshot(t0 + 2_500).penalty).toBeUndefined()
   })
 
+  it('keeps the inspection countdown live while the solve is armed', () => {
+    const timer = new Timer()
+    const t0 = startInspection(timer, T0)
+    timer.keyDown('space', t0 + 1_000)
+    expect(timer.state).toBe('holding')
+
+    const seen: number[] = []
+    timer.subscribe((snapshot) => seen.push(snapshot.inspectionMs))
+    timer.update(t0 + 1_100)
+    expect(timer.state).toBe('holding')
+    expect(seen[seen.length - 1]).toBe(1_100)
+
+    timer.update(t0 + 1_400) // the hold threshold is crossed → ready
+    expect(timer.state).toBe('ready')
+    expect(seen[seen.length - 1]).toBe(1_400)
+
+    timer.update(t0 + 2_000) // still holding the armed timer: countdown moves
+    expect(seen[seen.length - 1]).toBe(2_000)
+  })
+
   it('starts the inspection on a tap, without waiting for the hold threshold', () => {
     const timer = new Timer()
     timer.keyDown('space', T0)

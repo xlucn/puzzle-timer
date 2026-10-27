@@ -292,7 +292,7 @@ export class Timer {
   /**
    * Drive time-based transitions (hold threshold, inspection cues) and
    * refresh the displayed value. Call it on a tick while holding,
-   * inspecting or running.
+   * inspecting, ready after an inspection, or running.
    */
   update(now: number): void {
     if (this.inspectionStartedAt > 0) this.fireCues(now)
@@ -300,7 +300,11 @@ export class Timer {
     if (this.current === 'holding') {
       if (now - this.holdStartedAt >= this.config.holdThresholdMs) this.current = 'ready'
       this.emit(now)
-    } else if (this.current === 'running' || this.current === 'inspecting') {
+    } else if (
+      this.current === 'running' ||
+      this.current === 'inspecting' ||
+      (this.current === 'ready' && this.inspectionStartedAt > 0)
+    ) {
       this.emit(now)
     }
   }

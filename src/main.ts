@@ -887,10 +887,14 @@ app.on('activate', () => {
   const render = () => timerView.render(timer.snapshot(nowMs()))
 
   // The 16 ms tick only runs while it has something to show: a hold in
-  // progress, an inspection counting down, or a solve being timed.
-  // Everywhere else the display is static.
+  // progress, an inspection counting down (including the armed hold that
+  // follows it), or a solve being timed. Everywhere else the display is
+  // static.
   const needsTick = (state: TimerState) =>
-    state === 'holding' || state === 'inspecting' || state === 'running'
+    state === 'holding' ||
+    state === 'inspecting' ||
+    state === 'running' ||
+    (state === 'ready' && timer.snapshot(nowMs()).inspectionMs > 0)
   let tickId = 0
 
   const ensureTicking = () => {
