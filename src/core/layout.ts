@@ -93,6 +93,31 @@ export const BREAKPOINTS = {
   minHeight: 294,
 } as const
 
+/**
+ * Width of the drawer's edge-swipe target, in logical px. It matches
+ * libadwaita's `ADW_SWIPE_BORDER`, which `Adw.OverlaySplitView` uses while the
+ * drawer is closed. The timer's touch gesture must not arm inside it: that
+ * swipe belongs to the drawer.
+ */
+export const DRAWER_EDGE_PX = 32
+
+/**
+ * Whether a press at `x` falls in the drawer's edge-swipe target. The caller
+ * only uses this while the drawer is closed; `sidebarAtStart` is the split
+ * view's logical sidebar position, and `rtl` flips which physical edge that
+ * is.
+ */
+export function isDrawerEdgePress(
+  x: number,
+  width: number,
+  sidebarAtStart: boolean,
+  rtl: boolean,
+): boolean {
+  if (width <= 0) return false
+  const edgeOnLeft = sidebarAtStart !== rtl
+  return edgeOnLeft ? x < DRAWER_EDGE_PX : x > width - DRAWER_EDGE_PX
+}
+
 /** Timer readout size class (src/ui/timerLabel.ts styles `.size-*`). */
 export type TimerSize = 's' | 'm' | 'l'
 

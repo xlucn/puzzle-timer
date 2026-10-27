@@ -26,6 +26,7 @@ import { styles } from 'node-gtk/styles'
 
 import {
   BREAKPOINTS,
+  isDrawerEdgePress,
   layoutFor,
   type ContentSize,
   type DiagramPlacement,
@@ -971,6 +972,23 @@ app.on('activate', () => {
 
   const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })
   timerGesture.on('pressed', (_nPress, x, y) => {
+    // A press in the drawer's edge belongs to its show swipe. Denying the
+    // sequence leaves it for Adw.OverlaySplitView's drag gesture; arming the
+    // timer here would turn a drawer swipe into a solve and hide the sidebar
+    // out from under the swipe.
+    if (
+      split.collapsed &&
+      !split.getShowSidebar() &&
+      isDrawerEdgePress(
+        x,
+        mainContent.getWidth(),
+        split.getSidebarPosition() === Gtk.PackType.START,
+        mainContent.getDirection() === Gtk.TextDirection.RTL,
+      )
+    ) {
+      timerGesture.setState(Gtk.EventSequenceState.DENIED)
+      return
+    }
     // A focused text entry owns the press, exactly as in the key handler.
     const focus = window.getFocus() as { getText?: () => string } | null
     if (focus !== null && typeof focus.getText === 'function') return

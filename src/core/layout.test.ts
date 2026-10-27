@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BREAKPOINTS, layoutFor } from './layout.js'
+import { BREAKPOINTS, DRAWER_EDGE_PX, isDrawerEdgePress, layoutFor } from './layout.js'
 
 const { smallMax, selectorRowMax, drawerMax, mediumMin, largeMin, shortMax } = BREAKPOINTS
 
@@ -232,5 +232,35 @@ describe('BREAKPOINTS — the window floor', () => {
     expect(tier.selectorRow).toBe(true)
     expect(tier.timerSize).toBe('s')
     expect(tier.scrambleMaxHeight).toBe(100)
+  })
+})
+
+describe('isDrawerEdgePress — the drawer owns the edge', () => {
+  it('matches libadwaita’s 32px edge target', () => {
+    expect(DRAWER_EDGE_PX).toBe(32)
+  })
+
+  it('is the left edge for a start sidebar in LTR', () => {
+    expect(isDrawerEdgePress(0, 360, true, false)).toBe(true)
+    expect(isDrawerEdgePress(DRAWER_EDGE_PX - 1, 360, true, false)).toBe(true)
+    expect(isDrawerEdgePress(DRAWER_EDGE_PX, 360, true, false)).toBe(false)
+    expect(isDrawerEdgePress(359, 360, true, false)).toBe(false)
+  })
+
+  it('is the right edge for an end sidebar in LTR', () => {
+    expect(isDrawerEdgePress(359, 360, false, false)).toBe(true)
+    expect(isDrawerEdgePress(360 - DRAWER_EDGE_PX, 360, false, false)).toBe(false)
+    expect(isDrawerEdgePress(0, 360, false, false)).toBe(false)
+  })
+
+  it('follows the logical side in RTL', () => {
+    expect(isDrawerEdgePress(0, 360, true, true)).toBe(false)
+    expect(isDrawerEdgePress(359, 360, true, true)).toBe(true)
+    expect(isDrawerEdgePress(0, 360, false, true)).toBe(true)
+    expect(isDrawerEdgePress(359, 360, false, true)).toBe(false)
+  })
+
+  it('never claims a press before the widget has a width', () => {
+    expect(isDrawerEdgePress(0, 0, true, false)).toBe(false)
   })
 })
