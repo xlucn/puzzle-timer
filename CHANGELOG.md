@@ -7,25 +7,21 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Mainly added touch support and distraction-free mode.
+
 ### Added
 
-- Support starting the timer by click-hold-release of a mouse or
-  press-hold-release of a finger anywhere in the main area.
-- Support stopping the timer by clicking with the mouse or tapping with the finger.
-- Mouse control is opt-in; touch and the keyboard work without it.
+- Support starting and stopping the timer by a mouse a finger.
 - Added a Cancel button during inspection.
-- Distraction free from the first start press through the solve: the scramble,
-  diagram, hints, averages and solve list step aside, leaving the timer and
-  header.
+- Distraction free during inspection and solve.
 
 ### Changed
 
-- Starting an inspection no longer needs a held key, click or touch;
-  releasing starts the countdown.
+- Starting an inspection no longer needs holding. Releasing starts the countdown.
 
 ### Fixed
 
-- The scramble diagram no longer covers the timer on a short, narrow window.
+- The scramble diagram no longer covers the timer.
 
 ## [0.1.0] — 2026-10-22
 
