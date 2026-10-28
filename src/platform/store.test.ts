@@ -370,6 +370,9 @@ describe('store — preferences', () => {
       scrambleImage: false,
       mouseStart: true,
       colorScheme: 'dark',
+      timerScale: 1.25,
+      scrambleScale: 0.9,
+      diagramScale: 0.5,
     }
 
     store.savePreferences(prefs)

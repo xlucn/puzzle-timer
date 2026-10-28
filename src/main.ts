@@ -812,12 +812,17 @@ app.on('activate', () => {
     // and its docked sidebar decide whether the diagram goes beside the timer
     // or below it.
     const contentSize = measuredMainContent(width)
-    const tier = layoutFor(width, height, contentSize)
+    const tier = layoutFor(width, height, contentSize, {
+      timer: prefs.timerScale,
+      scramble: prefs.scrambleScale,
+      diagram: prefs.diagramScale,
+    })
 
     if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
     if (split.maxSidebarWidth !== tier.sidebarMax) split.maxSidebarWidth = tier.sidebarMax
     placeSelectors(tier.selectorRow)
-    timerView.setSize(tier.timerSize)
+    timerView.setFontSize(tier.timerPx)
+    scramblePanel.setFontSize(tier.scramblePx)
     scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
     scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
     applyDiagramPlacement(tier.diagramPlacement)
@@ -839,7 +844,7 @@ app.on('activate', () => {
       `sidebar ${sidebarState}): ` +
       `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
       `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
-      `timer ${tier.timerSize}, diagram ${tier.diagramPlacement}, ` +
+      `timer ${tier.timerPx}px, diagram ${tier.diagramPlacement}, ` +
       `sidebar max ${tier.sidebarMax}`
     if (signature !== lastTier) {
       lastTier = signature
@@ -1181,6 +1186,12 @@ app.on('activate', () => {
     if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
     if ('mouseStart' in patch) timerGesture.touchOnly = !prefs.mouseStart
     if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
+    // The three size scales are read by applyLayout: one pass re-measures the
+    // timer, the scramble text and the diagram together, rather than each
+    // widget reacting to its own preference on its own.
+    if ('timerScale' in patch || 'scrambleScale' in patch || 'diagramScale' in patch) {
+      applyLayout()
+    }
     // imageFor reads `prefs`, so a re-render shows or drops the diagram (the
     // SVG is already cached). The equal-`active` mirror back is a no-op in
     // GtkToggleButton, so it cannot loop into the notify handler.

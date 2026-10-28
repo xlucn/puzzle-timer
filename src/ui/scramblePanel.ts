@@ -29,15 +29,13 @@ import Gtk from 'gi:Gtk-4.0'
 import { styles } from 'node-gtk/styles'
 
 import type { ScrambleFeedState } from '../core/scrambleFeed.js'
+import { createFontSize } from './fontSize.js'
 
 styles.add(`
-  .scramble-text {
-    /* Monospace comes from the built-in 'monospace' class (which also picks
-       up the platform's --monospace-font-family). The size stays ours: the
-       layout's char caps (scrambleChars per tier) are measured against 18px,
-       so this number is load-bearing, not decoration. */
-    font-size: 18px;
-  }
+  /* The scramble text's size is a tier output plus the user's scale, written
+     into its own sheet by createFontSize() (src/core/layout.ts measures the
+     char caps against it); 'monospace' is the built-in class, which also
+     picks up the platform's --monospace-font-family. */
   /* Ghost of the scramble being replaced: it keeps its space (so the timer
      doesn't move while the next one generates) without reading as live. */
   .scramble-text.pending {
@@ -54,24 +52,6 @@ const GENERATING = 'Generating scramble…'
 const FAILED = (reason: string) => `Scramble failed: ${reason}`
 
 /**
- * Default diagram size cap (logical px), i.e. the cap of the normal window
- * tier — applyLayout() pushes larger caps into the panel on a wide
- * window (see setDiagramMax). The natural sizes run from ~375×180 (clock) to
- * ~526×393 (4x4) — a 396×296 3x3 image would eat half the window, so the
- * picture is asked for the cap-fitted box (svgPaintable), keeping its
- * aspect. Within one type and one window size the result is constant,
- * which is what keeps the timer from moving between solves.
- */
-const IMAGE_MAX_WIDTH = 440
-const IMAGE_MAX_HEIGHT = 150
-
-/** The scramble text's default cap (normal tier), in characters. */
-const TEXT_MAX_CHARS = 60
-
-/** The scramble slot's default cap (normal tier), in px. */
-const TEXT_MAX_HEIGHT = 160
-
-/**
  * The panel's own vertical margins (see `widget` below). They are *outside*
  * the panel's height — GTK allots a child its margins plus its size, and the
  * next child starts after the lot — so the timer begins this much below the
@@ -82,9 +62,23 @@ const PANEL_MARGIN_TOP = 8
 const PANEL_MARGIN_BOTTOM = 4
 
 /**
+ * "Not decided yet": every cap below starts unset and the first layout pass
+ * fills it in before the window is presented. A zero cap would read as "no
+ * room" (which the diagram takes literally), and a plausible-looking default
+ * would be a second source for a number the tier owns.
+ */
+const UNSET = -1
+
+/**
  * SVG → a Gtk.Svg paintable whose intrinsic size is the cap-fitted box, or
  * null when it cannot be parsed (never throws: a broken picture must not
  * cost the scramble that came with it).
+ *
+ * The cap is the tier's `diagramMax*` (src/core/layout.ts): the natural sizes
+ * run from ~375×180 (clock) to ~526×393 (4x4), and a 396×296 3x3 image would
+ * eat half the window, so the picture is asked for the cap-fitted box,
+ * keeping its aspect. Within one type and one window size the result is
+ * constant, which is what keeps the timer from moving between solves.
  *
  * `Gtk.Svg` (GTK 4.22+) rasterizes at paint time, so the diagram is crisp
  * at any scale — and replaces the old Rsvg → GdkPixbuf → Texture pipeline.
@@ -208,7 +202,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // scramble (r234567 is ~3000 characters) would otherwise drag the window
     // wider than the screen. Cap the request; the label still fills the
     // window when there is room and wraps there.
-    maxWidthChars: TEXT_MAX_CHARS,
+    maxWidthChars: UNSET,
   })
 
   // Long scrambles would otherwise grow the window without bound — a
@@ -219,7 +213,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     hscrollbarPolicy: Gtk.PolicyType.NEVER, // the text wraps, it never scrolls sideways
     vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
     propagateNaturalHeight: true,
-    maxContentHeight: TEXT_MAX_HEIGHT,
+    maxContentHeight: UNSET,
   })
 
   // Adw.Spinner, not Gtk.Spinner: it animates only while mapped, so its
@@ -308,13 +302,14 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   /** The feed state last drawn — what a tier change redraws without waiting. */
   let lastState: ScrambleFeedState | null = null
 
-  // The caps in force: they start at the normal tier's defaults and
-  // applyLayout() pushes the tier's numbers in. Within one window size they
-  // are constant, which is what keeps the timer from moving between solves.
-  let textMaxChars = TEXT_MAX_CHARS
-  let textMaxHeight = TEXT_MAX_HEIGHT
-  let diagramMaxWidth = IMAGE_MAX_WIDTH
-  let diagramMaxHeight = IMAGE_MAX_HEIGHT
+  // The caps in force: unset until the first layout pass pushes the tier's
+  // numbers in. Within one window size they are constant, which is what keeps
+  // the timer from moving between solves.
+  let textMaxChars = UNSET
+  let textMaxHeight = UNSET
+  let diagramMaxWidth = UNSET
+  let diagramMaxHeight = UNSET
+  const applyFontSize = createFontSize('.scramble-text')
 
   /** The panel and diagram are hidden while the timer has the floor. */
   let chromeVisible = true
@@ -407,9 +402,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     },
     /**
      * How wide the scramble text may ask to be, and how tall the slot may
-     * grow — both from the window's tier. The label's own `maxWidthChars`
-     * caps its natural width (the minimum is the longest word, so the window
-     * can still shrink past it) and `maxContentHeight` caps a tall scramble.
+     * grow — both from the window's tier, already carrying the user's text
+     * scale. The label's own `maxWidthChars` caps its natural width (the
+     * minimum is the longest word, so the window can still shrink past it)
+     * and `maxContentHeight` caps a tall scramble.
      */
     setLimits(maxWidthChars: number, maxContentHeight: number): void {
       if (maxWidthChars !== textMaxChars) {
@@ -420,6 +416,14 @@ export function createScramblePanel(options: ScramblePanelOptions) {
         textMaxHeight = maxContentHeight
         scroll.maxContentHeight = textMaxHeight
       }
+    },
+    /**
+     * The scramble text's font size — the tier's base times the user's
+     * preference (src/core/layout.ts). The char caps below are measured
+     * against it, so the two always travel together.
+     */
+    setFontSize(px: number): void {
+      applyFontSize(px)
     },
     /**
      * The diagram cap for this tier. The paintable's viewport was written

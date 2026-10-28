@@ -8,11 +8,11 @@
  * and pushes the new value into whatever the setting drives (timer, action
  * state, theming), so the dialog never becomes a second source of truth.
  *
- * Rows are the stock Adw ones — Adw.SpinRow for the hold threshold (a real
- * SpinButton inside an action row), Adw.SwitchRow for the flags, Adw.ComboRow
- * for the theme. Every row announces on `notify::…`; the dialog is modal, so
- * nothing outside can move a value under it and there is no echo to guard
- * against.
+ * Rows are the stock Adw ones — Adw.SpinRow for the hold threshold and the
+ * three size scales (a real SpinButton inside an action row), Adw.SwitchRow
+ * for the flags, Adw.ComboRow for the theme. Every row announces on
+ * `notify::…`; the dialog is modal, so nothing outside can move a value under
+ * it and there is no echo to guard against.
  *
  * The label units: the hold threshold is stored in milliseconds (the timer's
  * unit) but shown in seconds, because "0.30 s" is how csTimer's own
@@ -25,7 +25,11 @@ import Gtk from 'gi:Gtk-4.0'
 import {
   HOLD_THRESHOLD_STEP_MS,
   MAX_HOLD_THRESHOLD_MS,
+  MAX_SIZE_SCALE,
+  MIN_DIAGRAM_SCALE,
   MIN_HOLD_THRESHOLD_MS,
+  MIN_SIZE_SCALE,
+  SIZE_SCALE_STEP,
   type ColorScheme,
   type Preferences,
 } from '../core/preferences.js'
@@ -156,6 +160,68 @@ export function createPreferences(options: PreferencesPanelOptions) {
     appearanceGroup.add(schemeRow)
 
     appearancePage.add(appearanceGroup)
+
+    // ---- group: sizes -----------------------------------------------------
+    // The multipliers the adaptive layout applies to its own sizes
+    // (src/core/layout.ts) — the tier still decides the size, these only say
+    // how much of it is shown.
+    const sizesGroup = new Adw.PreferencesGroup({
+      title: 'Sizes',
+      description:
+        'Scale the readout, the scramble text and the scramble diagram. 1.00 is ' +
+        'the size the layout picks for the window; the layout still adjusts around it.',
+    })
+
+    const scaleRow = (row: {
+      title: string
+      subtitle: string
+      value: number
+      min: number
+      onChange: (value: number) => void
+    }): void => {
+      const spin = new Adw.SpinRow({
+        title: row.title,
+        subtitle: row.subtitle,
+        digits: 2,
+        numeric: true,
+        adjustment: new Gtk.Adjustment({
+          lower: row.min,
+          upper: MAX_SIZE_SCALE,
+          stepIncrement: SIZE_SCALE_STEP,
+          value: row.value,
+        }),
+      })
+      spin.on('notify::value', () => {
+        // Two decimals is the storage contract: a step of 0.05 must not be
+        // stored as 1.0500000000000003.
+        row.onChange(Math.round(spin.value * 100) / 100)
+      })
+      sizesGroup.add(spin)
+    }
+
+    scaleRow({
+      title: 'Timer readout',
+      subtitle: 'Size of the big digits',
+      value: prefs.timerScale,
+      min: MIN_SIZE_SCALE,
+      onChange: (timerScale) => options.set({ timerScale }),
+    })
+    scaleRow({
+      title: 'Scramble text',
+      subtitle: 'Size of the scramble above the timer',
+      value: prefs.scrambleScale,
+      min: MIN_SIZE_SCALE,
+      onChange: (scrambleScale) => options.set({ scrambleScale }),
+    })
+    scaleRow({
+      title: 'Scramble diagram',
+      subtitle: 'Size of the scramble picture',
+      value: prefs.diagramScale,
+      min: MIN_DIAGRAM_SCALE,
+      onChange: (diagramScale) => options.set({ diagramScale }),
+    })
+
+    appearancePage.add(sizesGroup)
     dialog.add(appearancePage)
 
     // ---- page: scramble --------------------------------------------------

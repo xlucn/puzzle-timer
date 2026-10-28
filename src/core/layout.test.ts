@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
-import { BREAKPOINTS, DRAWER_EDGE_PX, isDrawerEdgePress, layoutFor } from './layout.js'
+import {
+  BREAKPOINTS,
+  DRAWER_EDGE_PX,
+  isDrawerEdgePress,
+  layoutFor,
+  TIMER_PX,
+  UNIT_SCALES,
+  type SizeScales,
+} from './layout.js'
 
 const { smallMax, selectorRowMax, drawerMax, mediumMin, largeMin, shortMax } = BREAKPOINTS
+
+/** A full set of scales with only the one under test changed. */
+const scales = (patch: Partial<SizeScales>): SizeScales => ({ ...UNIT_SCALES, ...patch })
 
 describe('layoutFor — width tiers', () => {
   it('makes the sidebar a drawer only while the content header would otherwise starve', () => {
@@ -21,9 +32,9 @@ describe('layoutFor — width tiers', () => {
   })
 
   it('steps the timer down only where its digits could clip', () => {
-    expect(layoutFor(smallMax, 540).timerSize).toBe('s')
-    expect(layoutFor(smallMax + 1, 540).timerSize).toBe('m')
-    expect(layoutFor(900, 540).timerSize).toBe('m')
+    expect(layoutFor(smallMax, 540).timerPx).toBe(TIMER_PX.s)
+    expect(layoutFor(smallMax + 1, 540).timerPx).toBe(TIMER_PX.m)
+    expect(layoutFor(900, 540).timerPx).toBe(TIMER_PX.m)
   })
 
   it('pins the sidebar at 320 at every width', () => {
@@ -36,7 +47,7 @@ describe('layoutFor — width tiers', () => {
   })
 
   it('gives the timer and the scramble more room on a large window', () => {
-    expect(layoutFor(largeMin, 900).timerSize).toBe('l')
+    expect(layoutFor(largeMin, 900).timerPx).toBe(TIMER_PX.l)
     expect(layoutFor(largeMin, 900).scrambleChars).toBeGreaterThan(60)
     expect(layoutFor(largeMin, 900).scrambleMaxHeight).toBe(220)
     expect(layoutFor(900, 900).scrambleChars).toBe(60)
@@ -47,12 +58,12 @@ describe('layoutFor — width tiers', () => {
     expect(strip.drawer).toBe(false)
     expect(strip.diagramMaxHeight).toBe(150) // roomy is false
     expect(strip.scrambleMaxHeight).toBe(100) // height ≤ shortMax
-    expect(strip.timerSize).toBe('l') // 500 is still taller than the small-timer limit
+    expect(strip.timerPx).toBe(TIMER_PX.l) // 500 is still taller than the small-timer limit
   })
 
   it('is total: measurements that make no sense select a tier, not a crash', () => {
     expect(layoutFor(Number.NaN, Number.POSITIVE_INFINITY).drawer).toBe(true)
-    expect(layoutFor(-50, -50).timerSize).toBe('s')
+    expect(layoutFor(-50, -50).timerPx).toBe(TIMER_PX.s)
     expect(layoutFor(0, 0).scrambleMaxHeight).toBe(100)
   })
 })
@@ -215,8 +226,73 @@ describe('layoutFor — height tiers', () => {
   })
 
   it('shrinks the timer on a window too short for the 96px readout', () => {
-    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight).timerSize).toBe('s')
-    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight + 1).timerSize).toBe('l')
+    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight).timerPx).toBe(TIMER_PX.s)
+    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight + 1).timerPx).toBe(TIMER_PX.l)
+  })
+})
+
+describe('layoutFor — the user’s size scales', () => {
+  it('changes nothing at 1.00', () => {
+    expect(layoutFor(900, 900, undefined, UNIT_SCALES)).toEqual(layoutFor(900, 900))
+  })
+
+  it('scales the readout on top of the tier it was given', () => {
+    expect(layoutFor(900, 900, undefined, scales({ timer: 1.5 })).timerPx).toBe(
+      TIMER_PX.m * 1.5,
+    )
+    expect(layoutFor(smallMax, 540, undefined, scales({ timer: 0.75 })).timerPx).toBe(
+      TIMER_PX.s * 0.75,
+    )
+    // A bigger readout does not change which readout the window asked for.
+    expect(layoutFor(mediumMin, 900, undefined, scales({ timer: 0.75 })).timerPx).toBe(
+      TIMER_PX.l * 0.75,
+    )
+  })
+
+  it('fits fewer characters and a taller slot as the scramble text grows', () => {
+    const base = layoutFor(900, 900).scrambleChars
+    const big = layoutFor(900, 900, undefined, scales({ scramble: 1.5 }))
+    expect(big.scramblePx).toBe(18 * 1.5)
+    expect(big.scrambleChars).toBe(Math.round(base / 1.5))
+    expect(big.scrambleMaxHeight).toBe(160 * 1.5)
+    const small = layoutFor(900, 900, undefined, scales({ scramble: 0.75 }))
+    expect(small.scrambleChars).toBe(Math.round(base / 0.75))
+  })
+
+  it('scales the diagram cap after the wide layout has narrowed it', () => {
+    // 640×360 narrows the cap to the side column's 180 before scaling.
+    expect(layoutFor(640, 360, undefined, scales({ diagram: 0.5 })).diagramMaxWidth).toBe(90)
+    expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxWidth).toBe(270)
+    expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxHeight).toBe(225)
+    // A tier that sheds the diagram keeps it shed, whatever the scale says.
+    const shed = layoutFor(360, 294, undefined, scales({ diagram: 1.5 }))
+    expect([shed.diagramMaxWidth, shed.diagramMaxHeight]).toEqual([0, 0])
+  })
+
+  it('leaves the tiers themselves to the window', () => {
+    const scalesAll = scales({ timer: 1.5, scramble: 1.5, diagram: 1.5 })
+    const zoomed = layoutFor(smallMax, 700, undefined, scalesAll)
+    expect(zoomed.drawer).toBe(true)
+    expect(zoomed.selectorRow).toBe(true)
+    expect(zoomed.diagramPlacement).toBe('tall-narrow')
+    const small = scales({ timer: 0.75, scramble: 0.75, diagram: 0.75 })
+    const wide = layoutFor(1600, 900, undefined, small)
+    expect(wide.drawer).toBe(false)
+    expect(wide.diagramPlacement).toBe('wide')
+  })
+
+  it('treats a scale that cannot mean anything as unchanged', () => {
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const tier = layoutFor(
+        900,
+        900,
+        undefined,
+        scales({ timer: bad, scramble: bad, diagram: bad }),
+      )
+      expect(tier.timerPx, String(bad)).toBe(TIMER_PX.m)
+      expect(tier.scramblePx, String(bad)).toBe(18)
+      expect(tier.diagramMaxWidth, String(bad)).toBe(440)
+    }
   })
 })
 
@@ -230,7 +306,7 @@ describe('BREAKPOINTS — the window floor', () => {
     const tier = layoutFor(BREAKPOINTS.minWidth, BREAKPOINTS.minHeight)
     expect(tier.drawer).toBe(true)
     expect(tier.selectorRow).toBe(true)
-    expect(tier.timerSize).toBe('s')
+    expect(tier.timerPx).toBe(TIMER_PX.s)
     expect(tier.scrambleMaxHeight).toBe(100)
   })
 })

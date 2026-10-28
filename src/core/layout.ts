@@ -20,6 +20,11 @@
  *                                the timer or below it, and how much the
  *                                docked sidebar shifts that balance.
  *
+ *   layoutFor(width, height,     the same, with the user's size multipliers on
+ *             mainContent,       top of the tier: the tier still decides the
+ *             sizes)             relative growth and the no-clip floor, and a
+ *                                scale only changes how much of it is shown.
+ *
  * Units are **logical px** everywhere: GTK lays out in logical px and the
  * compositor scales them up (tools/README.md trap 6), so these numbers match
  * `setDefaultSize`, `minSidebarWidth`, and the sizes the widgets report.
@@ -118,11 +123,35 @@ export function isDrawerEdgePress(
   return edgeOnLeft ? x < DRAWER_EDGE_PX : x > width - DRAWER_EDGE_PX
 }
 
-/** Timer readout size class (src/ui/timerLabel.ts styles `.size-*`). */
+/** The readout's three size tiers; their base px are TIMER_PX below. */
 export type TimerSize = 's' | 'm' | 'l'
 
 /** How the timer and the scramble diagram share the lower area. */
 export type DiagramPlacement = 'wide' | 'tall-narrow' | 'none'
+
+/**
+ * The readout's digit size per tier, in logical px, before the user's scale.
+ * These are the numbers the whole no-clip rule is measured against, so they
+ * live here and the UI is only ever handed the result.
+ */
+export const TIMER_PX: Record<TimerSize, number> = { s: 72, m: 96, l: 128 }
+
+/** The scramble text's size before the user's scale, in logical px. */
+export const SCRAMBLE_PX = 18
+
+/**
+ * The user's three size multipliers. Each one scales an output of this module
+ * and nothing else: the tier decides *what* size a window gets, the
+ * preference decides how much of it.
+ */
+export interface SizeScales {
+  timer: number
+  scramble: number
+  diagram: number
+}
+
+/** The tier's own sizes, untouched — the default for every caller. */
+export const UNIT_SCALES: SizeScales = { timer: 1, scramble: 1, diagram: 1 }
 
 /**
  * Widest the picture may be beside the timer in the wide layout. The dock
@@ -166,10 +195,12 @@ export interface LayoutTier {
   /** The scramble selectors are packed into a second row under the header —
    *  at `selectorRowMax` and below, and for no other reason. */
   selectorRow: boolean
-  /** Size class for the timer's digits. */
-  timerSize: TimerSize
+  /** The readout's font size for this tier, in px (base × the timer scale). */
+  timerPx: number
   /** `maxWidthChars` for the scramble text — how wide it is allowed to run. */
   scrambleChars: number
+  /** The scramble text's font size, in px (base × the scramble scale). */
+  scramblePx: number
   /** `maxContentHeight` of the scramble slot, in px. */
   scrambleMaxHeight: number
   /**
@@ -191,15 +222,19 @@ const sane = (value: number): number => (Number.isFinite(value) ? Math.max(0, va
 
 /**
  * The tier for a window size (logical px), with the measured content area when
- * it is available. Called on every resize and from every breakpoint handler,
- * so it must stay cheap and total: same inputs, same output, no matter which
- * one asked.
+ * it is available and the user's size multipliers on top. Called on every
+ * resize and from every breakpoint handler, so it must stay cheap and total:
+ * same inputs, same output, no matter which one asked.
  *
  * The width bands decide the sidebar, the selector row, the timer tier and
  * the scramble width; height decides the short-window caps. The diagram
  * placement is the one rule that also reads the content area's aspect and
- * whether the sidebar is docked. Long
- * labels are not a factor: the header's selector is an icon button and the
+ * whether the sidebar is docked. The scales are applied last, to the numbers
+ * the tier decided — they never touch a band, a ratio or the placement, so a
+ * preference can make the timer bigger but cannot change which layout the
+ * window gets.
+ *
+ * Long labels are not a factor: the header's selector is an icon button and the
  * type text lives in the window title, whose `Adw.WindowTitle` template
  * labels ellipsize (see src/ui/scrambleTypeButton.ts and
  * src/ui/scrambleTypeTitle.ts), so the header's *min* stays small, it absorbs
@@ -213,6 +248,7 @@ export function layoutFor(
   width: number,
   height: number,
   mainContent?: ContentSize,
+  sizes: SizeScales = UNIT_SCALES,
 ): LayoutTier {
   const w = sane(width)
   const h = sane(height)
@@ -229,19 +265,22 @@ export function layoutFor(
 
   const drawer = w <= BREAKPOINTS.drawerMax
 
+  // Narrow *or* short: the digits are the one thing that must never clip.
+  const timerSize: TimerSize =
+    w <= BREAKPOINTS.smallMax || h <= BREAKPOINTS.timerSmallMaxHeight
+      ? 's'
+      : w >= BREAKPOINTS.mediumMin
+        ? 'l'
+        : 'm'
+
   const tier: LayoutTier = {
     drawer,
     // The width band is the whole rule: at ≤540 the window is too narrow for
     // two controls side by side, and the row gives the labels their own space.
     selectorRow: w <= BREAKPOINTS.selectorRowMax,
-    // Narrow *or* short: the digits are the one thing that must never clip.
-    timerSize:
-      w <= BREAKPOINTS.smallMax || h <= BREAKPOINTS.timerSmallMaxHeight
-        ? 's'
-        : w >= BREAKPOINTS.mediumMin
-          ? 'l'
-          : 'm',
+    timerPx: TIMER_PX[timerSize],
     scrambleChars: 60,
+    scramblePx: SCRAMBLE_PX,
     scrambleMaxHeight: h <= BREAKPOINTS.shortMax ? 100 : 160,
     sidebarMax: 320, // pinned at every tier
     diagramPlacement: 'tall-narrow',
@@ -287,6 +326,27 @@ export function layoutFor(
     tier.diagramMaxWidth = 0
     tier.diagramMaxHeight = 0
   }
+
+  // ---- the user's size multipliers --------------------------------------
+  // Applied to the finished tier, so a preference never moves a band, a ratio
+  // or the diagram's placement: it only changes how much of the tier's size is
+  // shown. A scale that cannot mean anything (a hand-edited file, a caller's
+  // mistake) is "unchanged", not a size of its own.
+  const multiplier = (value: number): number =>
+    Number.isFinite(value) && value > 0 ? value : 1
+  const px = (value: number): number => Math.round(value * 100) / 100
+  const timerScale = multiplier(sizes.timer)
+  const scrambleScale = multiplier(sizes.scramble)
+  const diagramScale = multiplier(sizes.diagram)
+
+  tier.timerPx = px(TIMER_PX[timerSize] * timerScale)
+  tier.scramblePx = px(SCRAMBLE_PX * scrambleScale)
+  // A bigger font fits fewer characters in the same width; the slot's cap
+  // grows because the same lines are taller.
+  tier.scrambleChars = Math.max(1, Math.round(tier.scrambleChars / scrambleScale))
+  tier.scrambleMaxHeight = Math.round(tier.scrambleMaxHeight * scrambleScale)
+  tier.diagramMaxWidth = Math.round(tier.diagramMaxWidth * diagramScale)
+  tier.diagramMaxHeight = Math.round(tier.diagramMaxHeight * diagramScale)
 
   return tier
 }

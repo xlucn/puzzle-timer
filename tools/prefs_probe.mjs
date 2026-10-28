@@ -4,7 +4,8 @@
  *   1. Adw.PreferencesDialog + PreferencesPage + PreferencesGroup build and
  *      present under node-gtk (same class of risk as the other Adw widgets
  *      we probe-verified first);
- *   2. Adw.SpinRow reads back in seconds and reports `notify::value`;
+ *   2. Adw.SpinRow reads back in seconds and reports `notify::value` — the
+ *      hold threshold and, on the Appearance page, the three size scales;
  *   3. Adw.SwitchRow reports `notify::active`;
  *   4. a patch produced by a row change merges into the run's Preferences
  *      the way main.ts's applyPreferences() does;
@@ -136,6 +137,28 @@ app.on('activate', () => {
       image.setActive(false)
     }
 
+    // Appearance → Sizes: one SpinRow per scale, all opening on 1.00.
+    const timerScale = findRow(dialog, 'Timer readout')
+    check(timerScale !== null, 'found the Timer readout SpinRow')
+    if (timerScale !== null) {
+      check(Math.abs(timerScale.value - 1) < 1e-9, `opens on 1.00 (got ${timerScale.value})`)
+      timerScale.value = 1.5
+    }
+
+    const scrambleScale = findRow(dialog, 'Scramble text')
+    check(scrambleScale !== null, 'found the Scramble text SpinRow')
+    if (scrambleScale !== null) {
+      check(Math.abs(scrambleScale.value - 1) < 1e-9, `opens on 1.00 (got ${scrambleScale.value})`)
+      scrambleScale.value = 0.75
+    }
+
+    const diagramScale = findRow(dialog, 'Scramble diagram')
+    check(diagramScale !== null, 'found the Scramble diagram SpinRow')
+    if (diagramScale !== null) {
+      check(Math.abs(diagramScale.value - 1) < 1e-9, `opens on 1.00 (got ${diagramScale.value})`)
+      diagramScale.value = 0.5
+    }
+
     // Let the notify emissions settle, then read back the merged state.
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 100, () => {      check(
         patches.some((p) => p.holdThresholdMs === 550),
@@ -166,6 +189,13 @@ app.on('activate', () => {
         )
       }
       check(prefs.scrambleImage === false, 'the image switch reported off')
+      check(
+        patches.some((p) => p.timerScale === 1.5),
+        `the timer scale row reported 1.50 (${JSON.stringify(patches)})`,
+      )
+      check(prefs.timerScale === 1.5, 'the merged preference has the timer scale')
+      check(prefs.scrambleScale === 0.75, 'the merged preference has the scramble scale')
+      check(prefs.diagramScale === 0.5, 'the merged preference has the diagram scale')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
       app.quit()

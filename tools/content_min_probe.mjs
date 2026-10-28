@@ -66,8 +66,9 @@ const line = (name, w, forSize) => {
 
 for (const width of [505, 480, 360]) {
   console.error(`[c] ---- width ${width} ----`)
-  timerView.setSize('s') // tier: window 294 ≤ timerSmallMaxHeight
+  timerView.setFontSize(72) // tier: window 294 ≤ timerSmallMaxHeight
   scramblePanel.setLimits(60, 100) // tier: short window
+  scramblePanel.setFontSize(18) // tier base: no text scale
   // The real strip renders values (the replica's subscribe was a stub):
   // .stats-value's line is taller than an empty label — this is the gap
   // between the replica's 287 and the app's reported 300.

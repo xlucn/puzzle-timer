@@ -14,7 +14,8 @@ able to continue at the current milestone.
 **Scheduled (M7–M16, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
 `0.1.0`).** The queue is **M15** first — the phone-runtime verdict — followed
-by M7–M12 and M16; M14 (touch) landed on 2026-10-23. Numbers are stable
+by M8–M12 and M16; M14 (touch) landed on 2026-10-23 and M7 (size
+preferences) on 2026-10-28. Numbers are stable
 identifiers, not queue positions (§6). Two of the adjacencies are
 dependencies rather than preferences: i18n lands ahead of every string-heavy
 feature, so those are written translated instead of swept afterwards, and
@@ -43,9 +44,9 @@ point at:
   a written result plus a scoped packaging milestone — or a documented "not
   viable". **M15 decides whether packaging reopens any *further* — M16 has
   already opened the AUR slice.**
-- **M7 — size preferences.** Timer readout, scramble text and scramble
-  diagram sizes, each a *scale* handed to `layoutFor()` rather than a
-  replacement for its tiers (decision 14).
+- **M7 — size preferences (landed 2026-10-28).** Timer readout, scramble text
+  and scramble diagram sizes, each a *scale* handed to `layoutFor()` rather
+  than a replacement for its tiers (decision 14).
 - **M8 — scramble type options.** csTimer's per-type controls: the scramble
   **length / count** (number of scrambles for MBLD, move counts for
   random-move types), **neutral orientation**, **pre-scramble** rotations and
@@ -305,12 +306,14 @@ src/
     `scrambleChars` = base ÷ text scale, because a bigger font fits fewer
     characters in the same width, while `scrambleMaxHeight` (px) × scale
     because the same lines are taller; `diagramMax*` × scale. Two
-    implementation notes: the timer's sizes are CSS classes
-    (`.timer-display.size-s/m/l`) and GTK4 CSS has no custom properties, so a
-    changed scale re-`add()`s that sheet (`styles.add()` returns a handle with
-    `remove()`); and `scramblePanel.ts` already duplicates
-    `IMAGE_MAX_WIDTH/HEIGHT` on top of the tier's `diagramMax*`, which M7
-    removes — a third source of diagram size would be a bug waiting to happen.
+    implementation notes, as landed: the scales are applied *after* the tier
+    is finished, and the bases (72/96/128 and 18 px) live in `layout.ts`, so
+    `src/ui/` is handed px rather than owning a class per size; GTK4 CSS has
+    no custom properties, so `src/ui/fontSize.ts` keeps one inline sheet per
+    dynamic selector, installing the new one before removing the old. And
+    `scramblePanel.ts` no longer keeps a cap of its own — its caps start
+    unset and every layout pass fills them from the tier, because a third
+    source of diagram size would be a bug waiting to happen.
 
 15. **Touch is the same input model as the keyboard, not a second one.**
     `Timer` already speaks strings: `keyDown('space', now)` / `keyUp('space',
@@ -477,8 +480,9 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M14 → M15**, then M7–M12 and M16; M13 landed on 2026-10-22
-as `v0.1.0`, and the landed M0–M6 log closes the section. A number never
+The queue is **M15**, then M8–M12 and M16; M13 landed on 2026-10-22
+as `v0.1.0`, M14 on 2026-10-23, and M7 on 2026-10-28, and the landed M0–M6 log
+closes the section. A number never
 moves: only the queue does.
 
 | # | Deliverable | Done when |
@@ -895,7 +899,7 @@ A decision gate. Nothing here may change the architecture on its own.
 
 **Checkpoint for the user:** the verdict.
 
-### M7 — scheduled (size preferences)
+### M7 — landed 2026-10-28 (size preferences)
 
 Small and self-contained — deliberately the first thing scheduled (user call,
 2026-10-05). Decisions: three scales, applied by the tier (decision 14).
@@ -907,24 +911,29 @@ Small and self-contained — deliberately the first thing scheduled (user call,
   Range 0.75–1.5 (the diagram 0.5–1.5), step 0.05, shown as `Adw.SpinRow`s in
   a new **Sizes** group on the Appearance page — the same row pattern as
   Hold time.
-- **Plumbing** — `layoutFor(width, height, sizes)` applies them to its own
-  outputs: timer px = base × `timerScale`; `scrambleChars` = base ÷
-  `scrambleScale` (a bigger font fits fewer characters in the same width)
-  with `scrambleMaxHeight` × `scrambleScale`; `diagramMax*` ×
-  `diagramScale`. `src/core/layout.ts` keeps its "no threshold outside this
-  file" rule intact — nothing in `src/ui/` learns a size.
-- **Applying** — a size change rides the existing `applyPreferences()` path
-  and re-runs `applyLayout()`, so the timer, the scramble and the diagram
-  re-measure in one pass rather than one each.
-- **CSS** — the readout is `.timer-display.size-s/m/l` at fixed px and GTK4
-  CSS has no custom properties, so a changed scale re-`add()`s that sheet and
-  drops the old one (`styles.add()` hands back a handle with `remove()`).
-  Confirm swapping sheets live does not flicker.
-- **Unify the diagram caps** — `scramblePanel.ts`'s `IMAGE_MAX_WIDTH/HEIGHT`
-  and the tier's `diagramMaxWidth/Height` are the same numbers written twice
-  today; one of them goes before a scale can make them disagree.
-- **What must still hold:** the 360×294 floor, the drawer at ≤800, the
-  selector row at ≤540 — none of them may acquire a size constant of its own.
+- **Plumbing** — the scales are `layoutFor()`'s fourth argument and are
+  applied to the **finished** tier, after every band, ratio and placement has
+  been decided: `timerPx` = base × scale, `scramblePx` = 18 × scale,
+  `scrambleChars` = base ÷ scale (a bigger font fits fewer characters in the
+  same width), `scrambleMaxHeight` × scale, `diagramMax*` × scale. The bases
+  (72/96/128 and 18) moved into `layout.ts` (`TIMER_PX`, `SCRAMBLE_PX`), so
+  the UI is handed every px it shows and holds none of its own.
+- **CSS** — no style class can carry a user multiplier, so `.size-s/m/l` is
+  gone: `src/ui/fontSize.ts` owns one inline sheet per dynamic selector and
+  removes the previous one *after* the new one is installed. A measuring
+  probe (96 → 144 → 12 → 96 px) lands exactly on every size; GTK recomputes
+  style on the next frame, so a preference change is one frame behind, never
+  wrong, and no frame is painted at a size nobody asked for.
+- **Caps unified** — `scramblePanel.ts` keeps no size of its own: its caps
+  start at `UNSET` (-1) and the first layout pass fills them from the tier,
+  which removed the duplicated `IMAGE_MAX_*` and `TEXT_MAX_*` as well.
+- **What still holds** — at default scale the floor reports `360x294` with
+  the readout at 72 px and no app warnings. A user scale is honest about the
+  room it needs instead: at 1.5 the content's minimum at the floor asks for
+  324 px, and libadwaita warns when a window is forced below it — the
+  documented rule that a content minimum can only *add* to the window's
+  request. The drawer at ≤800 and the selector row at ≤540 are untouched:
+  the scales never reach a band.
 
 **Checkpoint for the user:** at default scale, the floor still reports
 `360x294` with no app warnings; then push each scale to an end and confirm at
@@ -1809,14 +1818,15 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M7–M16 scheduled — queue reordered 2026-10-16** — **M15 phone-runtime
-  verdict** first, then M7 size preferences → M8 scramble type
+- **M8–M16 scheduled — queue reordered 2026-10-16** — **M15 phone-runtime
+  verdict** first, then M8 scramble type
   options → M9 i18n → M10 csTimer import/export → M11 records & statistics →
   M12 charts → M16 AUR package. M13 is out of the queue: it landed 2026-10-22
-  as `v0.1.0`, tagged and pushed; M14 (touch input) joined it on 2026-10-23.
+  as `v0.1.0`, tagged and pushed; M14 (touch input) joined it on 2026-10-23,
+  and M7 (size preferences) on 2026-10-28.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M7–M12 and M16 remain scheduled.
+  changelog entries. Nothing was dropped: M8–M12 and M16 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and
@@ -1834,7 +1844,7 @@ Evidence:
   and the size measurements live there too, along with the first two things to
   test: Arch's `typescript` 6.0.3 against our declared `^5.5.0`, and whether
   the built `dist/` runs at all.
-  Open before M7, M8 and M9: nothing — M8's one open question (whether the
+  Open before M8 and M9: nothing — M8's one open question (whether the
   bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
   its own block. Probes that gate M10 and M12 (`Gtk.FileDialog` async
   callbacks, `Gtk.DrawingArea.setDrawFunc`) are called
@@ -1844,6 +1854,19 @@ Evidence:
   caveat, now history:** M14 (touch) followed M13 by user call, not by
   dependency, so `0.1.0` shipped **without** touch input; that gap closed on
   2026-10-23.
+- **M7 landed 2026-10-28 — size preferences.** What a cold session needs: the
+  three scales (`timerScale`, `scrambleScale`, `diagramScale`) reach the UI
+  only through `layoutFor()`'s fourth argument, which applies them after the
+  tier is decided, so no band, ratio or placement can move with them. The
+  readout's and the scramble's px and the diagram caps now live in
+  `core/layout.ts`; `src/ui/fontSize.ts` turns the px into one inline sheet
+  per selector (new sheet first, then the old one is dropped) because GTK4
+  CSS has no custom properties, and `scramblePanel.ts` no longer keeps any
+  size of its own. A preference change re-runs `applyLayout()` once, from
+  `applyPreferences()`. `npm test` = **441 tests**; the floor at default
+  scale is still `360x294` with a 72 px readout and no app warnings, while a
+  1.5 readout asks for 324 px there — a content minimum can only add to the
+  window's request.
 - **M14 landed 2026-10-23 — touch input and the floor's diagram fix.** What a
   cold session needs: the main content view's `Gtk.GestureClick` calls the
   same `timer.keyDown`/`keyUp(START_KEY)` the keyboard does, and the

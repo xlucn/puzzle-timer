@@ -7,6 +7,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Size settings for the timer, the scramble text and the scramble diagram.
+
 ## [0.2.0] — 2026-10-27
 
 Mainly added touch support and distraction-free mode.

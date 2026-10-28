@@ -9,9 +9,9 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
-import type { TimerSize } from '../core/layout.js'
 import { INSPECTION_DNF_MS, type TimerSnapshot, type TimerState } from '../core/timer.js'
 import { formatInspection, formatSolve, formatTime } from '../core/time.js'
+import { createFontSize } from './fontSize.js'
 import type { createStatsStrip } from './statsStrip.js'
 
 /**
@@ -27,17 +27,13 @@ type StatsStrip = ReturnType<typeof createStatsStrip>
 // dimmed text here is derived from the foreground colour with alpha() instead.
 styles.add(`
   .timer-display {
-    font-size: 96px;
     font-weight: 700;
-    /* Tabular figures come from the built-in 'numeric' class on the label
+    /* The font size is not here: it is a tier output plus the user's scale,
+       written into its own sheet by createFontSize() on every layout pass.
+       Tabular figures come from the built-in 'numeric' class on the label
        (Adwaita: font-variant-numeric: tabular-nums) — keep the digits from
        shifting as the time changes. */
   }
-  /* The readout steps with the window's tier. Small covers both narrow and
-     short windows — the digits are the one thing that must never clip —
-     and large is what a window over 1200 logical does with the room. */
-  .timer-display.size-s { font-size: 72px; }
-  .timer-display.size-l { font-size: 128px; }
   /* State colours are semantics, not styling: idle dimmed while waiting,
      red while holding, green at ready or ready to inspect, orange through
      inspection and red once doomed (≥ 17 s → the readout spells DNF). The
@@ -74,23 +70,24 @@ const HINTS: Record<TimerState, string> = {
 export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   const label = new Gtk.Label({
     label: '0.00',
-    cssClasses: ['timer-display', 'numeric', 'size-m', 'state-idle'],
+    cssClasses: ['timer-display', 'numeric', 'state-idle'],
   })
 
   /**
-   * The class list is assembled from three independent facts — the size tier
-   * (changes with the window), the timer state, and whether an inspection
-   * has already blown its DNF limit — so both entry points below go through
-   * one function rather than one of them overwriting the other's classes.
+   * The class list is assembled from two independent facts — the timer state
+   * and whether an inspection has already blown its DNF limit — so both entry
+   * points below go through one function rather than one overwriting the
+   * other's classes. The size is not a class: it is a px value the layout
+   * hands over (src/core/layout.ts), applied as its own font-size sheet.
    */
-  let size: TimerSize = 'm'
   let state: TimerState = 'idle'
   let expired = false
   const applyClasses = (): void => {
-    const classes = ['timer-display', 'numeric', `size-${size}`, `state-${state}`]
+    const classes = ['timer-display', 'numeric', `state-${state}`]
     if (expired) classes.push('expired')
     label.setCssClasses(classes)
   }
+  const applyFontSize = createFontSize('.timer-display')
 
   const hint = new Gtk.Label({
     label: HINTS.idle,
@@ -125,7 +122,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
     widget,
     /**
      * Hide the hint and the averages for the distraction-free timer view;
-     * the readout stays, and the size class is untouched.
+     * the readout stays, and its font size is untouched.
      */
     setChromeVisible(visible: boolean): void {
       if (visible === chromeVisible) return
@@ -133,14 +130,13 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
       applyChrome()
     },
     /**
-     * The readout's size class follows the window's tier
-     * (src/core/layout.ts). The state classes on screen are reapplied, so a
-     * resize never repaints a running timer in the idle colour.
+     * The readout's font size follows the window's tier and the user's scale
+     * (src/core/layout.ts). Only the metric changes here; the state classes
+     * stay on screen, so a resize never repaints a running timer in the idle
+     * colour.
      */
-    setSize(next: TimerSize): void {
-      if (next === size) return
-      size = next
-      applyClasses()
+    setFontSize(px: number): void {
+      applyFontSize(px)
     },
     /** Redraw for a new snapshot. */
     render(snapshot: TimerSnapshot) {

@@ -34,6 +34,12 @@ export interface Preferences {
   mouseStart: boolean
   /** Light/dark theming; `system` follows the desktop. */
   colorScheme: ColorScheme
+  /** Multiplier on the timer readout's tier size (src/core/layout.ts). */
+  timerScale: number
+  /** Multiplier on the scramble text: bigger text, fewer characters per line. */
+  scrambleScale: number
+  /** Multiplier on the scramble diagram's tier cap. */
+  diagramScale: number
 }
 
 /** Bumped only when the preferences file's shape changes incompatibly. */
@@ -44,6 +50,17 @@ export const MAX_HOLD_THRESHOLD_MS = 2_000
 /** Spin-row step in the dialog, in milliseconds (0.05 s). */
 export const HOLD_THRESHOLD_STEP_MS = 50
 
+/**
+ * The range the three size multipliers are clamped to. The lowest value keeps
+ * a slider from making anything unreadable; 1 is the tier's own size.
+ */
+export const MIN_SIZE_SCALE = 0.75
+export const MAX_SIZE_SCALE = 1.5
+/** The picture may go smaller than the text before it stops being a diagram. */
+export const MIN_DIAGRAM_SCALE = 0.5
+/** Spin-row step for every size multiplier. */
+export const SIZE_SCALE_STEP = 0.05
+
 export const DEFAULT_PREFERENCES: Preferences = {
   holdThresholdMs: 300,
   inspection: true,
@@ -51,6 +68,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   scrambleImage: true,
   mouseStart: false,
   colorScheme: 'system',
+  timerScale: 1,
+  scrambleScale: 1,
+  diagramScale: 1,
 }
 
 const COLOR_SCHEMES: readonly ColorScheme[] = ['system', 'light', 'dark']
@@ -82,6 +102,16 @@ export function normalizePreferences(value: unknown): Preferences {
       ? (raw[key] as boolean)
       : DEFAULT_PREFERENCES[key] as boolean
 
+  // Non-finite scales fall back to "unchanged"; everything else is clamped,
+  // so a zero or negative hand-edit lands on the minimum rather than hiding
+  // the thing it sizes.
+  const scale = (key: 'timerScale' | 'scrambleScale' | 'diagramScale', min: number): number => {
+    const value = raw[key]
+    return typeof value === 'number' && Number.isFinite(value)
+      ? Math.min(MAX_SIZE_SCALE, Math.max(min, value))
+      : DEFAULT_PREFERENCES[key]
+  }
+
   return {
     holdThresholdMs,
     inspection: flag('inspection'),
@@ -89,5 +119,8 @@ export function normalizePreferences(value: unknown): Preferences {
     scrambleImage: flag('scrambleImage'),
     mouseStart: flag('mouseStart'),
     colorScheme,
+    timerScale: scale('timerScale', MIN_SIZE_SCALE),
+    scrambleScale: scale('scrambleScale', MIN_SIZE_SCALE),
+    diagramScale: scale('diagramScale', MIN_DIAGRAM_SCALE),
   }
 }

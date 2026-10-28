@@ -66,9 +66,12 @@ entry point — the rules here apply to humans too), **[DESIGN.md](./DESIGN.md)*
   writing code the widget is documented to provide, stop and delete it.
 - **Size preferences scale the tier, they don't replace it**: the three
   scales are inputs to `layoutFor()` in `src/core/layout.ts`, which stays the
-  only file allowed to hold a size threshold. Never add a size constant in
-  `src/ui/` that a preference could disagree with — `scramblePanel.ts`'s
-  duplicated `IMAGE_MAX_WIDTH/HEIGHT` is the existing example.
+  only file allowed to hold a size threshold — the readout's base px, the
+  scramble text's base px and the diagram caps all live there, and `src/ui/`
+  only applies the numbers it is handed. A user-chosen font size rides an
+  inline sheet (`src/ui/fontSize.ts`): GTK4 CSS has no custom properties, so
+  the new sheet is installed before the old one is dropped. Never add a size
+  constant in `src/ui/` that a preference could disagree with.
 - **Every action needs a touch path, and touch must not become a second
   input model** (PLAN.md decision 15): gestures call the *same* entry
   points the keyboard does — `timer.keyDown('space', …)` /

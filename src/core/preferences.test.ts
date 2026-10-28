@@ -9,7 +9,10 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PREFERENCES,
   MAX_HOLD_THRESHOLD_MS,
+  MAX_SIZE_SCALE,
+  MIN_DIAGRAM_SCALE,
   MIN_HOLD_THRESHOLD_MS,
+  MIN_SIZE_SCALE,
   normalizePreferences,
 } from './preferences.js'
 
@@ -33,6 +36,9 @@ describe('normalizePreferences', () => {
       scrambleImage: false,
       mouseStart: true,
       colorScheme: 'dark',
+      timerScale: 1.25,
+      scrambleScale: 0.9,
+      diagramScale: 0.5,
     }
     expect(normalizePreferences(stored)).toEqual(stored)
   })
@@ -72,5 +78,28 @@ describe('normalizePreferences', () => {
     expect(normalizePreferences({ holdThresholdMs: Number.POSITIVE_INFINITY }).holdThresholdMs).toBe(
       DEFAULT_PREFERENCES.holdThresholdMs,
     )
+  })
+
+  it('clamps each size scale into its own range', () => {
+    expect(normalizePreferences({ timerScale: 9 }).timerScale).toBe(MAX_SIZE_SCALE)
+    expect(normalizePreferences({ timerScale: 0.1 }).timerScale).toBe(MIN_SIZE_SCALE)
+    expect(normalizePreferences({ scrambleScale: 9 }).scrambleScale).toBe(MAX_SIZE_SCALE)
+    expect(normalizePreferences({ scrambleScale: 0.1 }).scrambleScale).toBe(MIN_SIZE_SCALE)
+    // The diagram may go smaller than the text before it stops reading as one.
+    expect(normalizePreferences({ diagramScale: 0.1 }).diagramScale).toBe(MIN_DIAGRAM_SCALE)
+    expect(normalizePreferences({ diagramScale: 9 }).diagramScale).toBe(MAX_SIZE_SCALE)
+  })
+
+  it('leaves a size scale unchanged when the value is not a number', () => {
+    for (const value of ['big', null, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const prefs = normalizePreferences({
+        timerScale: value,
+        scrambleScale: value,
+        diagramScale: value,
+      })
+      expect(prefs.timerScale, String(value)).toBe(1)
+      expect(prefs.scrambleScale, String(value)).toBe(1)
+      expect(prefs.diagramScale, String(value)).toBe(1)
+    }
   })
 })
