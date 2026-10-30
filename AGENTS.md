@@ -129,8 +129,12 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   distraction-free layout must wait for the finger to lift —
   `applyTimerFocus()` defers while `pressActive`, else hiding the scramble
   moves the timer under the press. A collapsed `Adw.OverlaySplitView` with
-  `show-sidebar=false` can keep its `dimming` shield up (`show-progress` stays
-  1) and swallow the content's release: hide it while closed.
+  `show-sidebar=false` can keep its input shield child-visible (`show-progress`
+  stays 1) and swallow the content's press. The shield is the `AdwGizmo` named
+  `widget` — not the shadow helper's `dimming`/`shadow`/`border`/`outline`
+  gizmos, which already have `can-target` false — and it is silenced with
+  `can-target`, never `visible`: hiding it leaves it needing an allocation and
+  GTK warns "without a current allocation" while snapshotting.
 
 ## API traps
 

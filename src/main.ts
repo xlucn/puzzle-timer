@@ -580,20 +580,24 @@ app.on('activate', () => {
     showSidebar: sidebarToggle.active,
   })
 
-  // A collapsed split view constructed with `show-sidebar=false` can keep its
-  // shield child-visible: libadwaita leaves `show-progress` at 1 because the
-  // collapse's `set_show_sidebar(false)` sees the property already false and
-  // returns before resetting the progress. The shield then swallows the
-  // content's touch release. Hide it whenever the sidebar is closed; the
-  // split view only toggles the shield's child-visibility, not its visibility.
-  const findSplitShield = () => {
+  // A split view collapsed while `show-sidebar` is already false leaves
+  // `show-progress` at 1 (the collapse's `set_show_sidebar(false)` returns
+  // early), so its input shield stays child-visible and swallows the content's
+  // press. The shield is the AdwGizmo named `widget` — `dimming`/`shadow`/
+  // `border`/`outline` are the shadow helper's, with can-target already false —
+  // and can-target is the only safe lever: hiding it leaves it needing an
+  // allocation, which GTK warns about while snapshotting.
+  const findShield = () => {
     for (let child = split.getFirstChild(); child !== null; child = child.getNextSibling()) {
-      if (child.getCssName() === 'dimming') return child
+      if (child.constructor?.name === 'AdwGizmo' && child.getCssName() === 'widget') return child
     }
     return null
   }
-  const splitShield = findSplitShield()
-  const syncShield = (): void => splitShield?.setVisible(split.getShowSidebar())
+  const shield = findShield()
+  if (shield === null) {
+    console.error('[sidebar] split view shield not found — a closed drawer may swallow presses')
+  }
+  const syncShield = (): void => shield?.setCanTarget(split.getShowSidebar())
   syncShield()
 
   // The list is a drawer below 800px. Adw.OverlaySplitView with the default
