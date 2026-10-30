@@ -13,7 +13,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes. A large window looks large, a small one stays readable.
+- The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes. A large window looks large, a small one stays readable, and the scramble text never shrinks below the size it had.
 
 ## [0.2.0] — 2026-10-27
 

@@ -77,10 +77,13 @@ describe('layoutFor — the sizes follow the room', () => {
     expect(layoutFor(1600, 400).timerPx).toBeLessThan(layoutFor(1600, 900).timerPx)
   })
 
-  it('sizes the scramble text from the same curve as the readout', () => {
+  it('floors the scramble text at the size it had before the curve', () => {
     expect(layoutFor(900, 540).scramblePx).toBe(18) // the default window
-    expect(layoutFor(360, 294).scramblePx).toBe(13.5) // the readout's floor / 5.33
-    expect(layoutFor(1600, 400).scramblePx).toBe(16.5) // short window, readout capped at 88
+    expect(layoutFor(360, 294).scramblePx).toBe(18) // the share alone gives 13.5
+    expect(layoutFor(1600, 400).scramblePx).toBe(18) // height cap: 88 px readout
+    for (const w of [400, 540, 700, 860]) {
+      expect(layoutFor(w, 900).scramblePx, String(w)).toBe(18)
+    }
     const at = (w: number) => layoutFor(w, 900).scramblePx
     expect(at(1600)).toBeGreaterThan(at(900))
     expect(at(2560)).toBeGreaterThan(at(1600))

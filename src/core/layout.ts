@@ -152,12 +152,12 @@ const READOUT = {
 export const SCRAMBLE_PX = 18
 
 /**
- * The scramble text is a fixed share of the readout, so one curve sizes both:
- * 18 px where the readout is 96, and proportionally elsewhere. The readout's
- * own bounds are the text's: 13.5 px at its 72 px floor, 42 px at its 224 px
- * cap, so the share needs no range of its own.
+ * The scramble text is a share of the readout, so one curve sizes both: 18 px
+ * where the readout is 96, and proportionally above that (42 px at the
+ * readout's 224 cap). Below 96 the share alone would take it to 13.5 px on a
+ * phone, so it is floored at the 18 px it was fixed at before the curve.
  */
-const SCRAMBLE = { ofReadout: SCRAMBLE_PX / READOUT.base } as const
+const SCRAMBLE = { ofReadout: SCRAMBLE_PX / READOUT.base, min: SCRAMBLE_PX } as const
 
 /**
  * The scramble text's *request* cap, in characters: it bounds the label's
@@ -368,10 +368,11 @@ export function layoutFor(
             ) * diagramScale,
           )
 
-  // One curve, two readouts: the scramble text is a share of the timer's
-  // size, so the two never drift apart across window sizes.
+  // One curve, two readouts: the scramble text follows the timer's size but
+  // never drops below the size it had before the curve — on a phone the share
+  // alone is too small to read.
   const readout = readoutPx(w, h)
-  const scrambleSize = readout * SCRAMBLE.ofReadout
+  const scrambleSize = Math.max(readout * SCRAMBLE.ofReadout, SCRAMBLE.min)
 
   return {
     // The width band is the whole rule: at ≤540 the window is too narrow for

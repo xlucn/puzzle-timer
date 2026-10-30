@@ -359,8 +359,10 @@ src/
     `96 × (width/900)^0.55`, clamped by `0.22 × height` and into [72, 224]
     (floor 72 = the no-clip floor measured at the window floor; 96 at 900
     keeps the default window's size; 4K lands ~213), the scramble text is a
-    fixed share of that readout (18/96, i.e. 18 px at 900, clamped to
-    [12, 44]), the scramble slot is `0.25 × height` clamped to [90, 240] and
+    share of that readout (18/96, i.e. 18 px at 900) floored at the 18 px it
+    was fixed at before the curve, so a phone keeps a readable size, and
+    capped by the readout's 224 (42 px); the scramble slot is
+    `0.25 × height` clamped to [90, 240] and
     `0.3 × height` (clamped to [90, 260]), the stacked placement taking the
     content width minus 48 instead — both capped at the same 260, so a tall
     window cannot get a bigger picture than a wide one. `BREAKPOINTS` keeps
@@ -987,8 +989,9 @@ Small and self-contained — deliberately the first thing scheduled (user call,
 - **Follow-up (decision 16, 2026-10-29)** — the 72/96/128 ladder and
   `TIMER_PX` are gone. The readout comes from `READOUT` (96 px at 900 wide,
   `×0.55` growth, capped by the window's height, floor 72), the scramble text
-  is a fixed share of that readout (18/96, so 18 px at 900 and ~40 px on a 4K
-  window), and the scramble slot
+  is a share of that readout (18/96, so 18 px at 900 and ~40 px on a 4K
+  window), floored at 18 px so a narrow window keeps the size it had before
+  the curve, and the scramble slot
   and the diagram box from the `SCRAMBLE_SLOT` / `DIAGRAM` shares of the
   window. The three scales ride on top unchanged (`timerPx` = curve × scale,
   `scrambleChars` = base ÷ scale, …), and the checks above still hold: the
