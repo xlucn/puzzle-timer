@@ -11,6 +11,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Size settings for the timer, the scramble text and the scramble diagram.
 
+### Changed
+
+- The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes. A large window looks large, a small one stays readable.
+
 ## [0.2.0] — 2026-10-27
 
 Mainly added touch support and distraction-free mode.

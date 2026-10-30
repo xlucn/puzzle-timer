@@ -32,10 +32,10 @@ import type { ScrambleFeedState } from '../core/scrambleFeed.js'
 import { createFontSize } from './fontSize.js'
 
 styles.add(`
-  /* The scramble text's size is a tier output plus the user's scale, written
-     into its own sheet by createFontSize() (src/core/layout.ts measures the
-     char caps against it); 'monospace' is the built-in class, which also
-     picks up the platform's --monospace-font-family. */
+  /* The scramble text's size is the layout's curve plus the user's scale,
+     written into its own sheet by createFontSize() (src/core/layout.ts
+     measures the char caps against it); 'monospace' is the built-in class,
+     which also picks up the platform's --monospace-font-family. */
   /* Ghost of the scramble being replaced: it keeps its space (so the timer
      doesn't move while the next one generates) without reading as live. */
   .scramble-text.pending {
@@ -65,48 +65,49 @@ const PANEL_MARGIN_BOTTOM = 4
  * "Not decided yet": every cap below starts unset and the first layout pass
  * fills it in before the window is presented. A zero cap would read as "no
  * room" (which the diagram takes literally), and a plausible-looking default
- * would be a second source for a number the tier owns.
+ * would be a second source for a number the layout owns.
  */
 const UNSET = -1
 
 /**
- * SVG → a Gtk.Svg paintable whose intrinsic size is the cap-fitted box, or
- * null when it cannot be parsed (never throws: a broken picture must not
- * cost the scramble that came with it).
+ * A declared size as `GdkPaintable` can report it. csTimer declares some
+ * images with a fractional size (4x4 is 526×392.667) while the intrinsic
+ * getters answer whole px, so an exact comparison would reject 74 of the 177
+ * images that do render. Accepting floor/ceil/round covers every rounding rule
+ * without loosening the check into "anything near it".
+ */
+function plausibleSize(reported: number, declared: number): boolean {
+  return (
+    reported === Math.floor(declared) ||
+    reported === Math.ceil(declared) ||
+    reported === Math.round(declared)
+  )
+}
+
+/**
+ * SVG → a `Gtk.Svg` paintable at the SVG's own size, or null when it cannot
+ * be parsed (never throws: a broken picture must not cost the scramble that
+ * came with it).
  *
- * The cap is the tier's `diagramMax*` (src/core/layout.ts): the natural sizes
- * run from ~375×180 (clock) to ~526×393 (4x4), and a 396×296 3x3 image would
- * eat half the window, so the picture is asked for the cap-fitted box,
- * keeping its aspect. Within one type and one window size the result is
- * constant, which is what keeps the timer from moving between solves.
+ * Nothing here knows about the layout's cap. The paintable is parsed once per
+ * scramble and then drawn at whatever size `Gtk.Picture` gives it (CONTAIN),
+ * because `Gtk.Svg` rasterizes at paint time: resizing re-parses nothing, and
+ * the diagram stays crisp at any size. Fitting inside the cap is the *box*'s
+ * job — the picture sits in a pinned `Gtk.Overlay` (see `diagramBox` below) —
+ * which is why a resize costs no SVG work at all.
  *
- * `Gtk.Svg` (GTK 4.22+) rasterizes at paint time, so the diagram is crisp
- * at any scale — and replaces the old Rsvg → GdkPixbuf → Texture pipeline.
- *
- * The tier caps have to live in the SVG itself: Gtk.Picture's width/height
- * requests only raise the *minimum*, so the paintable's intrinsic size wins
- * (probe: request 201×150, allocated 396×296). The root viewport is
- * re-declared at the fitted size, with a viewBox in the original
- * coordinates when the generator omitted one — the content scales into the
- * box keeping its aspect.
+ * `Gtk.Svg` (GTK 4.22+) replaces the old Rsvg → GdkPixbuf → Texture pipeline.
  *
  * Two csTimer-SVG quirks are rewritten on the way in: literal `undefined`
  * colours (a headless module never loads the kernel preferences that would
  * fill them — subbed with csTimer's own defaults, black on #ffdddd), and
  * the `font:` shorthand, which Gtk.Svg's minimal CSS declines (expanded to
- * the longhand). Anything else that warns is logged once per message: a
- * partial render beats no scramble, and every tier keeps the height under
- * Gtk.Svg's 200×200 failed-parse default, so a size mismatch reads as "no
- * picture".
+ * the longhand). A `viewBox` is added when the generator omitted one, so the
+ * content scales with the size the picture is given. Anything else that warns
+ * is logged once per message: a partial render beats no scramble, and a
+ * failed parse is caught by the intrinsic-size check below.
  */
-function svgPaintable(
-  svg: string,
-  maxWidth: number,
-  maxHeight: number,
-): InstanceType<typeof Gtk.Svg> | null {
-  // A zero cap is the tier saying "no room for the picture" (a short, narrow
-  // window), not a 1×1 speck: the caller hides the Picture on null.
-  if (!(maxWidth > 0) || !(maxHeight > 0)) return null
+function svgPaintable(svg: string): InstanceType<typeof Gtk.Svg> | null {
   try {
     // csTimer's generator emits a fixed root: <svg width="W" height="H" …>.
     const root = svg.match(/^<svg\b([^>]*)>/)
@@ -116,18 +117,14 @@ function svgPaintable(
     if (declaredWidth === null || declaredHeight === null) return null
     const intrinsicWidth = Number.parseFloat(declaredWidth[1])
     const intrinsicHeight = Number.parseFloat(declaredHeight[1])
+    // NaN here is csTimer's own answer for `cubennn`
+    // (<svg width="NaN" height="NaN">): no drawing rule, not a failure.
     if (!(intrinsicWidth > 0) || !(intrinsicHeight > 0)) return null
 
-    const scale = Math.min(maxWidth / intrinsicWidth, maxHeight / intrinsicHeight, 1)
-    const width = Math.max(1, Math.round(intrinsicWidth * scale))
-    const height = Math.max(1, Math.round(intrinsicHeight * scale))
-
-    const fitted =
-      root[1]
-        .replace(/\bwidth="[^"]*"/, `width="${width}"`)
-        .replace(/\bheight="[^"]*"/, `height="${height}"`) +
+    const withViewBox =
+      root[1] +
       (/\bviewBox="/.test(root[1]) ? '' : ` viewBox="0 0 ${intrinsicWidth} ${intrinsicHeight}"`)
-    let rewritten = svg.replace(root[0], `<svg${fitted}>`)
+    let rewritten = svg.replace(root[0], `<svg${withViewBox}>`)
     // csTimer writes literal `undefined` for colours the headless module
     // never loads — sub csTimer's own defaults (black text, board-colour
     // outline so labels stay legible over the cube).
@@ -157,11 +154,12 @@ function svgPaintable(
       console.error(`[scramble] svg warnings: ${unique.join('; ')}${repeat}`)
     }
     // Success reports the declared size; a failed parse reports the fallback
-    // (200×200), which no fitted box can equal — see the doc comment.
-    if (
-      paintable.getIntrinsicWidth() !== width ||
-      paintable.getIntrinsicHeight() !== height
-    ) {
+    // (200×200), which is not a declared size of any csTimer image we ship.
+    // The comparison allows floor/ceil/round because the declared size is
+    // fractional for 74 of the 177 images (4x4 is 526×392.667) and
+    // `getIntrinsicWidth()` answers whole px.
+    if (!plausibleSize(paintable.getIntrinsicWidth(), intrinsicWidth) ||
+        !plausibleSize(paintable.getIntrinsicHeight(), intrinsicHeight)) {
       return null
     }
     return paintable
@@ -243,14 +241,28 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // gesture, not stop at the picture.
     canTarget: false,
     contentFit: Gtk.ContentFit.CONTAIN,
+  })
+  // The picture's natural size is the SVG's own (~375×180 … 526×393) and its
+  // width/height requests only raise the *minimum*, so on its own it would
+  // drag the window past the cap. Overlay children are not part of the size
+  // request, so the spacer below is what the layout sees and the picture is
+  // drawn into it with CONTAIN, keeping its aspect and the box the layout
+  // asked for. The cap becomes a size request here, never an SVG rewrite.
+  const diagramSpacer = new Gtk.Box({ canTarget: false })
+  const diagramBox = new Gtk.Overlay({
+    child: diagramSpacer,
     // END keeps it flush right in the dock; the dock decides whether that is
     // the bottom-right corner or the bottom-right of its own column.
     halign: Gtk.Align.END,
     valign: Gtk.Align.END,
     marginEnd: 16,
     marginBottom: 16,
+    // Decorative all the way down: a press must reach the content's timer
+    // gesture, never stop at the box or at the spacer behind the picture.
+    canTarget: false,
     visible: false,
   })
+  diagramBox.addOverlay(picture)
   const statusRow = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     spacing: 8,
@@ -287,7 +299,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   const overlay = new Gtk.Overlay({ child: scroll })
   overlay.addOverlay(statusRow)
 
-  // The picture is deliberately *not* appended here: main.ts puts it in the
+  // The diagram is deliberately *not* appended here: main.ts puts it in the
   // lower area beside the timer or in its bottom-right cell.
   widget.append(overlay)
   widget.append(warmError)
@@ -299,12 +311,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   let lastType: string | null = null
   /** The SVG currently rendered, so re-renders only pay for a real change. */
   let currentSvg: string | null = null
-  /** The feed state last drawn — what a tier change redraws without waiting. */
-  let lastState: ScrambleFeedState | null = null
 
-  // The caps in force: unset until the first layout pass pushes the tier's
-  // numbers in. Within one window size they are constant, which is what keeps
-  // the timer from moving between solves.
+  // The caps in force: unset until the first layout pass pushes the curve's
+  // numbers in, and only ever a request on the diagram's box.
   let textMaxChars = UNSET
   let textMaxHeight = UNSET
   let diagramMaxWidth = UNSET
@@ -313,8 +322,16 @@ export function createScramblePanel(options: ScramblePanelOptions) {
 
   /** The panel and diagram are hidden while the timer has the floor. */
   let chromeVisible = true
-  /** Whether the current scramble produced a paintable (caps may refuse it). */
+  /** Whether the current scramble produced a paintable (a parse may fail). */
   let pictureReady = false
+
+  /** Push the current state of three independent booleans into the box. */
+  const updateDiagramVisibility = (): void => {
+    // A zero cap is the layout saying "no room for the picture" (a short,
+    // narrow window). The parse has nothing to say about size.
+    const hasRoom = diagramMaxWidth > 0 && diagramMaxHeight > 0
+    diagramBox.setVisible(chromeVisible && pictureReady && hasRoom)
+  }
 
   let spinning = false
   const setSpinning = (on: boolean) => {
@@ -325,7 +342,6 @@ export function createScramblePanel(options: ScramblePanelOptions) {
 
   /** Redraw for a new feed state. */
   const render = (state: ScrambleFeedState): void => {
-    lastState = state
     const hasScramble = state.scramble !== null
     const generating = !hasScramble && state.error === null
 
@@ -368,14 +384,12 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       lastText !== null && lastType !== null ? options.getImage(lastType, lastText) : null
     if (svg !== currentSvg) {
       currentSvg = svg
-      // The paintable's intrinsic size is already the cap-fitted box
-      // (svgPaintable rewrites the root viewport), so the Picture's natural
-      // size *is* the cap — recomputed here on tier changes, since
-      // setDiagramMax clears currentSvg and this block re-runs.
-      const fit = svg === null ? null : svgPaintable(svg, diagramMaxWidth, diagramMaxHeight)
-      pictureReady = fit !== null
-      picture.setPaintable(fit)
-      picture.setVisible(chromeVisible && pictureReady)
+      // Parsed once per scramble at its own size: a resize or a cap change
+      // only moves the box the picture is drawn into.
+      const paintable = svg === null ? null : svgPaintable(svg)
+      pictureReady = paintable !== null
+      picture.setPaintable(paintable)
+      updateDiagramVisibility()
     }
   }
 
@@ -385,9 +399,10 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     /**
      * The diagram for the caller's lower-area dock — the panel renders it,
      * main.ts decides whether it sits beside the timer or in its bottom-right
-     * cell.
+     * cell. This is the *box* (the picture rides in an overlay inside it), so
+     * a caller's margin applies to the box.
      */
-    image: picture,
+    image: diagramBox,
     render,
     /**
      * Hide the scramble and its diagram for the distraction-free timer view.
@@ -398,11 +413,11 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       if (visible === chromeVisible) return
       chromeVisible = visible
       widget.setVisible(visible)
-      picture.setVisible(visible && pictureReady)
+      updateDiagramVisibility()
     },
     /**
      * How wide the scramble text may ask to be, and how tall the slot may
-     * grow — both from the window's tier, already carrying the user's text
+     * grow — both from the layout curve, already carrying the user's text
      * scale. The label's own `maxWidthChars` caps its natural width (the
      * minimum is the longest word, so the window can still shrink past it)
      * and `maxContentHeight` caps a tall scramble.
@@ -418,24 +433,25 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       }
     },
     /**
-     * The scramble text's font size — the tier's base times the user's
-     * preference (src/core/layout.ts). The char caps below are measured
+     * The scramble text's font size — the layout curve times the user's
+     * preference (src/core/layout.ts). The char caps above are measured
      * against it, so the two always travel together.
      */
     setFontSize(px: number): void {
       applyFontSize(px)
     },
     /**
-     * The diagram cap for this tier. The paintable's viewport was written
-     * against the old cap, so the cache is dropped and redrawn; the
-     * picture's placement is main.ts's decision.
+     * The diagram box's cap for this window (src/core/layout.ts). Only the
+     * box's size request moves: the paintable was parsed at the SVG's own
+     * size, so a cap change — every resize — re-parses nothing and the
+     * picture's placement stays main.ts's decision.
      */
     setDiagramMax(width: number, height: number): void {
       if (width === diagramMaxWidth && height === diagramMaxHeight) return
       diagramMaxWidth = width
       diagramMaxHeight = height
-      currentSvg = null
-      if (lastState !== null) render(lastState)
+      diagramSpacer.setSizeRequest(Math.max(0, width), Math.max(0, height))
+      updateDiagramVisibility()
     },
   }
 }

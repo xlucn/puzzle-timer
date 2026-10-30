@@ -128,8 +128,8 @@ app.on('activate', () => {
   // takes its 240 floor, leaving 660 for the header. Resizing is handled by
   // the breakpoints below (applyLayout).
   window.setDefaultSize(900, 540)
-  // Hard floors, not suggestions: below these no tier in core/layout.ts can
-  // keep the layout deliberate (the header alone needs ~282 of *width*).
+  // Hard floors, not suggestions: below these the layout cannot stay
+  // deliberate (the header alone needs ~282 of *width*).
   // 360×294 is the GNOME HIG's smallest phone window — see BREAKPOINTS.
   window.widthRequest = BREAKPOINTS.minWidth
   window.heightRequest = BREAKPOINTS.minHeight
@@ -620,7 +620,7 @@ app.on('activate', () => {
     // still has to be put back down.
     if (!pressActive && timerFocus && split.getShowSidebar()) split.setShowSidebar(false)
     // No explicit layout pass here: showing/hiding the sidebar repaints the
-    // view, and the next after-paint re-applies the tier.
+    // view, and the next after-paint re-applies the layout.
   })
 
   /**
@@ -651,7 +651,7 @@ app.on('activate', () => {
   //     apply/unapply.
   //   • Gdk.Surface::layout: every resize, including height-only ones no
   //     width band can see. Runs before widget allocations catch up, so it
-  //     only re-applies the tier in force.
+  //     only re-applies the layout in force.
   //   • Frame-clock after-paint: the fresh-allocation pass — band crossings,
   //     height-only resizes, and Adaptive Preview screen switches (which
   //     raise no surface event) all land here.
@@ -662,7 +662,7 @@ app.on('activate', () => {
   /**
    * Move the scramble controls between header and bottom bar (all together:
    * narrow keeps the header to toggle, title and Cancel, the bar gets the
-   * scramble actions). The bar only appears in that narrow tier and while
+   * scramble actions). The bar only appears in that narrow layout and while
    * the timer does not own the view; `syncBottomBar` owns the reveal. The
    * title never moves — it is the HeaderBar's titleWidget at every width, so
    * the stale-title-widget trap (remove() clears the bin but not the
@@ -701,7 +701,7 @@ app.on('activate', () => {
   }
 
   /**
-   * Put the diagram where the tier has room for it: wide puts the timer and
+   * Put the diagram where the content has room for it: wide puts the timer and
    * dock in one row, tall-narrow stacks the rows, and short-narrow leaves
    * only the timer. The dock is bottom-right in every live placement.
    */
@@ -729,8 +729,31 @@ app.on('activate', () => {
     diagramDock.setVisible(placement !== 'none')
   }
 
-  /** The last tier reported, so applyLayout's log speaks only on a change. */
-  let lastTier = ''
+  /** The last layout reported, so applyLayout's log speaks only on a change. */
+  let lastReport = ''
+
+  /**
+   * Coalesce the `[layout]` line while the window is being dragged: a
+   * continuous size means one applyLayout per pixel, and one log line per
+   * pixel is noise, not evidence. Each call restarts a short quiet timer, so
+   * a drag reports once — where it came to rest — while a single structural
+   * change (or a programmatic resize) still lands promptly.
+   */
+  let reportTimer = 0
+  let pendingReport: string | null = null
+  const scheduleReport = (line: string): void => {
+    pendingReport = line
+    if (reportTimer !== 0) GLib.sourceRemove(reportTimer)
+    reportTimer = GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 150, () => {
+      reportTimer = 0
+      if (pendingReport !== null && pendingReport !== lastReport) {
+        lastReport = pendingReport
+        console.error(`[layout] ${lastReport}`)
+      }
+      pendingReport = null
+      return GLib.SOURCE_REMOVE
+    })
+  }
 
   /**
    * The rectangle the app lives in: `window.content`'s allocation (the
@@ -738,18 +761,19 @@ app.on('activate', () => {
    * the current names).
    *
    * `window.content` is the child of the very AdwBreakpointBin the window's
-   * breakpoints are evaluated against (adw-application-window.c), so tiers
-   * and bands always describe one rectangle — in a normal window, and under
-   * the Adaptive Preview (Ctrl+Shift+M) where it sits inside the preview's
-   * emulated screen. It is the whole app, sidebar included; not the `content`
-   * ToolbarView, which is only what is left after the sidebar (a tier from
+   * breakpoints are evaluated against (adw-application-window.c), so the
+   * layout and its bands always describe one rectangle — in a normal window,
+   * and under the Adaptive Preview (Ctrl+Shift+M) where it sits inside the
+   * preview's emulated screen. It is the whole app, sidebar included; not the
+   * `content`
+   * ToolbarView, which is only what is left after the sidebar (a layout from
    * that would feed on its own result — see applyLayout).
    *
    * One more thing it must not believe: an over-allocated child. When the
    * content's own minimum exceeds the window, GTK still hands the child its
    * request (measured: 650px of content in a 505px window; 300 against the
    * 294 floor) — reporting that describes a window that does not exist and
-   * holds the wrong tier open (the header keeps its controls at a width that
+   * holds the wrong layout open (the header keeps its controls at a width that
    * has already passed selectorRowMax, and the next measure warns). The
    * window widget caps the reading in both axes.
    */
@@ -785,7 +809,7 @@ app.on('activate', () => {
     }
   }
 
-  /** Apply the tier for the window's current size. Safe to call any time. */
+  /** Apply the layout for the window's current size. Safe to call any time. */
   function applyLayout(): void {
     if (!layoutReady) return
     // Measured from the window's content (see groundWindowSize) — never from
@@ -804,34 +828,33 @@ app.on('activate', () => {
       width = askedWidth
       height = askedHeight
     }
-    // Still nothing to decide from: a tier from 0×0 would reparent the
+    // Still nothing to decide from: a layout from 0×0 would reparent the
     // selectors for no reason. The surface's first `layout` brings the
     // real numbers.
     if (width <= 0 || height <= 0) return
-    // The width bands still come from the window rectangle; the content area
-    // and its docked sidebar decide whether the diagram goes beside the timer
-    // or below it.
+    // The content area and its docked sidebar decide whether the diagram goes
+    // beside the timer or below it.
     const contentSize = measuredMainContent(width)
-    const tier = layoutFor(width, height, contentSize, {
+    const plan = layoutFor(width, height, contentSize, {
       timer: prefs.timerScale,
       scramble: prefs.scrambleScale,
       diagram: prefs.diagramScale,
     })
 
-    if (split.collapsed !== tier.drawer) split.collapsed = tier.drawer
-    if (split.maxSidebarWidth !== tier.sidebarMax) split.maxSidebarWidth = tier.sidebarMax
-    placeSelectors(tier.selectorRow)
-    timerView.setFontSize(tier.timerPx)
-    scramblePanel.setFontSize(tier.scramblePx)
-    scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
-    scramblePanel.setDiagramMax(tier.diagramMaxWidth, tier.diagramMaxHeight)
-    applyDiagramPlacement(tier.diagramPlacement)
+    if (split.collapsed !== plan.drawer) split.collapsed = plan.drawer
+    if (split.maxSidebarWidth !== plan.sidebarMax) split.maxSidebarWidth = plan.sidebarMax
+    placeSelectors(plan.selectorRow)
+    timerView.setFontSize(plan.timerPx)
+    scramblePanel.setFontSize(plan.scramblePx)
+    scramblePanel.setLimits(plan.scrambleChars, plan.scrambleMaxHeight)
+    scramblePanel.setDiagramMax(plan.diagramMaxWidth, plan.diagramMaxHeight)
+    applyDiagramPlacement(plan.diagramPlacement)
 
-    // One line per *change* — the evidence trail when the window is walked
-    // through its bands (and a cheap way to spot a tier decided from a stale
-    // measurement, which is the one thing a breakpoint could get wrong).
+    // One line per resting layout — the evidence trail when the window is
+    // walked through its bands (and a cheap way to spot a decision made from a
+    // stale measurement, which is the one thing a breakpoint could get wrong).
     // The exact sidebar width is not part of the signature: it animates while
-    // the split view opens, and only "docked" vs "overlay" changes the tier.
+    // the split view opens, and only "docked" vs "overlay" changes the layout.
     const sidebarState =
       contentSize === undefined
         ? 'unallocated'
@@ -842,39 +865,29 @@ app.on('activate', () => {
       `${width}x${height} (win ${window.getSize(Gtk.Orientation.VERTICAL)}, ` +
       `content ${contentSize ? `${contentSize.width}x${contentSize.height}` : 'unallocated'}, ` +
       `sidebar ${sidebarState}): ` +
-      `${tier.drawer ? 'drawer' : 'side-by-side'}, ` +
-      `selectors ${tier.selectorRow ? 'in their own row' : 'in the header'}, ` +
-      `timer ${tier.timerPx}px, diagram ${tier.diagramPlacement}, ` +
-      `sidebar max ${tier.sidebarMax}`
-    if (signature !== lastTier) {
-      lastTier = signature
-      console.error(`[layout] ${signature}`)
-    }
+      `${plan.drawer ? 'drawer' : 'side-by-side'}, ` +
+      `selectors ${plan.selectorRow ? 'in their own row' : 'in the header'}, ` +
+      `diagram ${plan.diagramPlacement}, ` +
+      `sidebar max ${plan.sidebarMax}`
+    if (signature !== lastReport && signature !== pendingReport) scheduleReport(signature)
   }
 
   /**
-   * The width bands, as breakpoint conditions — written from the same
-   * constants layoutFor() reads, so the two cannot drift. Added largest first
-   * for tidiness (only one can match anyway). The normal band, 801–1199,
-   * deliberately has no breakpoint of its own: arriving and leaving it is
-   * covered by the bands either side of it.
+   * The structural width bands, as breakpoint conditions — written from the
+   * same constants layoutFor() reads, so the two cannot drift. Only two
+   * decisions change structure: the selectors' row (≤540) and the sidebar's
+   * drawer (541–800). Above 800 there is no band at all: sizes are continuous
+   * and every other decision rides applyLayout's own calls (surface layout and
+   * the after-paint pass), so a band there would only add an edge to get
+   * wrong.
    */
   const heldBreakpoints: Array<InstanceType<typeof Adw.Breakpoint>> = []
   const widthBands: Array<[string, string]> = [
-    ['L', `min-width: ${BREAKPOINTS.largeMin}px`],
-    [
-      'M',
-      `min-width: ${BREAKPOINTS.mediumMin}px and max-width: ${BREAKPOINTS.largeMin - 1}px`,
-    ],
     [
       'B',
       `min-width: ${BREAKPOINTS.selectorRowMax + 1}px and max-width: ${BREAKPOINTS.drawerMax}px`,
     ],
-    [
-      'C',
-      `min-width: ${BREAKPOINTS.smallMax + 1}px and max-width: ${BREAKPOINTS.selectorRowMax}px`,
-    ],
-    ['S', `max-width: ${BREAKPOINTS.smallMax}px`],
+    ['C', `max-width: ${BREAKPOINTS.selectorRowMax}px`],
   ]
   for (const [band, condition] of widthBands) {
     const breakpoint = Adw.Breakpoint.new(Adw.BreakpointCondition.parse(condition))
@@ -884,8 +897,8 @@ app.on('activate', () => {
     heldBreakpoints.push(breakpoint) // keep the wrapper with its closures
   }
   console.error(
-    `[layout] ${heldBreakpoints.length} width bands ` +
-      `(S ≤${BREAKPOINTS.smallMax} … L ≥${BREAKPOINTS.largeMin})`,
+    `[layout] ${heldBreakpoints.length} structural width bands ` +
+      `(C ≤${BREAKPOINTS.selectorRowMax} … B ${BREAKPOINTS.selectorRowMax + 1}–${BREAKPOINTS.drawerMax})`,
   )
 
   // ---- rendering --------------------------------------------------------
@@ -1268,29 +1281,52 @@ app.on('activate', () => {
   feed.start() // first scramble + its warm-up; the panel paints "Generating…"
   layoutReady = true // the adaptive layout may now measure and write
   // The first applyLayout uses the size we *asked* for: the first frame
-  // measures the tree during present(), so the tier must already be right
+  // measures the tree during present(), so the layout must already be right
   // (see applyLayout).
   applyLayout()
   window.present()
-  applyLayout() // the tier for the size we were actually given
+  applyLayout() // the layout for the size we were actually given
+
+  if (process.env.PTV_DUMP === '1') {
+    const dump = (w: any, chain: string[]): void => {
+      const next = [...chain, w.constructor?.name ?? '?']
+      if (w.constructor?.name === 'AdwGizmo') console.error(`[giz] ${String(w)} ${chain.join('>')}`)
+      for (let c = w.getFirstChild?.(); c; c = c.getNextSibling()) dump(c, next)
+    }
+    dump(window.content, [])
+  }
 
   // The two continuous sources, both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
-  // but the short-window tier does), and any repaint, where applyLayout
+  // but a short window changes the sizes), and any repaint, where applyLayout
   // re-runs with fresh allocations and so carries every size change no
   // breakpoint sees, the Adaptive Preview's emulated-screen switches
   // included.
   const surface = window.getSurface()
   if (surface === null) {
-    console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the tier')
-  } else {
+    console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the layout')
+  } else if (process.env.PTV_NO_HOOKS !== '1') {
     surface.on('layout', () => applyLayout())
   }
   const frameClock = window.getFrameClock()
   if (frameClock === null) {
     console.error('[layout] no frame clock — resizes will not get the after-paint pass')
-  } else {
+  } else if (process.env.PTV_NO_HOOKS !== '1') {
     frameClock.on('after-paint', () => {
+      if (process.env.PTV_DUMP === '1') {
+        const dump = (w: any, chain: string[]): void => {
+          const name: string = w.constructor?.name ?? '?'
+          const next = [...chain, name]
+          if (name === 'AdwGizmo') {
+            console.error(
+              `[giz] ${chain.slice(-3).join('>')} ${w.getWidth()}x${w.getHeight()} ` +
+                `mapped=${w.getMapped()} visible=${w.getVisible()}`,
+            )
+          }
+          for (let c = w.getFirstChild?.(); c; c = c.getNextSibling()) dump(c, next)
+        }
+        dump(window.content, [])
+      }
       // The fresh-allocation pass: surface layout can only re-apply what is
       // already in force (the widgets have not caught up yet), and the
       // Adaptive Preview raises no surface event at all — so every real

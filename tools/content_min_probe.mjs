@@ -14,6 +14,7 @@ const { createStatsStrip } = await import(`${base}/statsStrip.ts`)
 const { createScrambleTypeButton } = await import(`${base}/scrambleTypeButton.ts`)
 const { createScrambleTypeTitle } = await import(`${base}/scrambleTypeTitle.ts`)
 const { SCRAMBLE_DEFAULT_TYPE } = await import('../src/core/scrambleTypes.ts')
+const { layoutFor } = await import('../src/core/layout.ts')
 
 const statsStrip = createStatsStrip({
   library: { subscribe: () => () => {} },
@@ -66,9 +67,12 @@ const line = (name, w, forSize) => {
 
 for (const width of [505, 480, 360]) {
   console.error(`[c] ---- width ${width} ----`)
-  timerView.setFontSize(72) // tier: window 294 ≤ timerSmallMaxHeight
-  scramblePanel.setLimits(60, 100) // tier: short window
-  scramblePanel.setFontSize(18) // tier base: no text scale
+  // The real tier at the window floor: the sizes come from the curve, not a
+  // copied constant (this probe exists to measure their content minimum).
+  const tier = layoutFor(360, 294)
+  timerView.setFontSize(tier.timerPx)
+  scramblePanel.setLimits(tier.scrambleChars, tier.scrambleMaxHeight)
+  scramblePanel.setFontSize(tier.scramblePx)
   // The real strip renders values (the replica's subscribe was a stub):
   // .stats-value's line is taller than an empty label — this is the gap
   // between the replica's 287 and the app's reported 300.

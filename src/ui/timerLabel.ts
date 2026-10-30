@@ -28,8 +28,9 @@ type StatsStrip = ReturnType<typeof createStatsStrip>
 styles.add(`
   .timer-display {
     font-weight: 700;
-    /* The font size is not here: it is a tier output plus the user's scale,
-       written into its own sheet by createFontSize() on every layout pass.
+    /* The font size is not here: it is the layout curve times the user's
+       scale, written into its own sheet by createFontSize() on every layout
+       pass.
        Tabular figures come from the built-in 'numeric' class on the label
        (Adwaita: font-variant-numeric: tabular-nums) — keep the digits from
        shifting as the time changes. */
@@ -130,7 +131,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
       applyChrome()
     },
     /**
-     * The readout's font size follows the window's tier and the user's scale
+     * The readout's font size follows the layout curve and the user's scale
      * (src/core/layout.ts). Only the metric changes here; the state classes
      * stay on screen, so a resize never repaints a running timer in the idle
      * colour.

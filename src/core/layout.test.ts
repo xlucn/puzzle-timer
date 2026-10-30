@@ -5,17 +5,16 @@ import {
   DRAWER_EDGE_PX,
   isDrawerEdgePress,
   layoutFor,
-  TIMER_PX,
   UNIT_SCALES,
   type SizeScales,
 } from './layout.js'
 
-const { smallMax, selectorRowMax, drawerMax, mediumMin, largeMin, shortMax } = BREAKPOINTS
+const { selectorRowMax, drawerMax, shortMax } = BREAKPOINTS
 
 /** A full set of scales with only the one under test changed. */
 const scales = (patch: Partial<SizeScales>): SizeScales => ({ ...UNIT_SCALES, ...patch })
 
-describe('layoutFor — width tiers', () => {
+describe('layoutFor — width bands', () => {
   it('makes the sidebar a drawer only while the content header would otherwise starve', () => {
     expect(layoutFor(drawerMax, 540).drawer).toBe(true)
     expect(layoutFor(drawerMax + 1, 540).drawer).toBe(false)
@@ -27,44 +26,88 @@ describe('layoutFor — width tiers', () => {
     expect(layoutFor(selectorRowMax + 1, 540).selectorRow).toBe(false)
     // …and every window small enough for the second row is also a drawer, so
     // the two never fight over the same line.
-    expect(layoutFor(smallMax, 540).selectorRow).toBe(true)
-    expect(layoutFor(smallMax, 540).drawer).toBe(true)
-  })
-
-  it('steps the timer down only where its digits could clip', () => {
-    expect(layoutFor(smallMax, 540).timerPx).toBe(TIMER_PX.s)
-    expect(layoutFor(smallMax + 1, 540).timerPx).toBe(TIMER_PX.m)
-    expect(layoutFor(900, 540).timerPx).toBe(TIMER_PX.m)
+    expect(layoutFor(400, 540).selectorRow).toBe(true)
+    expect(layoutFor(400, 540).drawer).toBe(true)
   })
 
   it('pins the sidebar at 320 at every width', () => {
-    expect(layoutFor(smallMax, 540).sidebarMax).toBe(320)
+    expect(layoutFor(400, 540).sidebarMax).toBe(320)
     expect(layoutFor(1199, 800).sidebarMax).toBe(320)
-    expect(layoutFor(mediumMin, 800).sidebarMax).toBe(320)
-    expect(layoutFor(largeMin - 1, 800).sidebarMax).toBe(320)
-    expect(layoutFor(largeMin, 800).sidebarMax).toBe(320)
+    expect(layoutFor(1200, 800).sidebarMax).toBe(320)
+    expect(layoutFor(1600, 800).sidebarMax).toBe(320)
     expect(layoutFor(3000, 1600).sidebarMax).toBe(320)
   })
 
-  it('gives the timer and the scramble more room on a large window', () => {
-    expect(layoutFor(largeMin, 900).timerPx).toBe(TIMER_PX.l)
-    expect(layoutFor(largeMin, 900).scrambleChars).toBeGreaterThan(60)
-    expect(layoutFor(largeMin, 900).scrambleMaxHeight).toBe(220)
+  it('is total: measurements that make no sense select a layout, not a crash', () => {
+    expect(layoutFor(Number.NaN, Number.POSITIVE_INFINITY).drawer).toBe(true)
+    expect(layoutFor(-50, -50).timerPx).toBe(72)
+    expect(layoutFor(0, 0).scrambleMaxHeight).toBe(90)
+  })
+})
+
+describe('layoutFor — the sizes follow the room', () => {
+  it('keeps the readout at its hard floor where the digits could clip', () => {
+    // 360×294 is the window floor; 72 is the size the floor was measured at.
+    expect(layoutFor(360, 294).timerPx).toBe(72)
+    expect(layoutFor(480, 700).timerPx).toBe(72)
+    // Wide but very short: the height cap asks for less than the floor.
+    expect(layoutFor(1600, 294).timerPx).toBe(72)
+  })
+
+  it('keeps the 96 px the default window has always had', () => {
+    expect(layoutFor(900, 540).timerPx).toBe(96)
+  })
+
+  it('grows with the width and stops at the cap', () => {
+    const at = (w: number) => layoutFor(w, 1200).timerPx
+    expect(at(1200)).toBeGreaterThan(at(900))
+    expect(at(1600)).toBeGreaterThan(at(1200))
+    expect(at(2560)).toBeGreaterThan(at(1600))
+    expect(layoutFor(5000, 2000).timerPx).toBe(224) // the cap
+  })
+
+  it('is monotone: no window is ever smaller than a narrower one', () => {
+    for (let w = 360; w < 3840; w += 7) {
+      expect(layoutFor(w + 1, 900).timerPx).toBeGreaterThanOrEqual(layoutFor(w, 900).timerPx)
+    }
+  })
+
+  it('lets the height cap win on a short window', () => {
+    expect(layoutFor(1600, 400).timerPx).toBe(Math.round(400 * 0.22))
+    expect(layoutFor(1600, 400).timerPx).toBeLessThan(layoutFor(1600, 900).timerPx)
+  })
+
+  it('sizes the scramble text from the same curve as the readout', () => {
+    expect(layoutFor(900, 540).scramblePx).toBe(18) // the default window
+    expect(layoutFor(360, 294).scramblePx).toBe(13.5) // the readout's floor / 5.33
+    expect(layoutFor(1600, 400).scramblePx).toBe(16.5) // short window, readout capped at 88
+    const at = (w: number) => layoutFor(w, 900).scramblePx
+    expect(at(1600)).toBeGreaterThan(at(900))
+    expect(at(2560)).toBeGreaterThan(at(1600))
+    const huge = layoutFor(3840, 2160)
+    expect(huge.scramblePx).toBeCloseTo(huge.timerPx * (18 / 96), 0) // ~40 px
+  })
+
+  it('gives the scramble slot a share of the height, clamped', () => {
+    expect(layoutFor(900, 294).scrambleMaxHeight).toBe(90) // floor
+    expect(layoutFor(900, 540).scrambleMaxHeight).toBe(Math.round(540 * 0.25))
+    expect(layoutFor(900, 1440).scrambleMaxHeight).toBe(240) // cap
     expect(layoutFor(900, 900).scrambleChars).toBe(60)
   })
 
-  it('never grows the diagram or the scramble slot into a short window', () => {
-    const strip = layoutFor(largeMin, 500)
-    expect(strip.drawer).toBe(false)
-    expect(strip.diagramMaxHeight).toBe(150) // roomy is false
-    expect(strip.scrambleMaxHeight).toBe(100) // height ≤ shortMax
-    expect(strip.timerPx).toBe(TIMER_PX.l) // 500 is still taller than the small-timer limit
-  })
-
-  it('is total: measurements that make no sense select a tier, not a crash', () => {
-    expect(layoutFor(Number.NaN, Number.POSITIVE_INFINITY).drawer).toBe(true)
-    expect(layoutFor(-50, -50).timerPx).toBe(TIMER_PX.s)
-    expect(layoutFor(0, 0).scrambleMaxHeight).toBe(100)
+  it('scales the diagram with the room and sheds it where there is none', () => {
+    // Wide: the corner may take a fifth of the window width.
+    expect(layoutFor(900, 540).diagramMaxWidth).toBe(180)
+    expect(layoutFor(900, 540).diagramMaxHeight).toBe(Math.round(540 * 0.3))
+    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(260) // cap
+    expect(layoutFor(1600, 900).diagramMaxHeight).toBe(260) // cap
+    // Stacked under the timer, the content width is the limit — but no wider
+    // than the wide placement's cap.
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260)
+    expect(layoutFor(360, 700).diagramMaxHeight).toBe(Math.round(700 * 0.3))
+    // A narrow, short window still sheds it entirely.
+    expect(layoutFor(360, 294).diagramPlacement).toBe('none')
+    expect(layoutFor(360, shortMax).diagramMaxWidth).toBe(0)
   })
 })
 
@@ -116,19 +159,34 @@ describe('layoutFor — the diagram follows the room', () => {
       [selectorRowMax, 360],
       [selectorRowMax, shortMax],
     ]) {
-      const tier = layoutFor(w, h)
-      expect(tier.diagramPlacement).toBe('none')
-      expect([tier.diagramMaxWidth, tier.diagramMaxHeight]).toEqual([0, 0])
+      const plan = layoutFor(w, h)
+      expect(plan.diagramPlacement).toBe('none')
+      expect([plan.diagramMaxWidth, plan.diagramMaxHeight]).toEqual([0, 0])
     }
   })
 
-  it('keeps the tier caps, narrowed only in the wide layout', () => {
-    expect(layoutFor(640, 360).diagramMaxWidth).toBe(180)
-    expect(layoutFor(640, 360).diagramMaxHeight).toBe(150)
-    expect(layoutFor(800, 540).diagramMaxHeight).toBe(150)
-    expect(layoutFor(1600, 500).diagramMaxWidth).toBe(180)
-    expect(layoutFor(360, 700).diagramMaxWidth).toBe(440)
-    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(180)
+  it('scales the box with the window instead of switching to a fixed cap', () => {
+    expect(layoutFor(640, 360).diagramMaxWidth).toBe(128) // 0.2 × 640, wide
+    expect(layoutFor(640, 360).diagramMaxHeight).toBe(108) // 0.3 × 360
+    expect(layoutFor(800, 540).diagramMaxHeight).toBe(162)
+    expect(layoutFor(1600, 500).diagramMaxWidth).toBe(260) // 0.2 × 1600, capped
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260) // stacked, capped too
+    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(260) // capped beside the timer
+  })
+
+  it('caps both placements at the same size, so one cannot dwarf the other', () => {
+    // A tall portrait window used to get content width − 48 (752 on 800×1280)
+    // while a wide one got 260 — the stacked picture was three times as big.
+    const stacked = layoutFor(800, 1280)
+    expect(stacked.diagramPlacement).toBe('tall-narrow')
+    expect(stacked.diagramMaxWidth).toBe(260)
+    expect(stacked.diagramMaxHeight).toBe(260)
+    const wide = layoutFor(1600, 900)
+    expect(wide.diagramPlacement).toBe('wide')
+    expect(wide.diagramMaxWidth).toBe(stacked.diagramMaxWidth)
+    expect(wide.diagramMaxHeight).toBe(stacked.diagramMaxHeight)
+    // …and a genuinely narrow window can still fit the capped box.
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260)
   })
 })
 
@@ -214,20 +272,33 @@ describe('layoutFor — the selectors leave only at ≤540', () => {
     expect(layoutFor(selectorRowMax + 1, 540).selectorRow).toBe(false) // 541 → header
     expect(layoutFor(drawerMax, 540).selectorRow).toBe(false) // 800 → drawer, still header
     expect(layoutFor(drawerMax + 1, 540).selectorRow).toBe(false) // 801 → side by side, header
-    expect(layoutFor(largeMin, 540).selectorRow).toBe(false) // tier L → header
+    expect(layoutFor(3000, 540).selectorRow).toBe(false) // large → header
     expect(layoutFor(900, 540).selectorRow).toBe(false) // the default window
   })
 })
 
-describe('layoutFor — height tiers', () => {
-  it('trims the scramble slot when the window is short', () => {
-    expect(layoutFor(900, shortMax).scrambleMaxHeight).toBe(100)
-    expect(layoutFor(900, shortMax + 1).scrambleMaxHeight).toBe(160)
+describe('layoutFor — the sizes leave no steps behind', () => {
+  it('never jumps when a band edge is crossed', () => {
+    // The sizes used to step at 480/1200/1600; crossing those widths must now
+    // move them by at most a pixel or two, never by a tier's worth.
+    for (const edge of [480, 1200, 1600]) {
+      const below = layoutFor(edge - 1, 900)
+      const above = layoutFor(edge, 900)
+      expect(Math.abs(above.timerPx - below.timerPx), String(edge)).toBeLessThanOrEqual(1)
+      expect(Math.abs(above.diagramMaxWidth - below.diagramMaxWidth), String(edge)).toBeLessThanOrEqual(2)
+    }
   })
 
-  it('shrinks the timer on a window too short for the 96px readout', () => {
-    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight).timerPx).toBe(TIMER_PX.s)
-    expect(layoutFor(1400, BREAKPOINTS.timerSmallMaxHeight + 1).timerPx).toBe(TIMER_PX.l)
+  it('trims the scramble slot smoothly instead of at 580', () => {
+    const at = (h: number) => layoutFor(900, h).scrambleMaxHeight
+    expect(at(shortMax + 1) - at(shortMax)).toBeLessThanOrEqual(1)
+    expect(at(shortMax + 200)).toBeGreaterThan(at(shortMax))
+  })
+
+  it('shrinks the readout on a short window without a threshold', () => {
+    const at = (h: number) => layoutFor(1400, h).timerPx
+    expect(at(480) - at(479)).toBeLessThanOrEqual(1)
+    expect(at(400)).toBeLessThan(at(700))
   })
 })
 
@@ -236,17 +307,15 @@ describe('layoutFor — the user’s size scales', () => {
     expect(layoutFor(900, 900, undefined, UNIT_SCALES)).toEqual(layoutFor(900, 900))
   })
 
-  it('scales the readout on top of the tier it was given', () => {
+  it('scales the readout on top of the curve', () => {
+    const curve = layoutFor(900, 900).timerPx
     expect(layoutFor(900, 900, undefined, scales({ timer: 1.5 })).timerPx).toBe(
-      TIMER_PX.m * 1.5,
+      Math.round(curve * 1.5),
     )
-    expect(layoutFor(smallMax, 540, undefined, scales({ timer: 0.75 })).timerPx).toBe(
-      TIMER_PX.s * 0.75,
-    )
-    // A bigger readout does not change which readout the window asked for.
-    expect(layoutFor(mediumMin, 900, undefined, scales({ timer: 0.75 })).timerPx).toBe(
-      TIMER_PX.l * 0.75,
-    )
+    // The floor and the cap are scaled too: a preference may push past the
+    // curve's own bounds, which is the point of a size setting.
+    expect(layoutFor(360, 294, undefined, scales({ timer: 0.75 })).timerPx).toBe(54)
+    expect(layoutFor(5000, 2000, undefined, scales({ timer: 1.5 })).timerPx).toBe(336)
   })
 
   it('fits fewer characters and a taller slot as the scramble text grows', () => {
@@ -254,24 +323,27 @@ describe('layoutFor — the user’s size scales', () => {
     const big = layoutFor(900, 900, undefined, scales({ scramble: 1.5 }))
     expect(big.scramblePx).toBe(18 * 1.5)
     expect(big.scrambleChars).toBe(Math.round(base / 1.5))
-    expect(big.scrambleMaxHeight).toBe(160 * 1.5)
+    expect(big.scrambleMaxHeight).toBe(Math.round(225 * 1.5))
     const small = layoutFor(900, 900, undefined, scales({ scramble: 0.75 }))
     expect(small.scrambleChars).toBe(Math.round(base / 0.75))
   })
 
-  it('scales the diagram cap after the wide layout has narrowed it', () => {
-    // 640×360 narrows the cap to the side column's 180 before scaling.
-    expect(layoutFor(640, 360, undefined, scales({ diagram: 0.5 })).diagramMaxWidth).toBe(90)
-    expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxWidth).toBe(270)
-    expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxHeight).toBe(225)
-    // A tier that sheds the diagram keeps it shed, whatever the scale says.
+  it('scales the diagram box on top of the curve', () => {
+    const wide = layoutFor(640, 360)
+    expect(layoutFor(640, 360, undefined, scales({ diagram: 0.5 })).diagramMaxWidth).toBe(
+      Math.round(wide.diagramMaxWidth * 0.5),
+    )
+    expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxHeight).toBe(
+      Math.round(wide.diagramMaxHeight * 1.5),
+    )
+    // A window that sheds the diagram keeps it shed, whatever the scale says.
     const shed = layoutFor(360, 294, undefined, scales({ diagram: 1.5 }))
     expect([shed.diagramMaxWidth, shed.diagramMaxHeight]).toEqual([0, 0])
   })
 
-  it('leaves the tiers themselves to the window', () => {
+  it('leaves the layout decisions to the window', () => {
     const scalesAll = scales({ timer: 1.5, scramble: 1.5, diagram: 1.5 })
-    const zoomed = layoutFor(smallMax, 700, undefined, scalesAll)
+    const zoomed = layoutFor(400, 700, undefined, scalesAll)
     expect(zoomed.drawer).toBe(true)
     expect(zoomed.selectorRow).toBe(true)
     expect(zoomed.diagramPlacement).toBe('tall-narrow')
@@ -282,16 +354,17 @@ describe('layoutFor — the user’s size scales', () => {
   })
 
   it('treats a scale that cannot mean anything as unchanged', () => {
+    const base = layoutFor(900, 900)
     for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-      const tier = layoutFor(
+      const plan = layoutFor(
         900,
         900,
         undefined,
         scales({ timer: bad, scramble: bad, diagram: bad }),
       )
-      expect(tier.timerPx, String(bad)).toBe(TIMER_PX.m)
-      expect(tier.scramblePx, String(bad)).toBe(18)
-      expect(tier.diagramMaxWidth, String(bad)).toBe(440)
+      expect(plan.timerPx, String(bad)).toBe(base.timerPx)
+      expect(plan.scramblePx, String(bad)).toBe(18)
+      expect(plan.diagramMaxWidth, String(bad)).toBe(base.diagramMaxWidth)
     }
   })
 })
@@ -302,12 +375,12 @@ describe('BREAKPOINTS — the window floor', () => {
     expect(BREAKPOINTS.minHeight).toBe(294)
   })
 
-  it('selects a deliberate tier at the floor', () => {
-    const tier = layoutFor(BREAKPOINTS.minWidth, BREAKPOINTS.minHeight)
-    expect(tier.drawer).toBe(true)
-    expect(tier.selectorRow).toBe(true)
-    expect(tier.timerPx).toBe(TIMER_PX.s)
-    expect(tier.scrambleMaxHeight).toBe(100)
+  it('selects a deliberate layout at the floor', () => {
+    const plan = layoutFor(BREAKPOINTS.minWidth, BREAKPOINTS.minHeight)
+    expect(plan.drawer).toBe(true)
+    expect(plan.selectorRow).toBe(true)
+    expect(plan.timerPx).toBe(72) // the measured floor, not a step
+    expect(plan.scrambleMaxHeight).toBe(90)
   })
 })
 

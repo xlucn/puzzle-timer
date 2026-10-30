@@ -11,18 +11,17 @@
  *      breakpoints can be used for the current size, the last one is always
  *      picked" — AdwBreakpointBin, which AdwWindow refers to), so overlapping
  *      bands would starve each other; this walks the window down and up
- *      through all five bands and prints what fired.
+ *      through both structural bands and prints what fired.
  *   3. `Gdk.Surface::layout` reports the window's logical size on every
- *      resize — the continuous hook the timer nudge needs, since a
- *      breakpoint only fires on a boundary crossing.
+ *      resize — the continuous hook the sizes and the timer nudge need, since
+ *      a breakpoint only fires on a boundary crossing.
  *
  * It also checks whether `set_default_size` resizes an *already presented*
  * window (it would let every later verification drive sizes in-process
  * instead of fighting CSD shadows with `xdotool windowsize`).
  *
- * Run (the screen has to be wider than the first step, or the L band never
- * fires and the walk silently loses a crossing):
- *   Xephyr :99 -screen 1920x1080 -ac -br &
+ * Run (any screen at least ~950 px wide works; the bands are ≤540 and 541–800):
+ *   Xephyr :99 -screen 1280x800 -ac -br &
  *   DISPLAY=:99 GDK_BACKEND=x11 node --import tsx --import node-gtk/register \
  *     tools/breakpoint_probe.mjs
  *
@@ -40,26 +39,17 @@ const log = (...args) =>
   console.error('[probe]', `${((Number(GLib.getMonotonicTime()) - started) / 1e6).toFixed(2)}s`, ...args)
 
 /**
- * The same five bands main.ts adds, in the same order (L first), built from
- * the same thresholds. A copy of the numbers lived here once and drifted when
- * `selectorRowMax` moved 600 → 540, leaving a probe that tested bands the app
- * had stopped using.
+ * The same two structural bands main.ts adds, in the same order (B first),
+ * built from the same thresholds. A copy of the numbers lived here once and
+ * drifted when `selectorRowMax` moved 600 → 540, leaving a probe that tested
+ * bands the app had stopped using.
  */
 const BANDS = [
-  ['L', `min-width: ${BREAKPOINTS.largeMin}px`],
-  [
-    'M',
-    `min-width: ${BREAKPOINTS.mediumMin}px and max-width: ${BREAKPOINTS.largeMin - 1}px`,
-  ],
   [
     'B',
     `min-width: ${BREAKPOINTS.selectorRowMax + 1}px and max-width: ${BREAKPOINTS.drawerMax}px`,
   ],
-  [
-    'C',
-    `min-width: ${BREAKPOINTS.smallMax + 1}px and max-width: ${BREAKPOINTS.selectorRowMax}px`,
-  ],
-  ['S', `max-width: ${BREAKPOINTS.smallMax}px`],
+  ['C', `max-width: ${BREAKPOINTS.selectorRowMax}px`],
 ]
 
 const app = new Adw.Application({
@@ -126,14 +116,12 @@ app.on('activate', () => {
   // Does set_default_size move a window that is already on screen? Each step
   // crosses exactly one boundary, so a missing apply/unapply is obvious.
   const walk = [
-    [1000, BREAKPOINTS.largeMin + 100, 900], // (none) → L
-    [2000, BREAKPOINTS.mediumMin + 100, 900], // L → M
-    [3000, BREAKPOINTS.drawerMax + 100, 900], // M → (none)
-    [4000, BREAKPOINTS.drawerMax - 100, 900], // → B
-    [5000, BREAKPOINTS.smallMax + 20, 900], // B → C
-    [6000, BREAKPOINTS.smallMax - 80, 900], // C → S
-    [7000, BREAKPOINTS.smallMax + 20, 500], // S → C, and a short window for the height signal
-    [8000, BREAKPOINTS.drawerMax + 100, 540], // → (none), home
+    [1000, BREAKPOINTS.selectorRowMax + 60, 900], // (none) → B
+    [2000, BREAKPOINTS.selectorRowMax - 40, 900], // B → C
+    [3000, 900, 500], // C → (none), and a short window for the height signal
+    [4000, BREAKPOINTS.selectorRowMax + 60, 500], // (none) → B
+    [5000, BREAKPOINTS.selectorRowMax - 40, 500], // B → C
+    [6000, 900, 540], // C → (none), home
   ]
   for (const [delay, width, height] of walk) {
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, delay, () => {
@@ -144,7 +132,7 @@ app.on('activate', () => {
   }
 
   GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 9500, () => {
-    log('done — 8 steps, each crossing one boundary: 6 applies and 6 unapplies, none missed')
+    log('done — 6 steps, each crossing one boundary: 4 applies and 4 unapplies, none missed')
     app.quit()
     return GLib.SOURCE_REMOVE
   })

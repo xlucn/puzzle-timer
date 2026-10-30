@@ -34,11 +34,11 @@ export interface Preferences {
   mouseStart: boolean
   /** Light/dark theming; `system` follows the desktop. */
   colorScheme: ColorScheme
-  /** Multiplier on the timer readout's tier size (src/core/layout.ts). */
+  /** Multiplier on the timer readout's size (src/core/layout.ts). */
   timerScale: number
   /** Multiplier on the scramble text: bigger text, fewer characters per line. */
   scrambleScale: number
-  /** Multiplier on the scramble diagram's tier cap. */
+  /** Multiplier on the scramble diagram's box. */
   diagramScale: number
 }
 
@@ -52,7 +52,7 @@ export const HOLD_THRESHOLD_STEP_MS = 50
 
 /**
  * The range the three size multipliers are clamped to. The lowest value keeps
- * a slider from making anything unreadable; 1 is the tier's own size.
+ * a slider from making anything unreadable; 1 is the layout's own size.
  */
 export const MIN_SIZE_SCALE = 0.75
 export const MAX_SIZE_SCALE = 1.5

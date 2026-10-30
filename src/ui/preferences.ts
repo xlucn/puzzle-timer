@@ -163,7 +163,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     // ---- group: sizes -----------------------------------------------------
     // The multipliers the adaptive layout applies to its own sizes
-    // (src/core/layout.ts) — the tier still decides the size, these only say
+    // (src/core/layout.ts) — the curve still decides the size, these only say
     // how much of it is shown.
     const sizesGroup = new Adw.PreferencesGroup({
       title: 'Sizes',

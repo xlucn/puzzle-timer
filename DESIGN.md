@@ -75,15 +75,22 @@ breaking:
   uses `Adw.OverlaySplitView` (solve list as a sidebar that becomes a drawer
   on narrow windows), `Adw.Dialog`/`Adw.PreferencesDialog` for secondary UI,
   `Adw.ToastOverlay` for undo, and `Adw.StatusPage` for empty states.
-  Every size threshold lives in `core/layout.ts` as pure functions;
-  `main.ts` only measures and applies. Size preferences *scale* the tiers,
-  they never replace them. The diagram sits beside the timer when the content
-  width clears a sidebar-aware threshold: 1.4× its height with the sidebar
-  hidden, or 0.7× its height with it docked, because the docked sidebar
-  offsets the diagram and keeps the timer near the window centre. A narrower
-  or taller content area stacks it below so the timer can centre, and a short,
-  narrow window sheds it entirely (a zero cap, not a smaller constant) rather
-  than letting it sit on the timer.
+  Every size rule lives in `core/layout.ts` as pure functions;
+  `main.ts` only measures and applies. The readout, the scramble text, the
+  scramble slot and the diagram box are continuous functions of the window —
+  no size tiers — and only the two structural decisions stay discrete: the
+  selectors' own row at ≤540 and the sidebar's drawer at ≤800. Size
+  preferences *scale* those numbers, they never replace them. Resizes come
+  from `Gdk.Surface::layout` and the after-paint pass (a breakpoint only fires
+  on a boundary crossing), and the sizes read the window, so docking the
+  sidebar never changes the font. The diagram sits beside the timer when the
+  content width clears a sidebar-aware threshold: 1.4× its height with the
+  sidebar hidden, or 0.7× its height with it docked, because the docked
+  sidebar offsets the diagram and keeps the timer near the window centre. A
+  narrower or taller content area stacks it below so the timer can centre, and
+  a short, narrow window sheds it entirely (a zero cap, not a smaller
+  constant) rather than letting it sit on the timer. Its SVG is parsed once
+  and drawn into a pinned box, so resizing never re-parses a picture.
 - **`Gtk.ColumnView`, not `Gtk.ListBox`.** A session can hold thousands of
   solves; ColumnView is virtualized and only builds the rows on screen. The
   model is a list of solve *ids*, and cells read their text from the session
