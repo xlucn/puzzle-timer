@@ -1,9 +1,19 @@
 # Puzzle Timer — implementation plan
 
 A native Linux cube timer that works like <https://cstimer.net/>, built with
-GTK4 + libadwaita via node-gtk. This document is the durable plan and the
-handoff artifact between sessions: a cold session should read this file and be
-able to continue at the current milestone.
+GTK4 + libadwaita via node-gtk. This is the durable plan and the handoff
+artifact between sessions. **It is ~140 KB: read it by section, never end to
+end.** `§6` is most of it, and the `M0`–`M6` log there is history, not a task
+list.
+
+- **Cold start:** §7 → *Where things stand*, the milestone table at the top of
+  §6, then the one `###` block for the current milestone. Nothing else.
+- **A rule cited by number:** `decision N` in §4 is the numbering source
+  comments and `AGENTS.md` use (`decision 15` = touch).
+- **A measurement:** §5. **History:** the landed blocks in §6, on demand.
+- **Jump:** `grep -n '^## ' PLAN.md` for sections, `grep -n '^### M'` for
+  milestones, `grep -n 'decision N'` for a decision.
+- §1–§3 are short: scope, stack, module boundaries.
 
 ---
 
@@ -36,7 +46,7 @@ point at:
   15), inspection gained its missing cancel button in the header, the
   scramble and bottom bar clear away while inspecting or solving, and the
   **360×360 diagram/timer overlap** was re-measured and fixed — it
-  was real below 640 px wide, and the tier now sheds the picture there (see
+  was real below 640 px wide, and the layout now sheds the picture there (see
   §6 M14).
 - **M15 — phone runtime (an evaluation, not a port).** The verdict on
   whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
@@ -46,7 +56,8 @@ point at:
   already opened the AUR slice.**
 - **M7 — size preferences (landed 2026-10-28).** Timer readout, scramble text
   and scramble diagram sizes, each a *scale* handed to `layoutFor()` rather
-  than a replacement for its tiers (decision 14).
+  than a replacement for its own numbers (decision 14). The sizes it scales
+  are now continuous functions of the window (decision 16).
 - **M8 — scramble type options.** csTimer's per-type controls: the scramble
   **length / count** (number of scrambles for MBLD, move counts for
   random-move types), **neutral orientation**, **pre-scramble** rotations and
@@ -216,9 +227,12 @@ src/
    `Gtk.Svg` (since 4.22) renders in-process — crisper at any scale, ~2-3×
    faster to load (measured 0.6-2.9ms vs 1.9-8.2ms per image), and it drops
    the Rsvg/GdkPixbuf imports and the `Rsvg-2.0` typelib from
-   `generate-types`. The tier caps move into the SVG's rewritten viewport
-   (probe: a Gtk.Picture size request only raises the minimum — the
-   paintable's intrinsic size wins, so requests cannot enforce the cap).
+   `generate-types`. The tier caps first moved into the SVG's rewritten
+   viewport (probe: a Gtk.Picture size request only raises the minimum — the
+   paintable's intrinsic size wins, so requests cannot enforce the cap);
+   **decision 16** replaced that with a pinned box — the SVG is parsed once at
+   its own size and the box's spacer carries the cap, so a resize re-parses
+   nothing.
    Caveat found by probe: a few types (megaminx, FTO, multi-blind relays)
    carry CSS that Gtk.Svg's minimal style support declines — the image still
    renders, with warnings on stderr; visually verify those three.
@@ -295,24 +309,27 @@ src/
     `ui/` — and no Cairo text (rule 6), so axis labels are `Gtk.Label`/Pango
     overlays.
 
-14. **Size preferences scale the tier, they never replace it.** Three new
+14. **Size preferences scale the layout's own numbers, they never replace
+    them.** Three new
     preferences — timer readout, scramble text, scramble diagram — each a
     multiplier clamped by `normalizePreferences`. `layoutFor()` takes them and
     applies them to its *own* outputs, so `src/core/layout.ts` stays the only
     file that may hold a threshold (the rule its header already states): the
-    tiers keep deciding relative growth and the no-clip invariant, and a
+    layout keeps deciding relative growth and the no-clip invariant, and a
     preference only changes how much of it the user gets. What the scales do
-    to each output — timer px = base (72/96/128) × scale;
+    to each output — timer px = the layout's size × scale;
     `scrambleChars` = base ÷ text scale, because a bigger font fits fewer
     characters in the same width, while `scrambleMaxHeight` (px) × scale
     because the same lines are taller; `diagramMax*` × scale. Two
-    implementation notes, as landed: the scales are applied *after* the tier
-    is finished, and the bases (72/96/128 and 18 px) live in `layout.ts`, so
+    implementation notes, as landed: the scales are applied *after* the
+    layout is finished (**decision 16** replaced the tiers with one curve,
+    which the same "scale it last" rule survives), and the bases live in
+    `layout.ts`, so
     `src/ui/` is handed px rather than owning a class per size; GTK4 CSS has
     no custom properties, so `src/ui/fontSize.ts` keeps one inline sheet per
     dynamic selector, installing the new one before removing the old. And
     `scramblePanel.ts` no longer keeps a cap of its own — its caps start
-    unset and every layout pass fills them from the tier, because a third
+    unset and every layout pass fills them from the curve, because a third
     source of diagram size would be a bug waiting to happen.
 
 15. **Touch is the same input model as the keyboard, not a second one.**
@@ -333,6 +350,34 @@ src/
     `Gtk.GestureClick`, which is why this also gives a desktop user
     click-and-hold to start — a behaviour change worth knowing about before
     it ships, not a side effect to discover after.
+
+16. **Sizes are one continuous function of the window; only structure stays
+    tiered** (supersedes the size half of the tier model; the structural
+    bands remain). The five width bands stepped the readout at 480/1200/1600
+    and drove every cap from a tier table, so a resize jumped and every new
+    size meant a new band. Now `layoutFor()` computes the readout as
+    `96 × (width/900)^0.55`, clamped by `0.22 × height` and into [72, 224]
+    (floor 72 = the no-clip floor measured at the window floor; 96 at 900
+    keeps the default window's size; 4K lands ~213), the scramble text is a
+    fixed share of that readout (18/96, i.e. 18 px at 900, clamped to
+    [12, 44]), the scramble slot is `0.25 × height` clamped to [90, 240] and
+    `0.3 × height` (clamped to [90, 260]), the stacked placement taking the
+    content width minus 48 instead — both capped at the same 260, so a tall
+    window cannot get a bigger picture than a wide one. `BREAKPOINTS` keeps
+    only `selectorRowMax`
+    (540), `drawerMax` (800, plus a height-only `shortMax` for shedding the
+    diagram) and the floor. Sizes read the **window**, never the measured
+    content area — otherwise Ctrl+B docking the sidebar would change the
+    font. Consequences, as landed: two breakpoints instead of five
+    (`breakpoint_probe` walks both, 4 applies / 4 unapplies over 6 steps);
+    the `[layout]` line is debounced 150 ms so a drag reports once instead of
+    once per pixel; and `scramblePanel` parses each SVG **once** at its own
+    size and pins the box with `Gtk.Overlay` + a spacer (overlay children do
+    not count in the size request), so a resize re-parses nothing —
+    `Gtk.Svg` rasterizes at paint time (`tools/diagram_box_probe.mjs`). The
+    parse is accepted when the paintable's whole-px size is the declared size
+    floored/ceiled/rounded: 74 of the 177 images declare fractional
+    dimensions (4x4 is 526×392.667) and an exact comparison hid them all.
 
 ---
 
@@ -854,6 +899,11 @@ keyboard rather than becoming a second input model.
   650×360 → 440×150, 800×540 and 1600×500 unchanged. Verified in the app at
   360×294, 360×360, 540×360 and 600×360 (`diagram none`), and at 640×294,
   650×360, 360×640, 800×540 and 1600×500 (`clear`, logged with position).
+  **Decision 16 replaced the 640 px shed threshold**: the picture sheds when
+  `h ≤ shortMax` and `w ≤ selectorRowMax` (540), so 600×360 keeps it now — with
+  a 120×108 box (`0.2 × 600` by `0.3 × 360`) against the ~200×150 picture that
+  collided there. Not re-measured visually; the two threshold cases
+  (600×360 keeps, 540×360 sheds) are unit-tested.
 - **Re-check the startup-only `AdwToastOverlay exceeds …` warning.** Its
   stated cause (a first frame measuring the selectors before any tier ran)
   went away with `headerSlack` on 2026-10-04 — so either it is gone and the
@@ -925,7 +975,7 @@ Small and self-contained — deliberately the first thing scheduled (user call,
   style on the next frame, so a preference change is one frame behind, never
   wrong, and no frame is painted at a size nobody asked for.
 - **Caps unified** — `scramblePanel.ts` keeps no size of its own: its caps
-  start at `UNSET` (-1) and the first layout pass fills them from the tier,
+  start at `UNSET` (-1) and the first layout pass fills them from the layout,
   which removed the duplicated `IMAGE_MAX_*` and `TEXT_MAX_*` as well.
 - **What still holds** — at default scale the floor reports `360x294` with
   the readout at 72 px and no app warnings. A user scale is honest about the
@@ -934,6 +984,17 @@ Small and self-contained — deliberately the first thing scheduled (user call,
   documented rule that a content minimum can only *add* to the window's
   request. The drawer at ≤800 and the selector row at ≤540 are untouched:
   the scales never reach a band.
+- **Follow-up (decision 16, 2026-10-29)** — the 72/96/128 ladder and
+  `TIMER_PX` are gone. The readout comes from `READOUT` (96 px at 900 wide,
+  `×0.55` growth, capped by the window's height, floor 72), the scramble text
+  is a fixed share of that readout (18/96, so 18 px at 900 and ~40 px on a 4K
+  window), and the scramble slot
+  and the diagram box from the `SCRAMBLE_SLOT` / `DIAGRAM` shares of the
+  window. The three scales ride on top unchanged (`timerPx` = curve × scale,
+  `scrambleChars` = base ÷ scale, …), and the checks above still hold: the
+  floor reports `360x294` with the readout at 72 px, no app warnings, and no
+  band moves with a scale. The diagram's cap is now a size request on its box
+  rather than a rewritten SVG viewport, so a resize re-parses no picture.
 
 **Checkpoint for the user:** at default scale, the floor still reports
 `360x294` with no app warnings; then push each scale to an end and confirm at
@@ -1815,6 +1876,8 @@ Evidence:
 
 ## 7. Session handoff
 
+### Where things stand
+
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
@@ -1854,6 +1917,26 @@ Evidence:
   caveat, now history:** M14 (touch) followed M13 by user call, not by
   dependency, so `0.1.0` shipped **without** touch input; that gap closed on
   2026-10-23.
+
+### The last landed milestones
+
+- **Continuous sizes landed 2026-10-29 (decision 16).** What a cold session
+  needs: the readout, the scramble slot and the diagram box are now one
+  function each of the window's size (decision 16 has the numbers), so
+  `BREAKPOINTS` holds only the two structural bands (`selectorRowMax` 540,
+  `drawerMax` 800) plus `shortMax` and the floor, and `main.ts` registers
+  exactly **two** `Adw.Breakpoint`s. Resizes arrive from
+  `Gdk.Surface::layout` and the frame clock's after-paint, because a
+  breakpoint only fires on a boundary crossing; sizes read the **window**, so
+  Ctrl+B docking the sidebar never changes the font. The `[layout]` line is
+  debounced 150 ms — a drag reports once, where it rests, so the floor line is
+  still `360x294 (win 294)`. The diagram is parsed **once** per scramble at
+  its own size and drawn into a box pinned by `Gtk.Overlay` + spacer
+  (`tools/diagram_box_probe.mjs`); nothing re-parses on a resize.
+  `npm test` = **250 tests** (446 while `dist/`'s compiled copies ran too;
+  `vitest.config.ts` excluded them on 2026-10-30); `breakpoint_probe` walks
+  both bands (4 applies, 4 unapplies, 6 steps); `content_min_probe` still fits
+  the floor (269 against 294); the app logs no new warnings.
 - **M7 landed 2026-10-28 — size preferences.** What a cold session needs: the
   three scales (`timerScale`, `scrambleScale`, `diagramScale`) reach the UI
   only through `layoutFor()`'s fourth argument, which applies them after the
@@ -1913,6 +1996,9 @@ Evidence:
   rule stands: **per-session, always** (M3's scope), `src/core/` owns the
   math, and csTimer's GPL source may be ported for the *math*, not the DOM
   (AGENTS.md).
+
+### UI decisions, in the order they were made
+
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
   owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
@@ -2153,8 +2239,11 @@ Evidence:
   every state. First load has no ghost (bare slot); a warm failure still
   reports *under* visible text — the one status that shares the panel with a
   scramble. User-verified live on 4x4.
-- To resume: read this file + the current milestone row, check what exists in
-  `src/`, continue from there.
+
+### Picking it up cold
+
+- To resume: read this section and the current milestone block in §6 — not the
+  whole file — then check what exists in `src/` and continue from there.
 - Before trusting a screenshot of the running app, read
   [`tools/README.md`](./tools/README.md): X captures are often stale — on
   XWayland *and* on the nested server (M4 saw `shot` and `rootshot` on `:99`

@@ -13,12 +13,13 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (the sidebar plumbing) |
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
-| `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, all five disjoint bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its walk starts 1700 px wide, so run it on a wider screen (`1920x1080`) or the L band never fires |
+| `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, both structural bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its widest step is 900 px, so a `1280x800` screen is enough |
 | `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets |
 | `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
-| `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the AGENTS floor-line numbers) |
+| `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the floor line of the layout walk) |
 | `preview_probe.mjs` | Headless: Adaptive Preview premises — content sits in the emulated screen and the window's breakpoints measure that screen (what makes content-basis ground correct) |
 | `content_min_probe.mjs` | Headless: the main stack's minimum per widget at floor widths — bars + panel + timer, text- and width-independent (the 294-floor fit) |
+| `diagram_box_probe.mjs` | Headless: the scramble diagram's box — the SVG is parsed once at its own size, the box follows the layout's cap, a zero cap hides it, and the timer view hides/restores it |
 | `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines (rquickjs, boa, deno_core, rusty_v8, JavaScriptCore, libnode) and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK. |
 
 ## Requirements
@@ -208,6 +209,43 @@ read `$DISPLAY`):
    something known (window default size vs `xwininfo`, row height vs GTK's
    ~34 logical default) and never mix units in one comparison.
 
+## Keyboard walk
+
+Everything here is reachable without the pointer, which also sidesteps the
+portal prompt (trap 4) and the physical mouse (trap 5).
+
+- `<Ctrl+S>` opens the session menu with focus on its **first** item, so
+  `Down`+`Return` picks the second session. `<Ctrl+N>` new, `F2` rename,
+  `<Ctrl>Delete` delete.
+- `<Ctrl+S>` then `Escape` leaves focus on the **session row** (a popover
+  restores focus to its anchor button). From there:
+  - `Shift+Tab` → the sidebar app menu. Focus starts on its first item —
+    Statistics, then Preferences / About / Shortcuts / Quit — and `Down`×3 +
+    `Return` opens Keyboard Shortcuts.
+  - `Shift+Tab`×6 → the sidebar toggle. The chain is app menu → the
+    scramble's scroller (no ring; the label is not focusable, arrow keys
+    scroll) → image → type → copy → refresh.
+
+  `Return` closes the sidebar. `<Ctrl+S>` from that state must reveal it *and*
+  pop the menu (`ensureVisible` in `src/ui/sessionMenu.ts`).
+- The header's forward order is refresh → copy → select → image, plus a
+  Cancel button at the end while inspecting. On a narrow window the scramble
+  controls move to the bottom toolbar; Cancel stays in the header; the
+  centred `Adw.WindowTitle` is not focusable.
+- **The type chooser, by key**: both layouts open the same dialog — walk
+  `Tab` until the select button's ring is on it (focus is sticky, so there is
+  no fixed stop count) and press `Return`. The dialog focuses its own list,
+  so `Down`+`Return` picks a type straight away.
+- `Adw.ShortcutsDialog` is not a toplevel: it draws inside the app's own
+  surface, so `xwininfo -root -tree` finds nothing for it. Capture the app
+  window (`maim -i 0x<id>`) and close it with `Escape`.
+- Focus chains shift whenever a key races a popover popdown: confirm where a
+  `Shift+Tab` chain landed with one focus-ring `shot` before trusting the
+  arithmetic, and judge any frame only after two shots + `cmp` (`shot` forces
+  a repaint but can still return the pre-action frame). To *see* a sub-second
+  state, widen the window and switch to `4x4x4` (~1.2 s) instead of racing
+  3x3's ~50 ms.
+
 ## Recipes
 
 ```sh
@@ -282,7 +320,7 @@ jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
     ~/.local/share/puzzle-timer/sessions/_index.json
 
 # Adaptive layout: the whole band walk is sizes and keys, and every step
-# announces the tier it applied. Ctrl+B is `app.sidebar` and Escape closes the
+# announces the layout it applied. Ctrl+B is `app.sidebar` and Escape closes the
 # drawer (only while one is up), so neither needs the pointer.
 W=$(DISPLAY=:99 xdotool search --name "Puzzle Timer" | head -1)
 tail -f /tmp/m6.log | grep --line-buffered '\[layout\]\|\[sidebar\]' &
@@ -291,18 +329,19 @@ DISPLAY=:99 xdotool windowsize --sync $W 550 480   # selectors leave for their o
 DISPLAY=:99 xdotool key ctrl+b                     # drawer opens   (log: activate → true)
 DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-sidebar=false)
 DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
-DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # tier L: sidebar stays 320 (the cap at every tier), timer l
+DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # every size keeps growing: timer ≈135 px
 # `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
 # which is why the log prints
 # `890x530 (win 530, content 650x484, sidebar docked)` for a 900x540 window
-# with the sidebar open. `content` is the mainContent box between the toolbar
-# bars — the area the timer and diagram actually share — and `sidebar` is
-# `docked` or `overlay` (the exact gap is not logged; it animates while the
-# split view opens). The same line names the diagram placement: `diagram wide`
-# on a window wider than the 540 content-width band whose content width is at
-# least 1.4× its height with the sidebar hidden, or at least 0.7× its height
-# with it docked; `diagram tall-narrow` below that threshold, and
-# `diagram none` where a narrow short one sheds it (surface
+# with the sidebar open. The line is debounced by 150 ms, so a drag reports
+# once — where it came to rest — not once per pixel. `content` is the
+# mainContent box between the toolbar bars — the area the timer and diagram
+# actually share — and `sidebar` is `docked` or `overlay` (the exact gap is not
+# logged; it animates while the split view opens). The same line names the
+# diagram placement: `diagram wide` on a window wider than the 540 content-width
+# band whose content width is at least 1.4× its height with the sidebar hidden,
+# or at least 0.7× its height with it docked; `diagram tall-narrow` below that
+# threshold, and `diagram none` where a narrow short one sheds it (surface
 # 360x294/360x360/540x360 shed it, 600x360 keeps it). The docked sidebar
 # offsets the diagram, so the shown threshold is deliberately looser; the gap
 # is measured only while the sidebar is docked, so neither the 800→801 handoff

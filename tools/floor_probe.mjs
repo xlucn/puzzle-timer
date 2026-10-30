@@ -1,5 +1,5 @@
 // Window-floor probe (2026-10-15): how BREAKPOINTS.minHeight maps onto the
-// widget/surface on this stack — the numbers the AGENTS floor walk expects.
+// widget/surface on this stack — the numbers the layout walk expects.
 //   1. the real constants are the HIG phone minimum (360x294), and
 //   2. heightRequest floors the widget on initial allocation — and holds
 //      that floor when an *external* resize (xdotool, like the floor walk)

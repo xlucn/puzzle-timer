@@ -770,7 +770,7 @@ replaces. The rest does not move:
 | `gi:*` property readback | Blueprint writes properties; it doesn't read them back |
 
 So: roughly a quarter of `ui/` gets shorter and better-checked, and the
-hard parts (the adaptive layout, the focus chains AGENTS.md anchors document)
+hard parts (the adaptive layout, the focus chains `tools/README.md` documents)
 stay where they are. Real, but modest.
 
 **Costs:** a `blueprint-compiler` build dependency (Python — goes in the

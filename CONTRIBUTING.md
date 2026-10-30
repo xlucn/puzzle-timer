@@ -35,8 +35,9 @@ reasoning behind each.
 - **Statistics rules may be ported from csTimer's GPL source — the math, not
   the DOM.** The same applies to its data-file format and its chart math.
   Attribute csTimer and `cstimer_module` in the About dialog.
-- **Every user-visible string goes through `t()`** (`src/core/i18n.ts`), no
-  bare literals in `src/ui/`, the menus, the toasts, or the tooltips.
+- **Every user-visible string goes through `t()`** (`src/core/i18n.ts`) —
+  from M9 on. Until it lands, new strings are English literals and the
+  existing ones in `src/ui/` move with it.
 - **User-visible prose is written by hand.** Agents may draft it, but the
   change stays uncommitted until a human has edited and approved it. See
   below.
