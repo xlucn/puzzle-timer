@@ -939,11 +939,13 @@ app.on('activate', () => {
    * timer update.
    */
   let sidebarWasShown = false
-  // A press that is still down when the timer takes focus must not have the
-  // distraction-free layout or the split view's show gesture changed under
-  // it: either cancels the sequence and suppresses the click gesture's
-  // release. Both are applied when the finger is up instead.
+  // A press that starts on the scramble must not have the distraction-free
+  // layout applied under it: hiding the widget the sequence landed on cancels
+  // the touch before its release. That press applies the layout when the
+  // finger lifts; every other press applies it on the way down, like the
+  // keyboard.
   let pressActive = false
+  let pressInScramble = false
   let appliedFocus = false
   function applySidebarFocus(focused: boolean): void {
     // The drawer cannot be swiped open while the timer owns the view. The
@@ -981,7 +983,8 @@ app.on('activate', () => {
   const applyTimerFocus = (state: TimerState): void => {
     const focused = state !== 'idle' && state !== 'stopped'
     timerFocus = focused
-    if (pressActive || focused === appliedFocus) return
+    if (focused === appliedFocus) return
+    if (pressActive && pressInScramble) return
     appliedFocus = focused
     applyTimerLayout(focused)
   }
@@ -1010,7 +1013,6 @@ app.on('activate', () => {
   // ARM. `stopped` is the no-argument path; its handler ignores the one stop
   // that is not a cancellation, the double-click timeout.
   let pressAt = 0
-  let pressInScramble = false
   const doubleClickTime = Gtk.Settings.getDefault()?.gtkDoubleClickTime ?? 400
 
   const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })

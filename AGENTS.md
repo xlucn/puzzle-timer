@@ -125,10 +125,11 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   those carry a boxed `GdkEventSequence` that crashes node-gtk on ARM.
   `stopped` also fires on the double-click timeout during a stationary hold,
   so ignore that one by timing. Only a press that started on the scramble is
-  cancelled by `stopped`; a drift on the timer is still a hold. The
-  distraction-free layout must wait for the finger to lift —
-  `applyTimerFocus()` defers while `pressActive`, else hiding the scramble
-  moves the timer under the press. A collapsed `Adw.OverlaySplitView` with
+  cancelled by `stopped`; a drift on the timer is still a hold. A press that
+  starts on the scramble defers the distraction-free layout to its release —
+  hiding the widget under the finger cancels the sequence — while a press
+  anywhere else applies it on the way down, exactly like the keyboard. A
+  collapsed `Adw.OverlaySplitView` with
   `show-sidebar=false` can keep its input shield child-visible (`show-progress`
   stays 1) and swallow the content's press. The shield is the `AdwGizmo` named
   `widget` — not the shadow helper's `dimming`/`shadow`/`border`/`outline`
