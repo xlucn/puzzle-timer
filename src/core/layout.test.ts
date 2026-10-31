@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   BREAKPOINTS,
-  DRAWER_EDGE_PX,
-  isDrawerEdgePress,
+  START_AREA_INSET_PX,
   layoutFor,
   UNIT_SCALES,
   type SizeScales,
@@ -387,32 +386,11 @@ describe('BREAKPOINTS — the window floor', () => {
   })
 })
 
-describe('isDrawerEdgePress — the drawer owns the edge', () => {
-  it('matches libadwaita’s 32px edge target', () => {
-    expect(DRAWER_EDGE_PX).toBe(32)
-  })
-
-  it('is the left edge for a start sidebar in LTR', () => {
-    expect(isDrawerEdgePress(0, 360, true, false)).toBe(true)
-    expect(isDrawerEdgePress(DRAWER_EDGE_PX - 1, 360, true, false)).toBe(true)
-    expect(isDrawerEdgePress(DRAWER_EDGE_PX, 360, true, false)).toBe(false)
-    expect(isDrawerEdgePress(359, 360, true, false)).toBe(false)
-  })
-
-  it('is the right edge for an end sidebar in LTR', () => {
-    expect(isDrawerEdgePress(359, 360, false, false)).toBe(true)
-    expect(isDrawerEdgePress(360 - DRAWER_EDGE_PX, 360, false, false)).toBe(false)
-    expect(isDrawerEdgePress(0, 360, false, false)).toBe(false)
-  })
-
-  it('follows the logical side in RTL', () => {
-    expect(isDrawerEdgePress(0, 360, true, true)).toBe(false)
-    expect(isDrawerEdgePress(359, 360, true, true)).toBe(true)
-    expect(isDrawerEdgePress(0, 360, false, true)).toBe(true)
-    expect(isDrawerEdgePress(359, 360, false, true)).toBe(false)
-  })
-
-  it('never claims a press before the widget has a width', () => {
-    expect(isDrawerEdgePress(0, 0, true, false)).toBe(false)
+describe('START_AREA_INSET_PX — the strip is shared with the swipe', () => {
+  it('keeps the target inside libadwaita’s 32px strip, leaving the outer half to the drawer', () => {
+    expect(START_AREA_INSET_PX).toBe(16)
+    // 32 is ADW_SWIPE_BORDER; at that inset the target would cover the whole
+    // strip and no drawer swipe could start.
+    expect(START_AREA_INSET_PX).toBeLessThan(32)
   })
 })

@@ -26,7 +26,7 @@ import { styles } from 'node-gtk/styles'
 
 import {
   BREAKPOINTS,
-  isDrawerEdgePress,
+  START_AREA_INSET_PX,
   layoutFor,
   type ContentSize,
   type DiagramPlacement,
@@ -555,7 +555,23 @@ app.on('activate', () => {
   })
   diagramDock.append(scramblePanel.image)
   lowerArea.attach(diagramDock, 0, 1, 1, 1)
-  mainContent.append(lowerArea)
+
+  // The timer's start target is an overlay child, so it never joins the size
+  // request: a transparent box inset from the edges while the list is a
+  // drawer, held out of the strip libadwaita's swipe owns. It carries the
+  // timer gesture; the readout and the diagram stay visible through it.
+  const startTarget = new Gtk.Box()
+  const startArea = new Gtk.Overlay({ child: lowerArea })
+  startArea.addOverlay(startTarget)
+  mainContent.append(startArea)
+  styles.add(`
+    /* The start target's outline, shown only while the list is a drawer, so it
+       marks exactly where a press arms the timer. */
+    .timer-start-area {
+      border: 4px dashed alpha(@accent_color, 0.45);
+      border-radius: 16px;
+    }
+  `)
 
   const content = new Adw.ToolbarView({
     content: mainContent,
@@ -721,14 +737,17 @@ app.on('activate', () => {
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
       lowerArea.attach(diagramDock, 1, 0, 1, 1)
       scramblePanel.image.marginEnd = 8
+      scramblePanel.image.marginBottom = 16
     } else if (placement === 'tall-narrow') {
       lowerArea.rowSpacing = 8
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
       lowerArea.attach(diagramDock, 0, 1, 1, 1)
-      scramblePanel.image.marginEnd = 16
+      scramblePanel.image.marginEnd = 32
+      scramblePanel.image.marginBottom = 32
     } else {
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
       scramblePanel.image.marginEnd = 16
+      scramblePanel.image.marginBottom = 16
     }
     diagramDock.setVisible(placement !== 'none')
   }
@@ -847,6 +866,7 @@ app.on('activate', () => {
 
     if (split.collapsed !== plan.drawer) split.collapsed = plan.drawer
     if (split.maxSidebarWidth !== plan.sidebarMax) split.maxSidebarWidth = plan.sidebarMax
+    syncStartArea()
     placeSelectors(plan.selectorRow)
     timerView.setFontSize(plan.timerPx)
     scramblePanel.setFontSize(plan.scramblePx)
@@ -939,18 +959,14 @@ app.on('activate', () => {
    * timer update.
    */
   let sidebarWasShown = false
-  // A press that starts on the scramble must not have the distraction-free
-  // layout applied under it: hiding the widget the sequence landed on cancels
-  // the touch before its release. That press applies the layout when the
-  // finger lifts; every other press applies it on the way down, like the
-  // keyboard.
+  // Set while a press owns the start key; a press whose sequence is lost is
+  // cleared by the next one.
   let pressActive = false
-  let pressInScramble = false
   let appliedFocus = false
   function applySidebarFocus(focused: boolean): void {
-    // The drawer cannot be swiped open while the timer owns the view. The
-    // toggle and Ctrl+B are already out; without this, the edge swipe is a
-    // third way in that the distraction-free view would have to undo.
+    // The drawer cannot be swiped open while the timer owns the view; the
+    // start target covers the strip then anyway. Ctrl+B and the toggle are
+    // already out while focused.
     split.setEnableShowGesture(!focused)
     if (focused) {
       sidebarWasShown = split.getShowSidebar()
@@ -962,6 +978,25 @@ app.on('activate', () => {
       sidebarToggle.setSensitive(true)
       sidebarAction.enabled = true
     }
+  }
+
+  /**
+   * The timer's start target: inset by the drawer's swipe width on the left,
+   * right and bottom while the list is a drawer, so the swipe strip can never
+   * arm the timer (the top stays flush with the scramble). Full area
+   * otherwise — a wide window has no edge swipe — and in the distraction-free
+   * view. The dashed outline is shown exactly where the inset applies.
+   */
+  let startAreaInset = -1
+  function syncStartArea(): void {
+    const inset = split.collapsed && !timerFocus ? START_AREA_INSET_PX : 0
+    if (inset === startAreaInset) return
+    startAreaInset = inset
+    startTarget.marginStart = inset
+    startTarget.marginEnd = inset
+    startTarget.marginTop = 0
+    startTarget.marginBottom = inset
+    startTarget.setCssClasses(inset > 0 ? ['timer-start-area'] : [])
   }
 
   /**
@@ -978,13 +1013,13 @@ app.on('activate', () => {
     imageToggle.setSensitive(!focused)
     applySidebarFocus(focused)
     syncBottomBar()
+    syncStartArea()
   }
 
   const applyTimerFocus = (state: TimerState): void => {
     const focused = state !== 'idle' && state !== 'stopped'
     timerFocus = focused
     if (focused === appliedFocus) return
-    if (pressActive && pressInScramble) return
     appliedFocus = focused
     applyTimerLayout(focused)
   }
@@ -996,44 +1031,18 @@ app.on('activate', () => {
     ensureTicking()
   })
 
-  // ---- touch: the main content is the start key -----------------------
+  // ---- touch: the start target is the start key ------------------------
   // The same keyDown/keyUp calls the keyboard makes, with the same key id,
   // so core/timer.ts never learns whether a finger or Space started the
   // hold (decision 15). Touch is always accepted; the mouse is opt-in via
   // `mouseStart`, so `touchOnly` keeps a stray click from arming a solve by
-  // default. The gesture sits on the content under the bars, not on the
-  // readout: a phone should not have to hit the digits, and the
-  // header/selector buttons stay out of the target so they never arm a
-  // solve by accident.
-  const cancelPress = () => timer.cancelPress(START_KEY, nowMs())
-
-  // A press is a hold until it becomes a drag or another gesture takes the
-  // sequence. Do not connect the click gesture's `cancel`/`unpaired-release`:
-  // they carry a boxed `GdkEventSequence`, which node-gtk crashes wrapping on
-  // ARM. `stopped` is the no-argument path; its handler ignores the one stop
-  // that is not a cancellation, the double-click timeout.
-  let pressAt = 0
-  const doubleClickTime = Gtk.Settings.getDefault()?.gtkDoubleClickTime ?? 400
-
+  // default. The target covers the timer area, not the readout or the
+  // scramble: a phone should not have to hit the digits, the scroller stays
+  // a scroller, and `syncStartArea` insets it away from the drawer's swipe
+  // strip — so claiming is safe, no other gesture can hold this sequence.
+  const cancelPress = (): void => timer.cancelPress(START_KEY, nowMs())
   const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })
-  timerGesture.on('pressed', (_nPress, x, y) => {
-    // A press in the drawer's edge belongs to its show swipe. Denying the
-    // sequence leaves it for Adw.OverlaySplitView's drag gesture; arming the
-    // timer here would turn a drawer swipe into a solve and hide the sidebar
-    // out from under the swipe.
-    if (
-      split.collapsed &&
-      !split.getShowSidebar() &&
-      isDrawerEdgePress(
-        x,
-        mainContent.getWidth(),
-        split.getSidebarPosition() === Gtk.PackType.START,
-        mainContent.getDirection() === Gtk.TextDirection.RTL,
-      )
-    ) {
-      timerGesture.setState(Gtk.EventSequenceState.DENIED)
-      return
-    }
+  timerGesture.on('pressed', () => {
     // A focused text entry owns the press, exactly as in the key handler.
     const focus = window.getFocus() as { getText?: () => string } | null
     if (focus !== null && typeof focus.getText === 'function') return
@@ -1041,38 +1050,16 @@ app.on('activate', () => {
     // lost; clear the stale key before starting the new hold.
     if (pressActive) cancelPress()
     pressActive = true
-    pressAt = Date.now()
-    const [hasScrambleBounds, scrambleBounds] = scramblePanel.widget.computeBounds(mainContent)
-    pressInScramble =
-      hasScrambleBounds &&
-      x >= scrambleBounds.getX() &&
-      x < scrambleBounds.getX() + scrambleBounds.getWidth() &&
-      y >= scrambleBounds.getY() &&
-      y < scrambleBounds.getY() + scrambleBounds.getHeight()
+    timerGesture.setState(Gtk.EventSequenceState.CLAIMED)
     // keyDown's running branch stops the solve for any fresh key, so this
     // needs no separate stop path.
     timer.keyDown(START_KEY, nowMs())
   })
   timerGesture.on('released', () => {
     pressActive = false
-    pressInScramble = false
     timer.keyUp(START_KEY, nowMs())
-    // A stop release does not change state, so apply the deferred layout here.
-    applyTimerFocus(timer.state)
   })
-  // `stopped` is the no-argument cancellation path for a press the scroller
-  // takes over. It also fires on the double-click timeout while a stationary
-  // finger is still down; ignore that one by its timing, or a long hold would
-  // cancel itself. A press on the timer is a hold even if the finger drifts,
-  // so only the scramble's stop cancels.
-  timerGesture.on('stopped', () => {
-    if (!pressActive || !pressInScramble) return
-    if (Math.abs(Date.now() - pressAt - doubleClickTime) < 50) return
-    pressActive = false
-    pressInScramble = false
-    cancelPress()
-  })
-  mainContent.addController(timerGesture)
+  startTarget.addController(timerGesture)
 
   // ---- keyboard: Space starts an inspection or arms the timer; any key stops ----
   // CAPTURE phase so the timer sees keys before any focused widget consumes

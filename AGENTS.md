@@ -115,21 +115,20 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   accelerator — Shift/Ctrl-click and Escape are what a phone does not have.
   Multi-select is the deliberate exception: GTK's Ctrl/Shift-click only,
   every action on a single solve still touchable.
-- **The drawer's edge belongs to the drawer.** With the sidebar closed, a
-  press in libadwaita's 32 px edge target must not arm the timer:
-  `isDrawerEdgePress()` (`core/layout.ts`) decides and the timer gesture
-  *denies its sequence* so `Adw.OverlaySplitView` can claim the swipe —
-  skipping `keyDown` is not enough, the gesture still owns the sequence. The
-  show gesture is disabled while the timer owns the view, like Ctrl+B and the
-  toggle. Connect `stopped` (no arguments), never `cancel`/`unpaired-release`:
-  those carry a boxed `GdkEventSequence` that crashes node-gtk on ARM.
-  `stopped` also fires on the double-click timeout during a stationary hold,
-  so ignore that one by timing. Only a press that started on the scramble is
-  cancelled by `stopped`; a drift on the timer is still a hold. A press that
-  starts on the scramble defers the distraction-free layout to its release —
-  hiding the widget under the finger cancels the sequence — while a press
-  anywhere else applies it on the way down, exactly like the keyboard. A
-  collapsed `Adw.OverlaySplitView` with
+- **The start area is a target, not a gesture race.** A transparent overlay
+  child of `lowerArea` carries the timer gesture. While the list is a drawer
+  (`split.collapsed`) it is inset by `START_AREA_INSET_PX` (16 px) on the
+  left, right and bottom (the top stays flush with the scramble) and draws a
+  dashed `.timer-start-area` outline; wide windows have no edge swipe and
+  the distraction-free view wants the whole area, so both drop the inset and
+  the outline (`syncStartArea()`, called from `applyLayout` and
+  `applyTimerLayout`). libadwaita's swipe strip is 32 px, so its outer half
+  belongs to the drawer and the card covers the inner half: a press inside
+  the card claims the sequence, no swipe can start there, and no edge
+  predicate, `stopped`/cancel listener or frame check is needed. Never
+  connect `cancel`/`unpaired-release`: they carry a boxed `GdkEventSequence`
+  that crashes node-gtk on ARM.
+  A collapsed `Adw.OverlaySplitView` with
   `show-sidebar=false` can keep its input shield child-visible (`show-progress`
   stays 1) and swallow the content's press. The shield is the `AdwGizmo` named
   `widget` — not the shadow helper's `dimming`/`shadow`/`border`/`outline`
@@ -262,9 +261,9 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   first — `app.setAccelsForAction(...)` in `src/main.ts` plus an entry in
   `src/ui/shortcuts.ts`. Clicks need portal approval, fight the physical
   mouse, and menus photograph black. Pointer gestures are still drivable with
-  XTEST (`down`/`sleep`/`up`/`drag` in `tools/xtest.py`); a press in the main
-  content is the start key once **Mouse control** is on in Preferences (off by
-  default, the gesture is `touchOnly` until then).
+  XTEST (`down`/`sleep`/`up`/`drag` in `tools/xtest.py`); a press on the
+  timer area is the start key once **Mouse control** is on in Preferences (off
+  by default, the gesture is `touchOnly` until then).
 - **Stop the app when the run ends**: `pkill -f 'src/main[.]ts'`, and stop
   Xephyr too if you started it. A pattern like `main[.]ts` cannot match the
   pkill's own command line; an unbracketed one kills the shell instead.

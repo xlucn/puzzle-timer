@@ -241,6 +241,8 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // gesture, not stop at the picture.
     canTarget: false,
     contentFit: Gtk.ContentFit.CONTAIN,
+    halign: Gtk.Align.END,
+    valign: Gtk.Align.END,
   })
   // The picture's natural size is the SVG's own (~375×180 … 526×393) and its
   // width/height requests only raise the *minimum*, so on its own it would

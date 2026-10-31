@@ -298,7 +298,10 @@ python3 tools/xtest.py --window "Puzzle Timer" \
     press Return release Return sleep 1.5 shot type-switched.png
 
 # Touch path — no touch device needed: XTEST supplies a tap or press-hold.
-# The main content is the start key (same keyDown/keyUp as Space). Mouse
+# The timer area below the scramble is the start key (same keyDown/keyUp as
+# Space); the scramble itself scrolls. While the solve list is a drawer the
+# outlined card is the target and the strip outside it belongs to the swipe —
+# aim inside the card. Mouse
 # input is off by default; enable Mouse control in Preferences before using
 # a click, or drive the touch path with a real touch device. The timer's
 # centre is just a convenient aim. With inspection on (the default) the
