@@ -21,12 +21,13 @@ list.
 
 **MVP (M0–M5):** timers, scrambles, sessions, statistics.
 
-**Scheduled (M7–M16, decided 2026-10-05; M16 added 2026-10-06, M8 added
+**Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`).** The queue is **M15** first — the phone-runtime verdict — followed
-by M8–M12 and M16; M14 (touch) landed on 2026-10-23 and M7 (size
-preferences) on 2026-10-28. Numbers are stable
-identifiers, not queue positions (§6). Two of the adjacencies are
+`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict).** The queue is
+now **M8–M12, M16 and M17**; M17 is the phone-package slice M15 attached.
+M14 (touch) landed on 2026-10-23 and M7 (size preferences) on 2026-10-28.
+Numbers are stable identifiers, not queue positions (§6). Two of the
+adjacencies are
 dependencies rather than preferences: i18n lands ahead of every string-heavy
 feature, so those are written translated instead of swept afterwards, and
 M13 came before M16 because an AUR package needs a name, an icon and a tag to
@@ -48,12 +49,12 @@ point at:
   **360×360 diagram/timer overlap** was re-measured and fixed — it
   was real below 640 px wide, and the layout now sheds the picture there (see
   §6 M14).
-- **M15 — phone runtime (an evaluation, not a port).** The verdict on
-  whether this can run on a real Linux phone at all: arm64 Node ≥ 20.6, a
-  node-gtk native binding build, audio without `pw-play`. Its deliverable is
-  a written result plus a scoped packaging milestone — or a documented "not
-  viable". **M15 decides whether packaging reopens any *further* — M16 has
-  already opened the AUR slice.**
+- **M15 — phone runtime (landed 2026-10-31 — viable).** Tested on a Nura edge
+  phone (postmarketOS/Alpine, aarch64, musl, Phosh): Node 24 + `tsx` +
+  `node-gtk`, GTK 4.24 / libadwaita 1.10, audio through `paplay`, and the full
+  touch checklist pass. The verdict is in §6; it reopens packaging only for
+  the scoped **M17** postmarketOS/Alpine package, not Flatpak/deb/AppStream.
+  M16's AUR slice was already open.
 - **M7 — size preferences (landed 2026-10-28).** Timer readout, scramble text
   and scramble diagram sizes, each a *scale* handed to `layoutFor()` rather
   than a replacement for its own numbers (decision 14). The sizes it scales
@@ -90,16 +91,19 @@ point at:
   in behind them. **Blocked on M13** (a package needs a name, an icon, a
   `.desktop` file and a tag for `source=()` to point at); the draft PKGBUILD
   and every measurement are in §6.
+- **M17 — postmarketOS/Alpine package (attached by M15, 2026-10-31).** A
+  scoped aarch64 `apk` package for the phone M15 proved, shipping `dist/` and
+  the two runtime deps (`node-gtk`, `cstimer_module`) and built against
+  Alpine's `nodejs`, GTK4 and libadwaita. Not Flatpak, deb or AppStream;
+  M16's AUR slice is separate and x86_64. Details in §6.
 
 **Explicitly out of scope for now:**
 - Bluetooth smart cube support (decided: not in v1)
 - Virtual cube, solvers, batch generators, cross-session stats
-- Packaging/distribution (personal use only for now) — **one exception,
-  decided 2026-10-06: an AUR package, scheduled as M16.** A PKGBUILD is just
-  a recipe over a source tarball: no infrastructure, no publishing pipeline,
-  and it doubles as proof that a stranger can build this from a tag.
-  Everything else (Flatpak, deb, AppStream publishing) stays closed until
-  **M15** reports yes.
+- Packaging/distribution (personal use only for now) — **two exceptions:**
+  an AUR package, scheduled as M16 (decided 2026-10-06), and the
+  postmarketOS/Alpine package M15 attached as M17 (2026-10-31). Everything
+  else (Flatpak, deb, AppStream publishing) stays closed.
 
 **Long-term goals (added by decision, not scheduled):**
 - **Stackmat support** — `serialport` npm package + udev rule; protocol logic
@@ -527,9 +531,9 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M15**, then M8–M12 and M16; M13 landed on 2026-10-22
-as `v0.1.0`, M14 on 2026-10-23, and M7 on 2026-10-28, and the landed M0–M6 log
-closes the section. A number never
+The queue is **M8–M12, M16 and M17**; M13 landed on 2026-10-22
+as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, and **M15 on 2026-10-31**,
+and the landed M0–M6 log closes the section. A number never
 moves: only the queue does.
 
 | # | Deliverable | Done when |
@@ -549,10 +553,12 @@ moves: only the queue does.
 | **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
-| **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" |
+| **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" — **landed 2026-10-31: viable; M17 attached** |
 | **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree |
+| **M17** | postmarketOS/Alpine `apk` package: aarch64, `dist/` + runtime deps, node-gtk built against the phone's GTK/libadwaita | `apk add` installs it and the launcher starts from outside the source tree |
 
-**Post-MVP backlog:** stackmat (§1), then packaging if ever needed.
+**Post-MVP backlog:** stackmat (§1), then packaging beyond M16/M17 (Flatpak,
+deb).
 
 ### M13 — landed 2026-10-22 (release readiness)
 
@@ -933,7 +939,7 @@ inspection runs and the solve is timed, the scramble, hints, averages and
 bottom bar should be gone, leaving the digits and header; and resize to the
 360×294 floor — the diagram should be gone and the digits clear.
 
-### M15 — scheduled (phone runtime — an evaluation, not a port)
+### M15 — landed 2026-10-31 (phone runtime — an evaluation, not a port)
 
 A decision gate. Nothing here may change the architecture on its own.
 
@@ -949,7 +955,45 @@ A decision gate. Nothing here may change the architecture on its own.
   milestone attached, or a documented "not viable" that lets the packaging
   line in §1 stay closed.
 
-**Checkpoint for the user:** the verdict.
+#### Verdict — 2026-10-31: viable on aarch64/Wayland
+
+Tested on a **Nura edge** phone (postmarketOS/Alpine, musl, aarch64, kernel
+7.1.3-msm8953) under **Phosh/Phoc**, from the committed tree at
+**`7d9a1a4`** — `v0.2.0` plus the post-tag M7/continuous-size and touch
+commits; the phone's checked source hashes match that tree, not the tag
+itself. Runtime: Node **24.18.1** (ABI 137),
+npm 12.0.2, GTK **4.24.1**, libadwaita **1.10.0**, gobject-introspection 1.86,
+gcc 15.2, Python 3.14, make 4.4.1. The node-gtk binding loads against the
+phone's typelibs and the app runs; gcc/make/Python are present for a source
+build.
+
+- **arm64 Node + `tsx` + `node-gtk`** — yes. The app boots, renders at
+  360×673 in the drawer layout, and runs its scramble worker.
+- **Native binding / typelibs** — yes. The ABI-137 binding present on the
+  phone loads against its typelibs, and `prefs_probe` and `icon_probe` report
+  `ALL PASS`; a clean source build on musl is M17's first open question.
+- **Audio** — yes. `pw-play` and `gst-launch-1.0` are absent; the fallback
+  reaches `paplay`, which plays the generated 8 s/12 s cue WAV with exit 0.
+- **Tools** — `scramble_probe` **206/206** types (slowest megaminx 11.8 s,
+  off the main thread), `npm test` **246/246**, `npm run typecheck` clean.
+  `breakpoint_probe` runs but the compositor clamps every window to 360×673,
+  so its width bands are desktop-only; the touch checks are manual.
+- **Touch** — the user's visual pass on the phone: start/stop, inspection
+  countdown + Cancel, hold-to-start, distraction-free, the left-edge drawer
+  swipe, scramble scroll, session menu/type picker, a 4x4 scramble, the
+  on-screen keyboard, rotation and Preferences all work. The app log has no
+  errors.
+- **One recorded warning** — an earlier run with the OSK open logged
+  `AdwToastOverlay ... requested 532 px, 462 px available`; a toast could not
+  be triggered with the OSK open and no clipping was observed. Treat it as a
+  measurement warning to watch, not a blocker.
+
+**Packaging verdict:** viable, scoped to **M17** (postmarketOS/Alpine `apk`,
+aarch64). Flatpak, deb and AppStream publishing stay closed; M16's AUR slice
+is separate and x86_64. M17's block is at the end of §6.
+
+**Checkpoint for the user:** the verdict — delivered 2026-10-31; the touch
+pass above is the confirmation.
 
 ### M7 — landed 2026-10-28 (size preferences)
 
@@ -1286,6 +1330,47 @@ is 113 packages, so start pragmatic and tighten later if it bothers you.
 
 **Checkpoint for the user:** `makepkg -si`, then launch `/usr/bin/puzzle-timer`
 from a directory that is *not* the source tree.
+
+### M17 — scheduled by M15 (postmarketOS/Alpine package)
+
+Opened 2026-10-31 by the M15 verdict. Scope is the phone that proved the
+runtime, not packaging in general: an **aarch64 `apk`** package for
+postmarketOS/Alpine (Nura edge), shipping the precompiled `dist/` plus the
+two runtime deps (`node-gtk`, `cstimer_module`), with a launcher that `cd`s
+into the app directory before `node --import node-gtk/register dist/main.js`.
+Flatpak, deb and AppStream stay out; M16's AUR package is the separate
+x86_64 slice.
+
+**What the phone already proves:** Node 24.18.1 (ABI 137), GTK 4.24.1,
+libadwaita 1.10.0, gobject-introspection 1.86, gcc 15.2, make 4.4.1, Python
+3.14; the app runs on Phosh/Phoc, the worker generates 206/206 scrambles, and
+`paplay` is the audio player. The node-gtk binding present on the phone was
+built for ABI 137; the package must build it against Alpine's
+`gtk4-dev`/`libadwaita-dev`/`gobject-introspection-dev` rather than assume a
+musl prebuild. M16's three size levers apply unchanged: precompile, prune
+node-gtk's production build closure once the binding exists, and ship no
+`tools/` or tests.
+
+**Open questions for M17** (the first things to test):
+- The tag to package: `v0.2.0` currently predates the M7/continuous-size and
+  touch commits; decide whether to move it or cut a new tag before M16/M17.
+- `npm run build` and the `dist/` runtime on the phone: `meta.js`'s
+  `../../package.json` and `../../CHANGELOG.md`, the `.ts`/`.js` worker
+  branch, and the six relative paths still resolve from `dist/`.
+- The node-gtk source build on musl (`node-gyp`, Python 3.14, gcc 15) and the
+  binding path for Alpine's Node 24; the ABI pin means a `nodejs` bump needs
+  a rebuild.
+- `tsx`/esbuild stay out of the package if `dist/` is precompiled; Alpine's
+  `typescript` (or a build-time npm) must compile the same `tsconfig`.
+- `.desktop`, both icons, `style.css`, `data/`, `CHANGELOG.md`, `package.json`
+  and the launcher; `node-gtk/register` resolves from the cwd, so the launcher
+  must `cd` first.
+- `apk` metadata: `arch=aarch64`, `depends=nodejs gtk4 libadwaita
+  gobject-introspection`, `makedepends=nodejs npm gcc g++ make python3
+  node-gyp` (names to confirm in Alpine).
+
+**Checkpoint for the user:** `apk add` the built package, launch the app from
+a directory that is not the source tree, and repeat the touch checklist above.
 
 ### M0 — landed 2026-09-30
 
@@ -1884,15 +1969,17 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M8–M16 scheduled — queue reordered 2026-10-16** — **M15 phone-runtime
-  verdict** first, then M8 scramble type
+- **M8–M12, M16 and M17 scheduled — M15 landed 2026-10-31** — the phone
+  runtime is **viable**, and M17 is the scoped postmarketOS/Alpine package it
+  attached. Next is M8 scramble type
   options → M9 i18n → M10 csTimer import/export → M11 records & statistics →
-  M12 charts → M16 AUR package. M13 is out of the queue: it landed 2026-10-22
-  as `v0.1.0`, tagged and pushed; M14 (touch input) joined it on 2026-10-23,
-  and M7 (size preferences) on 2026-10-28.
+  M12 charts → M16 AUR package → M17 phone package. M13 is out of the queue:
+  it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
+  joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
+  (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M8–M12 and M16 remain scheduled.
+  changelog entries. Nothing was dropped: M8–M12, M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and
@@ -1923,6 +2010,17 @@ Evidence:
 
 ### The last landed milestones
 
+- **M15 landed 2026-10-31 — phone runtime verdict: viable.** What a cold
+  session needs: tested on a Nura edge phone (postmarketOS/Alpine, musl,
+  aarch64, Phosh/Phoc) from the committed tree at `7d9a1a4` (`v0.2.0` plus
+  the post-tag layout/touch commits); Node 24.18.1 (ABI 137), GTK 4.24.1,
+  libadwaita 1.10.0 and node-gtk work; `npm test` is 246, `scramble_probe`
+  is 206/206 (slowest megaminx 11.8 s), `prefs_probe`/`icon_probe` pass, and
+  audio falls through to `paplay`. The touch checklist passes on the phone;
+  `breakpoint_probe` is desktop-only because the compositor clamps windows to
+  360×673. One earlier OSK-open `AdwToastOverlay` height warning was not
+  reproduced as clipping. Packaging reopens only as **M17**
+  (postmarketOS/Alpine `apk`, aarch64); Flatpak/deb/AppStream stay closed.
 - **Continuous sizes landed 2026-10-29 (decision 16).** What a cold session
   needs: the readout, the scramble slot and the diagram box are now one
   function each of the window's size (decision 16 has the numbers), so
@@ -1985,10 +2083,10 @@ Evidence:
   back), and sizes are read from the *surface* because widgets lag a pass
   behind during a resize. `npm test` = **409 tests**; the manual band walk
   (keyboard, Xephyr `:99`) is in `tools/README.md` → Recipes.
-  **Next milestone: M15 (phone-runtime verdict)** — see §6. M7–M12 and
-  M16 are scheduled but deferred, not dropped. The still-unscheduled backlog
-  is stackmat and the rest of packaging (Flatpak, deb), which only M15 can
-  reopen (§1).
+  **Next milestone: M8 (scramble type options)** — see §6. M9–M12, M16 and
+  M17 are scheduled but deferred, not dropped. The still-unscheduled backlog
+  is stackmat and packaging beyond M16/M17 (Flatpak, deb); those stay closed
+  (§1).
   Still open from earlier user calls: the diagram's thin outlines read
   low-contrast on the dark theme (accepted for now, noted in a code
   comment), and one startup-only `AdwToastOverlay exceeds` warning with the
