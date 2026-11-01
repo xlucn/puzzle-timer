@@ -535,8 +535,6 @@ app.on('activate', () => {
   const selectorBar = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     cssClasses: ['toolbar'],
-    marginStart: 12,
-    marginEnd: 12,
   })
 
   const mainContent = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
@@ -989,7 +987,7 @@ app.on('activate', () => {
     startAreaInset = inset
     startTarget.marginStart = inset
     startTarget.marginEnd = inset
-    startTarget.marginTop = 0
+    startTarget.marginTop = inset
     startTarget.marginBottom = inset
     startTarget.setCssClasses(inset > 0 ? ['timer-start-area'] : [])
   }
