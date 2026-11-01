@@ -6,9 +6,9 @@ A speed cubing timer, mainly targeting Linux and designed for GNOME desktop and 
 It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
 types. The UI is also inspired by csTimer, but designed to blend in with GNOME's design language.
 
-This app is currently in early development. The code is in TypeScript and is written with the help of AI agents. The design is mostly settled, though.
+This app is currently in early development. In this early stage, the code is in TypeScript and is written with the help of AI agents.
 
-There are plans porting to Rust or vala in the future.
+The code will be ported to Rust or vala before hitting stable.
 
 ![Puzzle Timer's main window](docs/main-window.png)
 
@@ -32,7 +32,7 @@ Here is what is done by me, at the current stage:
 ## Features
 
 - **Adaptive layout**: Designed to fit portrait and landscape windows of desktop and mobile devices.
-- **Timer**: Start and stop with the keyboard, mouse or a finger.
+- **Timer**: Start and stop with keyboard, mouse or touch screen.
 - **Inspection**: WCA compliant 15-second inspection.
 - **Scrambles**: 200+ puzzle types supported by [csTimer](https://cstimer.net) (Thanks!),
   including WCA puzzles:
@@ -48,19 +48,20 @@ Here is what is done by me, at the current stage:
   - 5x5 Blindfolded
   - 3x3 Fewest Moves
   - 3x3 One-Handed
-  - Clock (RIP)
   - Megaminx
   - Pyraminx
   - Skewb
-  - FTO(Face-turning Octahedron)
+  - FTO
   - Square-1
 - **Sessions**: create/rename/switch/delete, per-session scramble type.
 - **Statistics**: ao5/ao12/mo3, targets, etc.
-- **Records**: `+2`/`DNF`, comments, scramble. Editable.
+- **Records**: `+2`/`DNF`, comments, scramble.
 
 ## Install
 
-You need `nodejs`, and install `node-gtk`'s dependencies as instructed [here](https://github.com/romgrk/node-gtk/).
+(Again, plan to port to rust or vala. Only then will it be packaged. Now, only source code is available.)
+
+You need `nodejs`, and install `node-gtk`'s dependencies as instructed [here](https://github.com/romgrk/node-gtk/) (mostly gtk packages, you probably already had it if running GNOME).
 
 Then clone or download this repo, and install needed nodejs packages:
 ```sh
