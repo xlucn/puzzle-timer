@@ -209,7 +209,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   const scroll = new Gtk.ScrolledWindow({
     child: text,
     hscrollbarPolicy: Gtk.PolicyType.NEVER, // the text wraps, it never scrolls sideways
-    vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
+    // AUTOMATIC makes scroll take up 58px vertical space even if they are hidden,
+    // EXTERNAL won't, leaving more space for the timer and diagram.
+    vscrollbarPolicy: Gtk.PolicyType.EXTERNAL,
     propagateNaturalHeight: true,
     maxContentHeight: UNSET,
   })
