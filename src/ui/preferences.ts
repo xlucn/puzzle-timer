@@ -78,7 +78,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // lead into.
     const inspectionRow = new Adw.SwitchRow({
       title: 'WCA inspection',
-      subtitle: 'Count down from 15 s before the solve starts',
+      subtitle: 'Show a 15-second count down before the solve starts',
       active: prefs.inspection,
     })
     inspectionRow.on('notify::active', () => {
@@ -88,7 +88,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     const cuesRow = new Adw.SwitchRow({
       title: 'Inspection sound cues',
-      subtitle: 'One beep at 8 s, two at 12 s',
+      subtitle: 'If enabled, first beep at 8 s, second at 12 s',
       active: prefs.inspectionSound,
     })
     cuesRow.on('notify::active', () => {
@@ -169,9 +169,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // how much of it is shown.
     const sizesGroup = new Adw.PreferencesGroup({
       title: 'Sizes',
-      description:
-        'Scale the readout, the scramble text and the scramble diagram. 1.00 is ' +
-        'the size the layout picks for the window; the layout still adjusts around it.',
+      description: 'Scale the timer, the scramble text and the image.',
     })
 
     const scaleRow = (row: {
@@ -202,8 +200,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     }
 
     scaleRow({
-      title: 'Timer readout',
-      subtitle: 'Size of the big digits',
+      title: 'Timer',
+      subtitle: 'Size of the timer digits',
       value: prefs.timerScale,
       min: MIN_SIZE_SCALE,
       onChange: (timerScale) => options.set({ timerScale }),
@@ -216,7 +214,7 @@ export function createPreferences(options: PreferencesPanelOptions) {
       onChange: (scrambleScale) => options.set({ scrambleScale }),
     })
     scaleRow({
-      title: 'Scramble diagram',
+      title: 'Scramble image',
       subtitle: 'Size of the scramble picture',
       value: prefs.diagramScale,
       min: MIN_DIAGRAM_SCALE,
@@ -232,10 +230,9 @@ export function createPreferences(options: PreferencesPanelOptions) {
       iconName: 'image-x-generic-symbolic',
     })
     const scrambleGroup = new Adw.PreferencesGroup({
-      title: 'Diagram',
+      title: 'Image',
       description:
-        'A picture of the scramble when its type has one — 177 of the 206 types do. ' +
-        'It is generated with the scramble, so switching this never changes the scramble itself.',
+        'Show the picture of the scramble.',
     })
 
     const imageRow = new Adw.SwitchRow({

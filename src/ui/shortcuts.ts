@@ -54,8 +54,7 @@ export function createShortcutsDialog(): ShortcutsDialog {
   section('Timer', [
     // Key names are case-sensitive gdk_keyval names: "space", not "Space"
     // (an unparsable accelerator silently renders as an empty chip).
-    ['Start a solve (hold, then release)', 'space'],
-    ['Stop a running solve', 'space'],
+    ['Start and stop the timer', 'space'],
     ['Cancel the inspection countdown', 'Escape'],
   ])
   section('Scramble', [
@@ -69,13 +68,13 @@ export function createShortcutsDialog(): ShortcutsDialog {
     // no accelerator of its own), and Escape is the drawer's way out — after
     // anything else that wanted the key (the inspection cancel above, an open
     // popover) has had it.
-    ['Show or hide the solve list', '<Ctrl>b'],
-    ['Hide the solve list (when it is a drawer)', 'Escape'],
+    ['Show or hide the sidebar', '<Ctrl>b'],
+    ['Hide the drawer', 'Escape'],
     ['Delete the selected solves', 'Delete'],
     ['Clear the penalty of the newest solve', '<Ctrl>1'],
     ['Give the newest solve +2', '<Ctrl>2'],
     ['Mark the newest solve DNF', '<Ctrl>3'],
-    ['Edit the selected (or newest) solve — penalty, comment', '<Ctrl>E'],
+    ['Edit the selected (or newest) solve', '<Ctrl>E'],
   ])
   section('Sessions', [
     ['Open the session menu', '<Ctrl>S'],

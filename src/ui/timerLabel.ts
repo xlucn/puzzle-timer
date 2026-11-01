@@ -49,13 +49,13 @@ styles.add(`
 `)
 
 const HINTS: Record<TimerState, string> = {
-  idle: 'Hold Space or the timer to start',
+  idle: 'Hold Space or touch to start',
   holding: 'Keep holding…',
   ready: 'Release to start',
   'inspection-ready': 'Release to inspect',
   inspecting: 'Inspection — Space starts, Esc cancels',
   running: 'Press any key or tap to stop',
-  stopped: 'Hold Space or the timer for the next solve',
+  stopped: 'Hold Space or touch to start',
 }
 
 /**
