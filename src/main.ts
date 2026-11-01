@@ -569,14 +569,6 @@ app.on('activate', () => {
   const startArea = new Gtk.Overlay({ child: lowerArea })
   startArea.addOverlay(startTarget)
   mainContent.append(startArea)
-  styles.add(`
-    /* The start target's outline, shown only while the list is a drawer, so it
-       marks exactly where a press arms the timer. */
-    .timer-start-area {
-      border: 4px dashed alpha(@accent_color, 0.45);
-      border-radius: 16px;
-    }
-  `)
 
   const content = new Adw.ToolbarView({
     content: mainContent,
