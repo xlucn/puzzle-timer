@@ -737,18 +737,12 @@ app.on('activate', () => {
     if (placement === 'wide') {
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
       lowerArea.attach(diagramDock, 1, 0, 1, 1)
-      scramblePanel.image.marginEnd = 8
-      scramblePanel.image.marginBottom = 16
     } else if (placement === 'tall-narrow') {
       lowerArea.rowSpacing = 8
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
       lowerArea.attach(diagramDock, 0, 1, 1, 1)
-      scramblePanel.image.marginEnd = 32
-      scramblePanel.image.marginBottom = 32
     } else {
       lowerArea.attach(timerView.widget, 0, 0, 1, 1)
-      scramblePanel.image.marginEnd = 16
-      scramblePanel.image.marginBottom = 16
     }
     diagramDock.setVisible(placement !== 'none')
   }
