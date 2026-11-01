@@ -10,11 +10,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Size settings for the timer, the scramble text and the scramble diagram.
+- A + button in the sidebar header to add a new session.
 
 ### Changed
 
 - The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes.
 - Touching or clicking on the scramble text no longer start the timer; only the timer area is recognized.
+- The app menu moved to the main header bar, and the session chooser now sits in the sidebar's header.
 
 ### Fixed
 

@@ -217,21 +217,22 @@ portal prompt (trap 4) and the physical mouse (trap 5).
 - `<Ctrl+S>` opens the session menu with focus on its **first** item, so
   `Down`+`Return` picks the second session. `<Ctrl+N>` new, `F2` rename,
   `<Ctrl>Delete` delete.
-- `<Ctrl+S>` then `Escape` leaves focus on the **session row** (a popover
-  restores focus to its anchor button). From there:
-  - `Shift+Tab` → the sidebar app menu. Focus starts on its first item —
-    Statistics, then Preferences / About / Shortcuts / Quit — and `Down`×3 +
-    `Return` opens Keyboard Shortcuts.
-  - `Shift+Tab`×6 → the sidebar toggle. The chain is app menu → the
-    scramble's scroller (no ring; the label is not focusable, arrow keys
-    scroll) → image → type → copy → refresh.
-
-  `Return` closes the sidebar. `<Ctrl+S>` from that state must reveal it *and*
-  pop the menu (`ensureVisible` in `src/ui/sessionMenu.ts`).
-- The header's forward order is refresh → copy → select → image, plus a
-  Cancel button at the end while inspecting. On a narrow window the scramble
-  controls move to the bottom toolbar; Cancel stays in the header; the
-  centred `Adw.WindowTitle` is not focusable.
+- `<Ctrl+S>` then `Escape` leaves focus on the **session switch** in the
+  sidebar header (a popover restores focus to its anchor button); `Tab` walks
+  on into the list, `Shift+Tab` leaves the sidebar. `<Ctrl+S>` while the
+  sidebar is closed must reveal it *and* pop the menu (`ensureVisible` in
+  `src/ui/sessionMenu.ts`).
+- The app menu is the content header's last control — Statistics, then
+  Preferences / About / Shortcuts / Quit — so it stays reachable with the
+  sidebar closed. Walk `Tab` until its ring is on it (focus is sticky, so
+  there is no fixed stop count), `Return` to open it, `Down`×3 + `Return` for
+  Keyboard Shortcuts.
+- The header reads, left to right: sidebar toggle → refresh → copy → select →
+  image → Cancel (while inspecting) → app menu, next to the window controls.
+  On a narrow window the scramble controls move to the bottom toolbar; Cancel
+  and the menu stay in the header; the centred type title is not focusable.
+  Tab runs right to left through those end controls: `AdwHeaderBar.packEnd`
+  prepends, so the tree order is the reverse of the visual one.
 - **The type chooser, by key**: both layouts open the same dialog — walk
   `Tab` until the select button's ring is on it (focus is sticky, so there is
   no fixed stop count) and press `Return`. The dialog focuses its own list,
@@ -306,13 +307,15 @@ python3 tools/xtest.py --window "Puzzle Timer" \
 # a click, or drive the touch path with a real touch device. The timer's
 # centre is just a convenient aim. With inspection on (the default) the
 # first release starts the 15 s countdown — a tap is enough — and the second
-# release starts the solve; a Cancel button appears at the header's end while
-# inspecting (same path as Escape). Pressing start hides the scramble,
+# release starts the solve; a Cancel button appears in the header's end area
+# while inspecting (same path as Escape), with the app menu to its right.
+# Pressing start hides the scramble,
 # hint/averages, bottom bar and solve list; the list's toggle and the diagram
 # toggle grey out, while the header stays. The list returns to its previous
 # open/closed state when the timer is idle or stopped. At 900x540 the timer's
-# centre is ≈560,300; Cancel sits around x≈690, y≈22. At the 360 floor it is
-# the rightmost header control. Re-aim both, coords drift with the layout.
+# centre is ≈560,300; Cancel sits around x≈690, y≈22, just left of the app
+# menu. At the 360 floor the menu is the rightmost header control. Re-aim
+# both, coords drift with the layout.
 python3 tools/xtest.py --window "Puzzle Timer" \
     down 560 300 sleep 0.7 up sleep 0.8 \
     down 560 300 sleep 0.7 up sleep 1.2 \

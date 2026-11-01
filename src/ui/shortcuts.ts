@@ -8,7 +8,7 @@
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
  * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T),
  * Preferences / Quit (Ctrl+, / Ctrl+Q), and this dialog itself (Ctrl+?).
- * It opens from the sidebar's app menu ("Keyboard Shortcuts") or that
+ * It opens from the header's app menu ("Keyboard Shortcuts") or that
  * accelerator.
  *
  * Adw.ShortcutsDialog (libadwaita 1.9) is the successor to

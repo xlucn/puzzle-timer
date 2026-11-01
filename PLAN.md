@@ -2102,12 +2102,11 @@ Evidence:
 
 - **Layout: "F" (2026-10-01)** — the solve list is the **left** sidebar
   (`sidebarPosition: START`, width clamped 240–320 logical), and the sidebar
-  owns the app chrome: its header reads `csTimer GTK … [app menu ⋮]`, the
-  session switch is a full-width row under it (its label *is* the current
-  session name), then the list. The content header reads
-  `[toggle][WCA][3x3x3][refresh] … [app-functions ⋮][window controls]` with
-  no title — the app name lives in the sidebar header; the window title still
-  goes to the taskbar. This layout came out of the A–E mockup comparison
+  owns the session chrome: its header shows the current session, then the
+  list. The content header reads
+  `[toggle][WCA][3x3x3][refresh] … [app menu ⋮][window controls]` with
+  no title — the window title still goes to the taskbar. This layout came out
+  of the A–E mockup comparison
   (`mockups/`, GTK and HTML variants — deleted once F landed in the real
   app); the default window is back to **900×540**, since the header lost the
   title and session pill (math in the `setDefaultSize` comment). All three
@@ -2115,10 +2114,10 @@ Evidence:
   category/type selections that outgrow the header (they move to their own
   row instead, §6 M6), the drawer breakpoint (≤800), and the sidebar width
   caps (320 → 380 → 440; *capped at 320 everywhere since 2026-10-09*, see
-  §6 M6 scaling). About / Keyboard Shortcuts / Quit sit in the
-  sidebar app menu — unreachable while the sidebar is closed, which is why
-  `<Ctrl+Q>` stays the quit path that always works (`<Ctrl+B>` reopens the
-  list, and `Escape` closes the drawer).
+  §6 M6 scaling). The sidebar app menu of the first build went
+  with the 2026-11-01 decision below; `<Ctrl+Q>` stays the quit path that
+  always works (`<Ctrl+B>` reopens the list, and `Escape` closes the
+  drawer).
 - **Solve list columns (user call, 2026-10-02)** — the sidebar reads
   `# | Time | ao5 | ao12`; the `Solved` timestamp column is gone (the moment
   is still spelled out year-to-second in the Edit dialog, which is where a
@@ -2340,6 +2339,28 @@ Evidence:
   every state. First load has no ghost (bare slot); a warm failure still
   reports *under* visible text — the one status that shares the panel with a
   scramble. User-verified live on 4x4.
+- **App menu leaves the sidebar; the session switch becomes its title
+  (user call, 2026-11-01)** — the app menu (Statistics, then Preferences /
+  About / Shortcuts / Quit) moved to the content header's end, after Cancel
+  and before the window controls, so it no longer disappears with the
+  sidebar — the "unreachable while closed" gap the layout-F note recorded.
+  The sidebar header's title slot now holds the session switch itself: the
+  same `Gtk.MenuButton`, now compact and centred, label = the current
+  session's name. The full-width session row under the header is gone,
+  worth ≈42 px of list height, and `timesList` no longer takes
+  `appName`/`appMenu` (the app name lives in the window title and the About
+  dialog). The menu's New session moved out to a left-aligned `+` button in
+  that header (same `app.sessionNew` action, so `Ctrl+N` and the tooltip
+  cannot drift); the menu keeps Rename / Delete. `Ctrl+S`, its
+  `ensureVisible` reveal and the popover's first-item focus are unchanged —
+  the button is still its own anchor, and it is now a focus stop in the
+  sidebar header.
+  `AdwHeaderBar.packEnd` **prepends**, so the end box is packed
+  menu → Cancel → toggle to read image → Cancel → menu, the menu at the
+  header's edge; tab order through those three runs right to left.
+  Floor unchanged: below 540 the toggle leaves with the scramble controls,
+  so the header reads toggle → menu, and the content minimum stays under
+  360 (no new warning at the floor).
 
 ### Picking it up cold
 

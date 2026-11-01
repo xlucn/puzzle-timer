@@ -16,10 +16,11 @@
  * restore. A session switch re-points `current` and rebuilds wholesale
  * (ids are only unique within one session).
  *
- * The sidebar carries the app chrome — HeaderBar with the app name and app
- * menu, the session switch row under it, then the list. A Gtk.ActionBar
- * footer slides in on selection (Edit, Delete); Delete travels the same
- * path as the button. Deleting several rows is one undo toast for the lot.
+ * The sidebar is its own ToolbarView: a HeaderBar whose start holds New
+ * session and whose title is the session switch, then the list. A
+ * Gtk.ActionBar footer slides in on selection (Edit, Delete); Delete travels
+ * the same path as the button.
+ * Deleting several rows is one undo toast for the lot.
  * Multi-select is GTK's own Ctrl/Shift-click; a touch screen has no
  * equivalent, so the list carries no touch gesture of its own.
  *
@@ -73,12 +74,13 @@ export interface TimesListOptions {
    * the batch instead of a queue of toasts.
    */
   onDelete: (solves: readonly Solve[]) => void
-  /** App name, shown as the sidebar header's title. */
-  appName: string
-  /** The app's one menu — Statistics, then Preferences / About / Shortcuts / Quit — at the header's end. */
-  appMenu: Widget
-  /** The session switch button; a row between the header and the list. */
+  /**
+   * The session switch button. It *is* the sidebar header's title: the list
+   * below shows one session, so the header names which.
+   */
   sessionControl: Widget
+  /** New-session button, packed at the header's start. */
+  newSessionControl: Widget
   /** Toplevel the comment dialog is presented on. */
   window: Window
 }
@@ -192,24 +194,15 @@ export function createTimesList(options: TimesListOptions) {
     vexpand: true,
   })
 
-  // ---- sidebar chrome: header, then the session row ----------------------
+  // ---- sidebar chrome: header, then the list -----------------------------
   // Window controls are not here: GTK puts those in the content header, the
-  // first HeaderBar in the toplevel.
-  const title = new Adw.WindowTitle({ title: options.appName, subtitle: '' })
-  const header = new Adw.HeaderBar({ titleWidget: title, showTitle: true })
-  header.packEnd(options.appMenu)
-
-  // The session switch labels the list below it, so it sits between header
-  // and list as a full-width flat row. The margins keep the hover highlight
-  // off the sidebar's edges.
-  const sessionRow = new Gtk.Box({
-    orientation: Gtk.Orientation.HORIZONTAL,
-    marginTop: 4,
-    marginBottom: 4,
-    marginStart: 6,
-    marginEnd: 6,
-  })
-  sessionRow.append(options.sessionControl)
+  // first HeaderBar in the toplevel. With the app menu in the content header
+  // too, the title slot is free for the session switch — the list's own
+  // subject — and no row is spent saying which session it is. New session
+  // sits at the start, so the header is [+ ] [ session ▾ ].
+  const header = new Adw.HeaderBar({ showTitle: true })
+  header.titleWidget = options.sessionControl
+  header.packStart(options.newSessionControl)
 
   // ---- footer: the actions available on the selected row -----------------
   // Gtk.ActionBar, `revealed` collapsing it to nothing: the bar costs list
@@ -264,13 +257,11 @@ export function createTimesList(options: TimesListOptions) {
   // footer is pinned by the container instead of leaning on the scroller's
   // vexpand, revealTopBars/revealBottomBars become available the way the
   // content side already uses them, and the sidebar matches the main
-  // content's structure. The session row stays *content* — it labels the
-  // list, so it must not leave with the header — and the `sidebar` class
-  // moves to this root: its rules match descendants, so the list keeps them.
+  // content's structure. The `sidebar` class moves to this root: its rules
+  // match descendants, so the list keeps them.
   const widget = new Adw.ToolbarView({ cssClasses: ['sidebar'] })
   widget.addTopBar(header)
   const body = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
-  body.append(sessionRow)
   body.append(scroller)
   body.append(empty)
   widget.content = body

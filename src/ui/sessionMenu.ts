@@ -2,10 +2,12 @@
  * sessionMenu.ts — the sidebar's session control.
  *
  * One widget does both jobs: a Gtk.MenuButton whose label is the *current*
- * session's name, with a Gio.Menu underneath that lists every session as a
- * radio item — GTK checks the active one itself, because the action is
- * stateful and the menu item's target is compared with the action's state —
- * followed by a second section holding New / Rename / Delete.
+ * session's name — the sidebar header's title — with a Gio.Menu underneath
+ * that lists every session as a radio item — GTK checks the active one
+ * itself, because the action is stateful and the menu item's target is
+ * compared with the action's state — followed by a second section holding
+ * Rename / Delete. New is the sidebar header's own "+" button, which drives
+ * the same action.
  *
  * Everything here is UI only: dialogs call `library.create/rename/remove`
  * and the library announces the change. Persistence belongs to whoever
@@ -49,7 +51,7 @@ export interface SessionMenuOptions {
 type Application = InstanceType<typeof Adw.Application>
 type Window = InstanceType<typeof Adw.ApplicationWindow>
 
-/** Longest session name shown in the sidebar row before it ellipsizes. */
+/** Longest session name shown in the sidebar title before it ellipsizes. */
 const SIDEBAR_NAME_CHARS = 20
 
 export function createSessionMenu(options: SessionMenuOptions) {
@@ -124,16 +126,14 @@ export function createSessionMenu(options: SessionMenuOptions) {
 
   // ---- the button --------------------------------------------------------
   // The current session's name *is* the label: an icon would say "a menu is
-  // here" but not "you are solving in Meet weekly". As a full-width sidebar
-  // row the label is left-aligned (xalign 0) and expands, so the arrow sits
-  // at the row's right edge and long names ellipsize at 20 characters instead
-  // of crowding the arrow.
+  // here" but not "you are solving in Meet weekly". It is the sidebar
+  // header's title, so it stays compact and centred — a full-width button
+  // would leave no header background to drag by. Long names ellipsize at 20
+  // characters instead of crowding the arrow.
   const label = new Gtk.Label({
     label: library.active.name,
     ellipsize: Pango.EllipsizeMode.END,
     maxWidthChars: SIDEBAR_NAME_CHARS,
-    xalign: 0,
-    hexpand: true,
   })
 
   const button = new Gtk.MenuButton({
@@ -142,8 +142,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
     alwaysShowArrow: true,
     tooltipText: 'Session',
     cssClasses: ['flat'],
-    // Span the sidebar; harmless packed size anywhere else.
-    hexpand: true,
+    halign: Gtk.Align.CENTER,
   })
 
   // ---- actions -----------------------------------------------------------
@@ -173,6 +172,16 @@ export function createSessionMenu(options: SessionMenuOptions) {
     })
   })
   app.addAction(newAction)
+
+  // The header's "+": the menu's New item, moved out because the title slot
+  // left the header nearly empty. Same action, so the button, the menu item's
+  // accelerator and any future entry point cannot drift.
+  const newButton = new Gtk.Button({
+    iconName: 'list-add-symbolic',
+    tooltipText: 'New session (Ctrl+N)',
+    cssClasses: ['flat'],
+    actionName: 'app.sessionNew',
+  })
 
   const renameAction = Gio.SimpleAction.new('sessionRename', null)
   renameAction.on('activate', () => {
@@ -218,7 +227,8 @@ export function createSessionMenu(options: SessionMenuOptions) {
   // ---- keyboard -----------------------------------------------------------
   // Not test scaffolding — these are the menu's real accelerators, and
   // GtkMenuButton draws each one beside its item, so the bindings are
-  // discoverable from inside the menu. They also make the whole flow drivable
+  // discoverable from inside the menu (Ctrl+N, now on the + button, is on its
+  // tooltip instead). They also make the whole flow drivable
   // without aiming a pointer at a moving button (see tools/README.md: synthetic
   // clicks fight the physical mouse).
   const openAction = Gio.SimpleAction.new('sessionOpen', null)
@@ -259,7 +269,6 @@ export function createSessionMenu(options: SessionMenuOptions) {
     }
 
     const management = new Gio.Menu()
-    management.append('New session…', 'app.sessionNew')
     management.append('Rename…', 'app.sessionRename')
     management.append('Delete…', 'app.sessionDelete')
 
@@ -284,5 +293,5 @@ export function createSessionMenu(options: SessionMenuOptions) {
   library.subscribe(sync)
   sync()
 
-  return { widget: button }
+  return { widget: button, newButton }
 }

@@ -46,19 +46,14 @@ app.on('activate', () => {
   ])
   const window = new Adw.ApplicationWindow({ application: app, title: 'SidebarProbe' })
   // The M3+ options (getSession; the header chrome): stand-ins of the same
-  // widget kinds as main.ts's, so the session row and header contribute the
-  // widths they do in the app.
+  // widget kinds as main.ts's, so the header title contributes the width it
+  // does in the app.
   const list = createTimesList({
     library: new SessionLibrary(),
     getSession: () => session,
     onDelete: () => {},
-    appName: 'SidebarProbe',
-    appMenu: new Gtk.MenuButton({
-      iconName: 'open-menu-symbolic',
-      primary: true,
-      tooltipText: 'Main menu',
-    }),
     sessionControl: new Gtk.MenuButton({ label: 'Session' }),
+    newSessionControl: new Gtk.Button({ iconName: 'list-add-symbolic' }),
     window,
   })
 

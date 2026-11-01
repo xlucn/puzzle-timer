@@ -9,10 +9,10 @@
  *
  * This file assembles the app: core policy lives in src/core/ (pure
  * TypeScript, no GTK), widgets in src/ui/, persistence in src/platform/,
- * the scramble worker in src/scramble/. Layout: the sidebar owns the app
- * chrome (app name, app menu, session switch, solve list); the content
- * header keeps the timer's controls (sidebar toggle, type title/button,
- * refresh, image toggle, window controls).
+ * the scramble worker in src/scramble/. Layout: the sidebar is the solve
+ * list, its header the session switch; the content header keeps the timer's
+ * controls (sidebar toggle, type title/button, refresh, image toggle, the
+ * app menu) and the window controls.
  */
 import Adw from 'gi:Adw-1'
 import Gdk from 'gi:Gdk-4.0'
@@ -273,9 +273,10 @@ app.on('activate', () => {
    */
   let timerFocus = false
 
-  // Built before createTimesList, which hosts it. Ctrl+S can arrive while
-  // the sidebar is closed and a popover cannot anchor to an unmapped widget,
-  // hence ensureVisible (see sessionMenu.ts).
+  // Built before createTimesList, which hosts both controls in the sidebar
+  // header. Ctrl+S can arrive while the sidebar is closed and a popover
+  // cannot anchor to an unmapped widget, hence ensureVisible (see
+  // sessionMenu.ts).
   const sessionMenu = createSessionMenu({
     library,
     app,
@@ -285,9 +286,10 @@ app.on('activate', () => {
     canOpen: () => !timerFocus,
   })
 
-  // The app's one menu, in the sidebar. Two sections: Statistics alone, then
-  // the application-level actions — a second section is what draws the
-  // separator.
+  // The app's one menu, in the content header — app-wide actions belong to
+  // the window, and this one stays reachable while the sidebar is closed.
+  // Two sections: Statistics alone, then the application-level actions — a
+  // second section is what draws the separator.
   const statisticsSection = new Gio.Menu()
   statisticsSection.append('Statistics', 'app.statistics')
   const applicationSection = new Gio.Menu()
@@ -309,9 +311,8 @@ app.on('activate', () => {
     library,
     getSession: activeSession,
     onDelete: removeSolves,
-    appName: APP_NAME,
-    appMenu: appMenuButton,
     sessionControl: sessionMenu.widget,
+    newSessionControl: sessionMenu.newButton,
     window,
   })
 
@@ -476,7 +477,6 @@ app.on('activate', () => {
       applyPreferences({ scrambleImage: imageToggle.active })
     }
   })
-  header.packEnd(imageToggle)
 
   // Escape's job with no keyboard: an inspection otherwise has no visible
   // way out. The button taps the same Escape key — `keyDown` then `keyUp` —
@@ -498,7 +498,12 @@ app.on('activate', () => {
     timer.keyDown('escape', now)
     timer.keyUp('escape', now)
   })
+  header.packEnd(appMenuButton)
   header.packEnd(cancelInspection)
+  // `AdwHeaderBar.packEnd` prepends: this last call puts the toggle visually
+  // *first* of the three, so the end box reads image → Cancel → menu, the
+  // menu at the header's edge next to the window controls.
+  header.packEnd(imageToggle)
 
   // Record against the scramble on screen — read before advance() swaps in
   // the pre-generated one. Null only while the very first scramble is still
@@ -708,15 +713,19 @@ app.on('activate', () => {
       syncBottomBar()
       selectorBar.remove(imageToggle)
       imageToggle.hexpand = false
-      // Cancel is pinned to the header's end at every width; re-pack it last
-      // so it stays rightmost once the image toggle returns.
+      // `packEnd` prepends, so the end box is rebuilt in reverse visual
+      // order: menu, Cancel, toggle — it reads image → Cancel → menu, the
+      // same as the initial build. The toggle arrives from the selector bar,
+      // not the header, so it is only removed there.
       header.remove(cancelInspection)
+      header.remove(appMenuButton)
+      header.packEnd(appMenuButton)
+      header.packEnd(cancelInspection)
       header.packEnd(imageToggle)
       for (const widget of scrambleControls) {
         selectorBar.remove(widget)
         header.packStart(widget)
       }
-      header.packEnd(cancelInspection)
     }
   }
 
@@ -1323,15 +1332,6 @@ app.on('activate', () => {
   window.present()
   applyLayout() // the layout for the size we were actually given
 
-  if (process.env.PTV_DUMP === '1') {
-    const dump = (w: any, chain: string[]): void => {
-      const next = [...chain, w.constructor?.name ?? '?']
-      if (w.constructor?.name === 'AdwGizmo') console.error(`[giz] ${String(w)} ${chain.join('>')}`)
-      for (let c = w.getFirstChild?.(); c; c = c.getNextSibling()) dump(c, next)
-    }
-    dump(window.content, [])
-  }
-
   // The two continuous sources, both only available once realized: a
   // resize the breakpoints cannot see (height-only — no width band changes,
   // but a short window changes the sizes), and any repaint, where applyLayout
@@ -1341,28 +1341,14 @@ app.on('activate', () => {
   const surface = window.getSurface()
   if (surface === null) {
     console.error('[layout] no Gdk.Surface after present() — resizes will not re-apply the layout')
-  } else if (process.env.PTV_NO_HOOKS !== '1') {
+  } else {
     surface.on('layout', () => applyLayout())
   }
   const frameClock = window.getFrameClock()
   if (frameClock === null) {
     console.error('[layout] no frame clock — resizes will not get the after-paint pass')
-  } else if (process.env.PTV_NO_HOOKS !== '1') {
+  } else {
     frameClock.on('after-paint', () => {
-      if (process.env.PTV_DUMP === '1') {
-        const dump = (w: any, chain: string[]): void => {
-          const name: string = w.constructor?.name ?? '?'
-          const next = [...chain, name]
-          if (name === 'AdwGizmo') {
-            console.error(
-              `[giz] ${chain.slice(-3).join('>')} ${w.getWidth()}x${w.getHeight()} ` +
-                `mapped=${w.getMapped()} visible=${w.getVisible()}`,
-            )
-          }
-          for (let c = w.getFirstChild?.(); c; c = c.getNextSibling()) dump(c, next)
-        }
-        dump(window.content, [])
-      }
       // The fresh-allocation pass: surface layout can only re-apply what is
       // already in force (the widgets have not caught up yet), and the
       // Adaptive Preview raises no surface event at all — so every real
