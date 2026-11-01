@@ -18,6 +18,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Touching or clicking on the scramble text no longer start the timer; only the timer area is recognized.
 - The app menu moved to the main header bar, and the session chooser now sits in the sidebar's header.
 - The solve editor now has Cancel button on the left and Save button on the right.
+- The inspection settings now come first in the Timer preferences.
 
 ### Fixed
 

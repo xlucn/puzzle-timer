@@ -74,6 +74,28 @@ export function createPreferences(options: PreferencesPanelOptions) {
     })
     const timerGroup = new Adw.PreferencesGroup({ title: 'Starting a solve' })
 
+    // Inspection first: it decides what the two starting gestures below
+    // lead into.
+    const inspectionRow = new Adw.SwitchRow({
+      title: 'WCA inspection',
+      subtitle: 'Count down from 15 s before the solve starts',
+      active: prefs.inspection,
+    })
+    inspectionRow.on('notify::active', () => {
+      options.set({ inspection: inspectionRow.active })
+    })
+    timerGroup.add(inspectionRow)
+
+    const cuesRow = new Adw.SwitchRow({
+      title: 'Inspection sound cues',
+      subtitle: 'One beep at 8 s, two at 12 s',
+      active: prefs.inspectionSound,
+    })
+    cuesRow.on('notify::active', () => {
+      options.set({ inspectionSound: cuesRow.active })
+    })
+    timerGroup.add(cuesRow)
+
     // Hold threshold, in seconds (stored as ms — see the file header). The
     // value arrives as 0.05 s steps or whatever the user types; rounding to
     // whole milliseconds is the storage contract, not a display concern.
@@ -103,26 +125,6 @@ export function createPreferences(options: PreferencesPanelOptions) {
       options.set({ mouseStart: mouseRow.active })
     })
     timerGroup.add(mouseRow)
-
-    const inspectionRow = new Adw.SwitchRow({
-      title: 'WCA inspection',
-      subtitle: 'Count down from 15 s before the solve starts',
-      active: prefs.inspection,
-    })
-    inspectionRow.on('notify::active', () => {
-      options.set({ inspection: inspectionRow.active })
-    })
-    timerGroup.add(inspectionRow)
-
-    const cuesRow = new Adw.SwitchRow({
-      title: 'Inspection sound cues',
-      subtitle: 'One beep at 8 s, two at 12 s',
-      active: prefs.inspectionSound,
-    })
-    cuesRow.on('notify::active', () => {
-      options.set({ inspectionSound: cuesRow.active })
-    })
-    timerGroup.add(cuesRow)
 
     timerPage.add(timerGroup)
     dialog.add(timerPage)

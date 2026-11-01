@@ -113,6 +113,27 @@ app.on('activate', () => {
     check(cues !== null, 'found the sound cues SwitchRow')
     if (cues !== null) check(cues.getActive() === true, 'cues start ON (default)')
 
+    // Row order in the Timer page (user call, 2026-11-01): the two
+    // inspection switches lead the group, ahead of the starting gestures.
+    const ancestorOf = (widget, name) => {
+      let node = widget?.getParent?.() ?? null
+      while (node !== null && node.constructor.name !== name) node = node.getParent?.() ?? null
+      return node
+    }
+    const timerGroup = ancestorOf(hold, 'AdwPreferencesGroup')
+    const rowTitles = []
+    if (timerGroup !== null) {
+      for (let i = 0; ; i++) {
+        const row = timerGroup.getRow(i)
+        if (row === null) break
+        rowTitles.push(row.title ?? row.constructor.name)
+      }
+    }
+    check(
+      timerGroup !== null && rowTitles.join(',') === 'WCA inspection,Inspection sound cues,Hold time,Mouse control',
+      `Timer rows read inspection first (${rowTitles.join(' → ') || 'no group'})`,
+    )
+
     // Appearance: the ComboRow opens on the stored scheme, and its default
     // factory labels a plain Gtk.StringList with no expression set (dropped
     // 2026-10-06 — measured identical trees with and without on GTK 4.22.5 /
