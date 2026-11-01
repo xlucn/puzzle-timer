@@ -301,7 +301,7 @@ export function createTimesList(options: TimesListOptions) {
   /**
    * The edit dialog: penalty and comment in one form — the only way to grade
    * a solve, opened from the footer's Edit button, a double-click, or Ctrl+E.
-   * Close and Escape discard; only Save ever writes. The session is captured
+   * Cancel and Escape discard; only Save ever writes. The session is captured
    * at open: switching sessions while the dialog sits there must not retarget
    * the write onto a different session's solve.
    */
@@ -466,14 +466,23 @@ export function createTimesList(options: TimesListOptions) {
     form.append(timeLabel)
     form.append(formList)
 
-    // Suggested Save at the bar's left; Adw.HeaderBar adds the close button
-    // at the right and Escape closes — both discard; only Save writes.
+    // Cancel at the bar's start, suggested Save at the end where the
+    // dialog's own close button used to be. Both title-button sides are off,
+    // which is how libadwaita's dialog does away with that close button
+    // (adw-dialog.c: "set show-start-title-buttons and show-end-title-buttons
+    // to FALSE to remove it"); Cancel and Escape both discard, only Save
+    // writes.
+    const cancelButton = new Gtk.Button({ label: 'Cancel' })
     const saveButton = new Gtk.Button({
       label: 'Save',
       cssClasses: ['suggested-action'],
     })
-    const header = new Adw.HeaderBar()
-    header.packStart(saveButton)
+    const header = new Adw.HeaderBar({
+      showStartTitleButtons: false,
+      showEndTitleButtons: false,
+    })
+    header.packStart(cancelButton)
+    header.packEnd(saveButton)
 
     // The form scrolls, the header stays fixed: the dialog clamps to its
     // parent, and at the window floor (~294px tall) the rows would fall off
@@ -503,11 +512,19 @@ export function createTimesList(options: TimesListOptions) {
       // Fixed width: a GtkLabel's natural width is its text on one line, so
       // a long scramble would stretch the dialog across the screen.
       contentWidth: 480,
-      // No focusWidget: the dialog opens without grabbing the comment line —
-      // Tab or Alt+O/2/D gets there. defaultWidget so Return still resolves
-      // to Save from outside the entry; the comment row does not route Enter
-      // here — only the Save button closes the dialog.
+      // Focus opens on Save, as it did when Save was the first child: Cancel
+      // now takes that slot, and Return landing on it would throw the edit
+      // away. The comment line is still not grabbed — Tab or Alt+O/2/D gets
+      // there. defaultWidget so Return also resolves to Save from outside
+      // the entry; the comment row does not route Enter here — only the Save
+      // button closes the dialog.
       defaultWidget: saveButton,
+      focusWidget: saveButton,
+    })
+    cancelButton.on('clicked', () => {
+      // Block body: a handler's return value becomes the signal's, and
+      // `clicked` is void — returning close()'s boolean throws in node-gtk.
+      dialog.close()
     })
     saveButton.on('clicked', () => {
       session.setPenalty(solve.id, penaltyFromGroup())

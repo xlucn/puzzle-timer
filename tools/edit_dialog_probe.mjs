@@ -1,4 +1,5 @@
-// Edit-dialog probe v5 (2026-10-15): Adw.Dialog + header bar, boxed-list
+// Edit-dialog probe v6 (2026-11-01): Adw.Dialog + header bar with Cancel at
+// the start and Save at the end (no dialog close button), boxed-list
 // rows (Date+copy / Scramble → ExpanderRow when long / Penalty /
 // Comment), title carrying the solve number, Return→save from outside the
 // comment entry, discard path, and the form scroll view: the dialog clamps
@@ -153,9 +154,11 @@ function buildDialog(writes, win, scramble) {
   form.append(timeLabel)
   form.append(formList)
 
+  const cancelButton = new Gtk.Button({ label: 'Cancel' })
   const saveButton = new Gtk.Button({ label: 'Save', cssClasses: ['suggested-action'] })
-  const header = new Adw.HeaderBar()
-  header.packStart(saveButton)
+  const header = new Adw.HeaderBar({ showStartTitleButtons: false, showEndTitleButtons: false })
+  header.packStart(cancelButton)
+  header.packEnd(saveButton)
 
   const scroller = new Gtk.ScrolledWindow({
     child: form,
@@ -173,11 +176,15 @@ function buildDialog(writes, win, scramble) {
     child: box,
     contentWidth: 480,
     defaultWidget: saveButton,
+    focusWidget: saveButton,
   })
 
   let closed = false
   dialog.on('closed', () => {
     closed = true
+  })
+  cancelButton.on('clicked', () => {
+    dialog.close()
   })
   saveButton.on('clicked', () => {
     const activeName = penaltyGroup.getActiveName()
@@ -193,6 +200,7 @@ function buildDialog(writes, win, scramble) {
   return {
     dialog,
     saveButton,
+    cancelButton,
     commentRow,
     penaltyGroup,
     penaltyRow,
@@ -372,7 +380,8 @@ app.on('activate', () => {
         A.dialog.contentWidth === 480,
     )
 
-    // header title: exactly one label, filled by update_title
+    // header title: exactly one label, filled by update_title; the dialog's
+    // own close button is gone (both title-button sides off)
     const titles = []
     let closeBtn = null
     walk(A.header, (w) => {
@@ -380,30 +389,33 @@ app.on('activate', () => {
       if ((w.cssClasses || []).includes('close')) closeBtn = w
     })
     check(`header shows dialog title once (${titles.length} label)`, titles.length === 1)
-    check(`dialog close button present (${closeBtn ? closeBtn.constructor.name : 'none'})`, closeBtn !== null)
+    check(
+      `no dialog close button in the header (${closeBtn ? closeBtn.constructor.name : 'none'})`,
+      closeBtn === null,
+    )
 
-    // geometry: Save left of title, close right of title (computeBounds needs
+    // geometry: Cancel left of title, Save right of title (computeBounds needs
     // an ancestor: box is one)
-    if (titles.length === 1 && closeBtn) {
+    if (titles.length === 1) {
+      const [, cancelRect] = A.cancelButton.computeBounds(A.box)
       const [, saveRect] = A.saveButton.computeBounds(A.box)
       const [, titleRect] = titles[0].computeBounds(A.box)
-      const [, closeRect] = closeBtn.computeBounds(A.box)
       check(
-        `Save packed left of title (save x=${saveRect.getX().toFixed(0)} < title x=${titleRect.getX().toFixed(0)})`,
-        saveRect.getX() < titleRect.getX(),
+        `Cancel packed left of title (cancel x=${cancelRect.getX().toFixed(0)} < title x=${titleRect.getX().toFixed(0)})`,
+        cancelRect.getX() < titleRect.getX(),
       )
       check(
-        `close button right of title (close x=${closeRect.getX().toFixed(0)} > title x=${titleRect.getX().toFixed(0)})`,
-        closeRect.getX() > titleRect.getX(),
+        `Save packed right of title (save x=${saveRect.getX().toFixed(0)} > title x=${titleRect.getX().toFixed(0)})`,
+        saveRect.getX() > titleRect.getX(),
       )
       check(
-        `Save at the far left (save x=${saveRect.getX().toFixed(0)} >= 0)`,
-        saveRect.getX() >= 0 && saveRect.getX() < titleRect.getX(),
+        `Save at the far right (save x+w=${(saveRect.getX() + saveRect.getWidth()).toFixed(0)} ≈ box w=${A.box.getWidth()})`,
+        Math.abs(saveRect.getX() + saveRect.getWidth() - A.box.getWidth()) <= 12,
       )
     } else {
-      check('Save packed left of title (skipped: no title/close found)', false)
-      check('close button right of title (skipped)', false)
-      check('Save at the far left (skipped)', false)
+      check('Cancel packed left of title (skipped: no title found)', false)
+      check('Save packed right of title (skipped)', false)
+      check('Save at the far right (skipped)', false)
     }
 
     // ---------- focus: natural default, comment line NOT grabbed ----------
@@ -420,6 +432,12 @@ app.on('activate', () => {
       n = n.getParent ? n.getParent() : null
     }
     check(`root focus NOT in commentRow on open (chain: ${stops.join(' < ') || 'none'})`, !inComment)
+    // Cancel is the first focusable child now; focusWidget keeps Save as the
+    // opening focus, so a Return cannot discard the edit.
+    check(
+      `focus opens on Save (dialog.focusWidget = ${A.dialog.focusWidget?.constructor.name === 'GtkButton' ? A.dialog.focusWidget.label : A.dialog.focusWidget?.constructor.name})`,
+      A.dialog.focusWidget === A.saveButton,
+    )
 
     // ---------- Save path: default.activate → Save — what Return fires
     // from *outside* the comment entry; the row itself no longer routes
@@ -467,7 +485,9 @@ app.on('activate', () => {
           })
           check(
             `expanding lays the full text into the scroller, dialog unchanged (label h=${fullH}px, box Δ=${afterH - beforeH}px)`,
-            fullH > 300 && Math.abs(afterH - beforeH) <= 60,
+            // 264 px tall on this box's metrics (14 wrapped lines of the
+            // 943-character scramble at 480 px content), not one line.
+            fullH > 200 && Math.abs(afterH - beforeH) <= 60,
           )
           let sc2 = 0
           walk(expander, (w) => {
@@ -481,11 +501,10 @@ app.on('activate', () => {
             `form scrolls when the expansion overflows (upper ${vadj.getUpper()} > page ${vadj.getPageSize()})`,
             vadj.getUpper() > vadj.getPageSize(),
           )
-          const willClose = B.dialog.close()
-          check(`dialog.close() accepted (returns ${willClose})`, willClose === true)
+          B.cancelButton.emit('clicked')
           GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
-            check(`discard path wrote nothing (got ${writesB.length})`, writesB.length === 0)
-            check(`discard path emitted closed (closed=${B.isClosed()})`, B.isClosed())
+            check(`Cancel path wrote nothing (got ${writesB.length})`, writesB.length === 0)
+            check(`Cancel path emitted closed (closed=${B.isClosed()})`, B.isClosed())
 
           // ---------- carry-over: the form itself ----------
           check(

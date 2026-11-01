@@ -1664,6 +1664,14 @@ the floor the dialog clamps to its parent and the form scrolls beneath
 the header. The collapsed size is unchanged by the rework (329px in both
 shapes). Probe 50/50 — new checks: clamped parent → scrollable form,
 header allocated above it, no inner scroller, full text laid out.
+— *buttons swapped (user call, 2026-11-01)*: Cancel at the bar's start, the
+suggested Save at the end — where the dialog's own close button used to be.
+`show-start-title-buttons` and `show-end-title-buttons` are both off, the
+libadwaita-documented way to drop that close button (adw-dialog.c), so the
+window has exactly two buttons; Cancel and Escape discard, only Save writes.
+`focusWidget: saveButton` keeps the open-on-Save focus the natural order
+gave before (Cancel is now the first focusable child, and Return there would
+throw the edit away). Probe v6, 50/50.
 
 **WCA inspection (stage 5).** A sixth timer state, `inspecting`: the first
 ready→release starts the 15 s countdown (`formatInspection`, orange, clamped),
