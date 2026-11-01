@@ -64,7 +64,7 @@ export const SIZE_SCALE_STEP = 0.05
 export const DEFAULT_PREFERENCES: Preferences = {
   holdThresholdMs: 300,
   inspection: true,
-  inspectionSound: true,
+  inspectionSound: false,
   scrambleImage: true,
   mouseStart: false,
   colorScheme: 'system',
