@@ -38,22 +38,22 @@
         <path d="m 48 45 h 32" stroke="#c0bfbc" stroke-width="2"/>
         <path d="m 12 45 h 32" stroke="#c0bfbc" stroke-width="2"/>
         <path d="m 12 43 h 32" stroke="#c01c28" stroke-width="2"/>
-        <path d="m 48 43 h 32" stroke="#e5a50a" stroke-width="2"/>
+        <path d="m 48 43 h 32" stroke="#f5c211" stroke-width="2"/>
         <path d="m 84 43 h 32" stroke="#1a5fb4" stroke-width="2"/>
-        <path d="m 84 77 h 32" stroke="#e5a50a" stroke-width="2"/>
-        <path d="m 48 77 h 32" stroke="#e5a50a" stroke-width="2"/>
-        <path d="m 48 111 h 32" stroke="#e5a50a" stroke-width="2"/>
-        <path d="m 12 77 h 32" stroke="#e5a50a" stroke-width="2"/>
+        <path d="m 84 77 h 32" stroke="#f5c211" stroke-width="2"/>
+        <path d="m 48 77 h 32" stroke="#f5c211" stroke-width="2"/>
+        <path d="m 48 111 h 32" stroke="#f5c211" stroke-width="2"/>
+        <path d="m 12 77 h 32" stroke="#f5c211" stroke-width="2"/>
     </g>
     <path d="m 19.996094 12 h 24.003906 v 30 h -32 v -22.003906 c 0 -4.417969 3.578125 -7.996094 7.996094 -7.996094 z m 0 0" fill="#ed333b"/>
-    <path d="m 48 12 h 32 v 30 h -32 z m 0 0" fill="#f6d32d"/>
+    <path d="m 48 12 h 32 v 30 h -32 z m 0 0" fill="#f8e45c"/>
     <path d="m 84 12 h 24 c 4.417969 0 8 3.582031 8 8 v 22 h -32 z m 0 0" fill="#3584e4"/>
-    <path d="m 12 46 h 32 v 30 h -32 z m 0 0" fill="#f6d32d"/>
-    <path d="m 48 46 h 32 v 30 h -32 z m 0 0" fill="#f6d32d"/>
-    <path d="m 84 46 h 32 v 30 h -32 z m 0 0" fill="#f6d32d"/>
+    <path d="m 12 46 h 32 v 30 h -32 z m 0 0" fill="#f8e45c"/>
+    <path d="m 48 46 h 32 v 30 h -32 z m 0 0" fill="#f8e45c"/>
+    <path d="m 84 46 h 32 v 30 h -32 z m 0 0" fill="#f8e45c"/>
     <path d="m 12 80 h 32 v 30 h -24 c -4.417969 0 -8 -3.582031 -8 -8 z m 0 0" fill="#33d17a"/>
-    <path d="m 48 80 h 32 v 30 h -32 z m 0 0" fill="#f6d32d"/>
-    <path d="m 84 80 h 32 v 22 c 0 4.417969 -3.582031 8 -8 8 h -24 z m 0 0" fill="#f6d32d"/>
+    <path d="m 48 80 h 32 v 30 h -32 z m 0 0" fill="#f8e45c"/>
+    <path d="m 84 80 h 32 v 22 c 0 4.417969 -3.582031 8 -8 8 h -24 z m 0 0" fill="#f8e45c"/>
     <path d="m 116 84 c 0 14.359375 -11.640625 26 -26 26 s -26 -11.640625 -26 -26 s 11.640625 -26 26 -26 s 26 11.640625 26 26 z m 0 0" fill="url(#d)"/>
     <path d="m 110 84 c 0 11.046875 -8.953125 20 -20 20 s -20 -8.953125 -20 -20 s 8.953125 -20 20 -20 s 20 8.953125 20 20 z m 0 0" fill="#cac8c4"/>
     <path d="m 113 82 c 0 12.703125 -10.296875 23 -23 23 s -23 -10.296875 -23 -23 s 10.296875 -23 23 -23 s 23 10.296875 23 23 z m 0 0" fill="none" stroke="#ff7800" stroke-width="6"/>
