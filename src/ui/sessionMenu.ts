@@ -134,6 +134,8 @@ export function createSessionMenu(options: SessionMenuOptions) {
     label: library.active.name,
     ellipsize: Pango.EllipsizeMode.END,
     maxWidthChars: SIDEBAR_NAME_CHARS,
+    hexpand: true,
+    xalign: 0,
   })
 
   const button = new Gtk.MenuButton({
@@ -142,7 +144,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
     alwaysShowArrow: true,
     tooltipText: 'Session',
     cssClasses: ['flat'],
-    halign: Gtk.Align.CENTER,
+    hexpand: true,
   })
 
   // ---- actions -----------------------------------------------------------
