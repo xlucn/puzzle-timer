@@ -13,9 +13,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes. A large window looks large, a small one stays readable, and the scramble text never shrinks below the size it had.
-- The scramble scrolls instead of starting the timer; press the timer area below it to start.
-- The timer starts from the outlined area while the solve list is a drawer; the strip around it belongs to the list's swipe.
+- The timer, the scramble text and the diagram now grow with the window instead of jumping between three sizes.
+- Touching or clicking on the scramble text no longer start the timer; only the timer area is recognized.
+
+### Fixed
+
+- Multiple finger touch on the timer didn't trigger the timer start.
 
 ## [0.2.0] — 2026-10-27
 
