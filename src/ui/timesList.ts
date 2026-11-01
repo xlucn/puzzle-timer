@@ -475,7 +475,7 @@ export function createTimesList(options: TimesListOptions) {
     const cancelButton = new Gtk.Button({ label: 'Cancel' })
     const saveButton = new Gtk.Button({
       label: 'Save',
-      cssClasses: ['suggested-action'],
+      cssClasses: ['suggested-action', 'text-button'],
     })
     const header = new Adw.HeaderBar({
       showStartTitleButtons: false,
