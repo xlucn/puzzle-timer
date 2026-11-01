@@ -959,8 +959,8 @@ app.on('activate', () => {
    * timer update.
    */
   let sidebarWasShown = false
-  // Set while a press owns the start key; a press whose sequence is lost is
-  // cleared by the next one.
+  // Set while a press owns the start key; the first press arms it and the
+  // first release (or cancel) clears it.
   let pressActive = false
   let appliedFocus = false
   function applySidebarFocus(focused: boolean): void {
@@ -1035,31 +1035,75 @@ app.on('activate', () => {
   // The same keyDown/keyUp calls the keyboard makes, with the same key id,
   // so core/timer.ts never learns whether a finger or Space started the
   // hold (decision 15). Touch is always accepted; the mouse is opt-in via
-  // `mouseStart`, so `touchOnly` keeps a stray click from arming a solve by
-  // default. The target covers the timer area, not the readout or the
+  // `mouseStart`. The target covers the timer area, not the readout or the
   // scramble: a phone should not have to hit the digits, the scroller stays
   // a scroller, and `syncStartArea` insets it away from the drawer's swipe
   // strip — so claiming is safe, no other gesture can hold this sequence.
+  //
+  // `Gtk.GestureClick` is single-sequence: a second finger ends it without
+  // a `released`, which used to leave the timer armed. It stays only to
+  // claim the sequence for the start target; the raw controller sees every
+  // touch, so the first press arms and the first release starts.
   const cancelPress = (): void => timer.cancelPress(START_KEY, nowMs())
-  const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: !prefs.mouseStart })
-  timerGesture.on('pressed', () => {
+  const beginPress = (): void => {
+    if (pressActive) return
     // A focused text entry owns the press, exactly as in the key handler.
     const focus = window.getFocus() as { getText?: () => string } | null
     if (focus !== null && typeof focus.getText === 'function') return
-    // A second press while the first never released means its sequence was
-    // lost; clear the stale key before starting the new hold.
-    if (pressActive) cancelPress()
     pressActive = true
-    timerGesture.setState(Gtk.EventSequenceState.CLAIMED)
     // keyDown's running branch stops the solve for any fresh key, so this
     // needs no separate stop path.
     timer.keyDown(START_KEY, nowMs())
-  })
-  timerGesture.on('released', () => {
+  }
+  const endPress = (): void => {
+    if (!pressActive) return
     pressActive = false
     timer.keyUp(START_KEY, nowMs())
+  }
+
+  const timerGesture = new Gtk.GestureClick({ button: 1, touchOnly: true })
+  timerGesture.on('pressed', () => {
+    timerGesture.setState(Gtk.EventSequenceState.CLAIMED)
   })
   startTarget.addController(timerGesture)
+
+  // The click gesture claims the sequence; this controller sees the raw
+  // touch stream anyway. The first press arms and the first release starts;
+  // further fingers are ignored, so a second touch neither cancels the hold
+  // nor swallows the release.
+  const startController = new Gtk.EventControllerLegacy()
+  startController.on('event', (event) => {
+    switch (event.getEventType()) {
+      case Gdk.EventType.TOUCH_BEGIN:
+        beginPress()
+        return true
+      case Gdk.EventType.TOUCH_UPDATE:
+        return true
+      case Gdk.EventType.TOUCH_END:
+        endPress()
+        return true
+      case Gdk.EventType.TOUCH_CANCEL:
+        if (pressActive) {
+          pressActive = false
+          cancelPress()
+        }
+        return true
+      case Gdk.EventType.BUTTON_PRESS: {
+        if (!prefs.mouseStart) return false
+        const button = (event as unknown as { getButton(): number }).getButton()
+        if (button !== 1) return false
+        beginPress()
+        return true
+      }
+      case Gdk.EventType.BUTTON_RELEASE:
+        if (!prefs.mouseStart) return false
+        endPress()
+        return true
+      default:
+        return false
+    }
+  })
+  startTarget.addController(startController)
 
   // ---- keyboard: Space starts an inspection or arms the timer; any key stops ----
   // CAPTURE phase so the timer sees keys before any focused widget consumes
@@ -1190,7 +1234,6 @@ app.on('activate', () => {
     store.savePreferences(prefs)
 
     if ('holdThresholdMs' in patch) timer.setHoldThreshold(prefs.holdThresholdMs)
-    if ('mouseStart' in patch) timerGesture.touchOnly = !prefs.mouseStart
     if ('colorScheme' in patch) applyColorScheme(prefs.colorScheme)
     // The three size scales are read by applyLayout: one pass re-measures the
     // timer, the scramble text and the diagram together, rather than each
