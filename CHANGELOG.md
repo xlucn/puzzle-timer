@@ -11,6 +11,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Size settings for the timer, the scramble text and the scramble diagram.
 - A + button in the sidebar header to add a new session.
+- A fullscreen toggle in the menu, also triggered with F11 key.
 
 ### Changed
 

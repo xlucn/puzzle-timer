@@ -293,6 +293,7 @@ app.on('activate', () => {
   const statisticsSection = new Gio.Menu()
   statisticsSection.append('Statistics', 'app.statistics')
   const applicationSection = new Gio.Menu()
+  applicationSection.append('Fullscreen', 'app.fullscreen')
   applicationSection.append('Preferences', 'app.preferences')
   applicationSection.append(`About ${APP_NAME}`, 'app.about')
   applicationSection.append('Keyboard Shortcuts', 'app.shortcuts')
@@ -1160,6 +1161,34 @@ app.on('activate', () => {
   })
 
   // ---- app actions (wired to the menu above) ---------------------------
+
+  // Fullscreen is a stateful boolean so the menu item checks itself. The
+  // window is the source of truth — the compositor can change it too (a
+  // shell shortcut, a window manager) — and `notify::fullscreened` mirrors
+  // it into the action; the activate handler flips the state and asks the
+  // window for it.
+  const fullscreenAction = Gio.SimpleAction.newStateful(
+    'fullscreen',
+    null,
+    GLib.Variant.newBoolean(window.isFullscreen()),
+  )
+  fullscreenAction.on('activate', () => {
+    const state = fullscreenAction.getState()
+    const fullscreen = state === null || !state.getBoolean()
+    if (fullscreen) window.fullscreen()
+    else window.unfullscreen()
+    // The window's own notify may arrive a frame later (the compositor
+    // confirms the state); flipping here keeps the checkmark immediate.
+    fullscreenAction.setState(GLib.Variant.newBoolean(fullscreen))
+  })
+  app.addAction(fullscreenAction)
+  window.on('notify::fullscreened', () => {
+    fullscreenAction.setState(GLib.Variant.newBoolean(window.isFullscreen()))
+  })
+  // F11 toggles both ways, so leaving fullscreen never depends on reaching
+  // this menu from the fullscreen view.
+  app.setAccelsForAction('app.fullscreen', ['F11'])
+
   const showAbout = () => {
     // GPL_3_0 means *3.0 or later* — GPL_3_0_ONLY would not. Version, repo
     // URLs and release notes come from meta.ts so they cannot drift from
