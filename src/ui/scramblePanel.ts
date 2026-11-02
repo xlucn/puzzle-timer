@@ -328,6 +328,26 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   let chromeVisible = true
   /** Whether the current scramble produced a paintable (a parse may fail). */
   let pictureReady = false
+  /** The picture's own width/height (0 while there is none). */
+  let pictureAspect = 0
+
+  /**
+   * The spacer is the box's only size request. The layout hands a bound for
+   * the *widest* diagram (2.1:1); trimming the request to the picture's own
+   * aspect keeps a 4:3 diagram from reserving a 2:1 column and pushing the
+   * timer left for empty space. A resize or a new picture re-asks; nothing is
+   * re-parsed (the paintable keeps the SVG's own size).
+   */
+  const applyDiagramSize = (): void => {
+    const width =
+      pictureAspect > 0
+        ? Math.min(diagramMaxWidth, diagramMaxHeight * pictureAspect)
+        : diagramMaxWidth
+    diagramSpacer.setSizeRequest(
+      Math.max(0, Math.round(width)),
+      Math.max(0, Math.round(diagramMaxHeight)),
+    )
+  }
 
   /** Push the current state of three independent booleans into the box. */
   const updateDiagramVisibility = (): void => {
@@ -393,6 +413,11 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       const paintable = svg === null ? null : svgPaintable(svg)
       pictureReady = paintable !== null
       picture.setPaintable(paintable)
+      pictureAspect =
+        paintable !== null && paintable.getIntrinsicHeight() > 0
+          ? paintable.getIntrinsicWidth() / paintable.getIntrinsicHeight()
+          : 0
+      applyDiagramSize()
       updateDiagramVisibility()
     }
   }
@@ -445,8 +470,9 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       applyFontSize(px)
     },
     /**
-     * The diagram box's cap for this window (src/core/layout.ts). Only the
-     * box's size request moves: the paintable was parsed at the SVG's own
+     * The diagram box's cap for this window (src/core/layout.ts): an upper
+     * bound for the widest picture, trimmed here to the one on screen. Only
+     * the box's size request moves: the paintable was parsed at the SVG's own
      * size, so a cap change — every resize — re-parses nothing and the
      * picture's placement stays main.ts's decision.
      */
@@ -454,7 +480,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
       if (width === diagramMaxWidth && height === diagramMaxHeight) return
       diagramMaxWidth = width
       diagramMaxHeight = height
-      diagramSpacer.setSizeRequest(Math.max(0, width), Math.max(0, height))
+      applyDiagramSize()
       updateDiagramVisibility()
     },
   }

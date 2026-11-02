@@ -367,9 +367,26 @@ src/
     was fixed at before the curve, so a phone keeps a readable size, and
     capped by the readout's 224 (42 px); the scramble slot is
     `0.25 × height` clamped to [90, 240] and
-    `0.3 × height` (clamped to [90, 260]), the stacked placement taking the
-    content width minus 48 instead — both capped at the same 260, so a tall
-    window cannot get a bigger picture than a wide one. `BREAKPOINTS` keeps
+    the diagram box is `0.3 × √(width × height)` tall (floored at 90) — the
+    window's linear size, i.e. the square root of its area, so a portrait and
+    a landscape window of the same area get the same picture and rotating the
+    window cannot change it — and as wide as that height times the widest
+    diagram shape (2.1), with no upper cap. Two clamps keep it fitting: a
+    window more than 2.25:1 is held to `0.45 × height` (the area rule asks for
+    more room than the lower area has), and the wide copy stops where the
+    readout's own width (2.5 em of `timerPx`), the split view's minimum
+    sidebar (240) and the box's end margin (16) begin, so a 2:1 picture cannot
+    outgrow the window beside the timer. The stacked copy is clamped to the
+    content width minus 48, and the panel trims the width request to the
+    on-screen picture's own aspect so a 4:3 diagram does not reserve a 2:1
+    column. *(2026-11-01, user call: the wide picture was smaller than a
+    tall-narrow one on a smaller window — the width used to be
+    `0.2 × window width`, a width rule for a box whose picture is
+    height-bound, so a 2:1 diagram was clipped beside the timer. The height
+    rule that replaced it made a rotated window differ — 640×360 got 108 px
+    and 360×640 got 189 — so the size moved to the window's area. The 260 cap
+    went the same day, on request: a big window keeps growing the picture.)*
+    `BREAKPOINTS` keeps
     only `selectorRowMax`
     (540), `drawerMax` (800, plus a height-only `shortMax` for shedding the
     diagram) and the floor. Sizes read the **window**, never the measured

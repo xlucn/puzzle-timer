@@ -19,6 +19,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The app menu is moved to the main header bar, and the session switcher is now in the sidebar's header.
 - The solve editor now has Cancel button on the left and Save button on the right.
 - The inspection settings now come first in the Timer preferences.
+- Improved sizing strategy of scramble diagram.
 
 ### Fixed
 

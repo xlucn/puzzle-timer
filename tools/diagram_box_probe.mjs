@@ -1,7 +1,8 @@
 // Scramble-diagram box probe: the paintable is parsed once at the SVG's own
 // size, and the box the picture is drawn into (a Gtk.Overlay whose spacer is
-// the only size request) follows the layout's cap. Nothing here re-parses on a
-// cap change, which is what makes a resize free.
+// the only size request) follows the layout's cap, trimmed to the picture's
+// own aspect. Nothing here re-parses on a cap change, which is what makes a
+// resize free.
 //
 // Usage (any display; it only measures):
 //   DISPLAY=:99 GDK_BACKEND=x11 node --import tsx --import node-gtk/register \
@@ -56,6 +57,13 @@ check(
       paintable.getIntrinsicHeight() === 300
     )
   })(),
+)
+
+panel.setDiagramMax(400, 150)
+check(
+  'a 2:1 cap is trimmed to the picture’s own aspect (4:3)',
+  natural(Gtk.Orientation.HORIZONTAL) === Math.round(150 * (400 / 300)) + MARGIN,
+  `${natural(Gtk.Orientation.HORIZONTAL)}×${natural(Gtk.Orientation.VERTICAL)}`,
 )
 
 panel.setDiagramMax(0, 0)

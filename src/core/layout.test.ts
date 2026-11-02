@@ -98,15 +98,15 @@ describe('layoutFor — the sizes follow the room', () => {
   })
 
   it('scales the diagram with the room and sheds it where there is none', () => {
-    // Wide: the corner may take a fifth of the window width.
-    expect(layoutFor(900, 540).diagramMaxWidth).toBe(180)
-    expect(layoutFor(900, 540).diagramMaxHeight).toBe(Math.round(540 * 0.3))
-    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(260) // cap
-    expect(layoutFor(1600, 900).diagramMaxHeight).toBe(260) // cap
-    // Stacked under the timer, the content width is the limit — but no wider
-    // than the wide placement's cap.
-    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260)
-    expect(layoutFor(360, 700).diagramMaxHeight).toBe(Math.round(700 * 0.3))
+    // Both dimensions follow the window's linear size, √(w × h): a portrait
+    // and a landscape window of the same area get the same picture.
+    expect(layoutFor(900, 540).diagramMaxHeight).toBe(209) // √486000 × 0.3
+    expect(layoutFor(900, 540).diagramMaxWidth).toBe(404) // the room beside it
+    expect(layoutFor(1600, 900).diagramMaxHeight).toBe(360) // √1440000 × 0.3
+    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(756) // 360 × 2.1
+    // Stacked under the timer, the content width is the limit.
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(312) // 360 − 48
+    expect(layoutFor(360, 700).diagramMaxHeight).toBe(151)
     // A narrow, short window still sheds it entirely.
     expect(layoutFor(360, 294).diagramPlacement).toBe('none')
     expect(layoutFor(360, shortMax).diagramMaxWidth).toBe(0)
@@ -168,27 +168,83 @@ describe('layoutFor — the diagram follows the room', () => {
   })
 
   it('scales the box with the window instead of switching to a fixed cap', () => {
-    expect(layoutFor(640, 360).diagramMaxWidth).toBe(128) // 0.2 × 640, wide
-    expect(layoutFor(640, 360).diagramMaxHeight).toBe(108) // 0.3 × 360
-    expect(layoutFor(800, 540).diagramMaxHeight).toBe(162)
-    expect(layoutFor(1600, 500).diagramMaxWidth).toBe(260) // 0.2 × 1600, capped
-    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260) // stacked, capped too
-    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(260) // capped beside the timer
+    expect(layoutFor(640, 360).diagramMaxWidth).toBe(302) // 144 × 2.1
+    expect(layoutFor(640, 360).diagramMaxHeight).toBe(144) // √230400 × 0.3
+    expect(layoutFor(800, 540).diagramMaxHeight).toBe(197)
+    expect(layoutFor(800, 540).diagramMaxWidth).toBe(414) // 197 × 2.1
+    expect(layoutFor(1600, 500).diagramMaxWidth).toBe(473) // 225 × 2.1
+    expect(layoutFor(1600, 500).diagramMaxHeight).toBe(225)
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(312) // stacked, content − 48
+    expect(layoutFor(1600, 900).diagramMaxWidth).toBe(756) // 360 × 2.1, no cap
   })
 
-  it('caps both placements at the same size, so one cannot dwarf the other', () => {
-    // A tall portrait window used to get content width − 48 (752 on 800×1280)
-    // while a wide one got 260 — the stacked picture was three times as big.
+  it('sizes the box from the window area, so rotating the window keeps it', () => {
+    // 640×360 and 360×640 are the same window turned on its side; the height
+    // share used to make the picture 108 in one and 192 in the other.
+    const landscape = layoutFor(640, 360)
+    const portrait = layoutFor(360, 640)
+    expect(landscape.diagramMaxHeight).toBe(144)
+    expect(portrait.diagramMaxHeight).toBe(144)
+    expect(landscape.diagramMaxWidth).toBe(portrait.diagramMaxWidth)
+    expect(layoutFor(1600, 900).diagramMaxHeight).toBe(
+      layoutFor(900, 1600).diagramMaxHeight,
+    )
+    // Growing the window either way never shrinks it — including across the
+    // wide/stacked boundary, where the old rule could drop it.
+    const stacked = layoutFor(755, 700)
+    const wide = layoutFor(1000, 700)
+    expect(stacked.diagramPlacement).toBe('tall-narrow')
+    expect(wide.diagramPlacement).toBe('wide')
+    expect(wide.diagramMaxHeight).toBeGreaterThanOrEqual(stacked.diagramMaxHeight)
+    expect(layoutFor(900, 700).diagramMaxHeight).toBeGreaterThan(
+      layoutFor(900, 540).diagramMaxHeight,
+    )
+    expect(layoutFor(900, 700).diagramMaxWidth).toBeGreaterThan(
+      layoutFor(900, 540).diagramMaxWidth,
+    )
+  })
+
+  it('holds the box back only on a window far wider than it is tall', () => {
+    // The area rule asks for √(1920 × 360) × 0.3 ≈ 249, but a 360-tall
+    // window does not have that much room; past 2.25:1 the height wins.
+    const short = layoutFor(1920, 360)
+    expect(short.diagramPlacement).toBe('wide')
+    expect(short.diagramMaxHeight).toBe(Math.round(360 * 0.45))
+    expect(layoutFor(640, 360).diagramMaxHeight).toBe(144) // under the bound
+  })
+
+  it('keeps growing on a very large window', () => {
+    // The old fixed cap stopped the picture at 260 px however big the window
+    // was; at 4K neither room clamp is near, so the picture keeps the area
+    // rule's answer.
+    const big = layoutFor(3840, 2160)
+    expect(big.diagramPlacement).toBe('wide')
+    expect(big.diagramMaxHeight).toBe(864) // √8294400 × 0.3
+    expect(big.diagramMaxWidth).toBe(1814) // 864 × 2.1
+  })
+
+  it('clamps the stacked width to the content it has', () => {
+    // The stacked copy may only be limited by the content width.
     const stacked = layoutFor(800, 1280)
     expect(stacked.diagramPlacement).toBe('tall-narrow')
-    expect(stacked.diagramMaxWidth).toBe(260)
-    expect(stacked.diagramMaxHeight).toBe(260)
-    const wide = layoutFor(1600, 900)
-    expect(wide.diagramPlacement).toBe('wide')
-    expect(wide.diagramMaxWidth).toBe(stacked.diagramMaxWidth)
-    expect(wide.diagramMaxHeight).toBe(stacked.diagramMaxHeight)
-    // …and a genuinely narrow window can still fit the capped box.
-    expect(layoutFor(360, 700).diagramMaxWidth).toBe(260)
+    expect(stacked.diagramMaxHeight).toBe(304)
+    expect(stacked.diagramMaxWidth).toBe(638) // 304 × 2.1, inside 800 − 48
+    // A phone-width window is the case the clamp exists for.
+    expect(layoutFor(360, 700).diagramMaxWidth).toBe(360 - 48)
+  })
+
+  it('leaves the readout and the docked sidebar their room', () => {
+    // A 2:1 picture (clock, megaminx) near the smallest side-by-side window
+    // once asked for more width than the window had — Adw logged "requested
+    // 920 px, 890 available". Beside the timer the box now stops where the
+    // readout's own width and the split view's minimum sidebar begin.
+    const plan = layoutFor(890, 530, { width: 680, height: 484 })
+    expect(plan.diagramPlacement).toBe('wide')
+    expect(plan.timerPx).toBe(95)
+    expect(plan.diagramMaxHeight).toBe(206) // still the area rule
+    expect(plan.diagramMaxWidth).toBe(397) // 890 − 240 − 2.5 × 95 − 16
+    // No such clamp applies where the window has room for both.
+    expect(layoutFor(1280, 800, { width: 953, height: 744 }).diagramMaxWidth).toBe(638)
   })
 })
 
@@ -332,9 +388,10 @@ describe('layoutFor — the user’s size scales', () => {
 
   it('scales the diagram box on top of the curve', () => {
     const wide = layoutFor(640, 360)
-    expect(layoutFor(640, 360, undefined, scales({ diagram: 0.5 })).diagramMaxWidth).toBe(
-      Math.round(wide.diagramMaxWidth * 0.5),
-    )
+    const half = layoutFor(640, 360, undefined, scales({ diagram: 0.5 }))
+    // The scale applies before the final rounding, so half the curve's box is
+    // within a rounding step of half the reported size.
+    expect(Math.abs(half.diagramMaxWidth - wide.diagramMaxWidth * 0.5)).toBeLessThanOrEqual(1)
     expect(layoutFor(640, 360, undefined, scales({ diagram: 1.5 })).diagramMaxHeight).toBe(
       Math.round(wide.diagramMaxHeight * 1.5),
     )

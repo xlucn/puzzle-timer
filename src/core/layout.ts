@@ -161,20 +161,35 @@ const SCRAMBLE_CHARS = 60
 const SCRAMBLE_SLOT = { ofHeight: 0.25, min: 90, max: 240 } as const
 
 /**
- * The diagram's box, in logical px. The height is a share of the window; the
- * width is a share of the window beside the timer, or the content width minus
- * the inset when stacked under it — but both are capped at `max`, so a
- * stacked window cannot end up with a bigger picture than a wide one. The same
- * numbers serve every placement, so there is no third source of diagram size.
+ * The diagram's box, in logical px. Both dimensions follow the window's linear
+ * size — √(width × height), so a portrait and a landscape window of the same
+ * area get the same picture — and neither is capped: a bigger window gets a
+ * bigger picture. The height is a share of that size; the width is the height
+ * times the widest diagram shape (csTimer's widest canvas is ~2.1:1), an upper
+ * bound the panel trims to the picture's own aspect so a 4:3 diagram does not
+ * reserve a 2:1 column. The box is only clamped where the room runs out: a
+ * far-wider-than-tall window, the readout's width beside the timer, and the
+ * content width when stacked.
  */
 const DIAGRAM = {
-  /** Share of the window's height, clamped to [min, max]. */
-  ofHeight: 0.3,
-  /** Share of the window's width beside the timer, capped at max. */
-  ofWidthWide: 0.2,
+  /** Share of the window's linear size (√area), never below `min`. */
+  ofSize: 0.3,
+  /** The widest diagram the box must fit without clipping the picture. */
+  aspect: 2.1,
   min: 90,
-  /** The cap for either placement: a square box the picture fits inside. */
-  max: 260,
+  /**
+   * Height share that only binds on windows more than 2.25:1, where the area
+   * rule asks for more room than the lower area has.
+   */
+  maxOfHeight: 0.45,
+  /**
+   * The readout's own width in em — four digits at the tabular figures'
+   * advance (`0.00`) — which the picture may not take from it beside the
+   * timer. Measured from the label; the em scales with the font size.
+   */
+  readoutReserve: 2.5,
+  /** The box's own end margin, which its size request does not carry. */
+  boxInset: 16,
   /** Room for the panel's own margins when it may use the content width. */
   stackedInset: 48,
 } as const
@@ -336,27 +351,39 @@ export function layoutFor(
     diagramPlacement = contentWidth >= contentHeight * wideRatio ? 'wide' : 'tall-narrow'
   }
 
-  // The picture's box: a share of the window, kept to a corner beside the
-  // timer and allowed the content width when stacked under it — both capped
-  // at DIAGRAM.max, so the two placements never disagree about "big enough".
-  const diagramHeight =
-    rounded(within(h * DIAGRAM.ofHeight, DIAGRAM.min, DIAGRAM.max) * diagramScale)
+  // The picture's box follows the window's linear size — the square root of
+  // its area — so a portrait and a landscape window of the same area get the
+  // same picture and neither orientation looks starved. Only a window far
+  // wider than it is tall (past 2.25:1) is clamped by its height, where the
+  // lower area has no room for the area rule's answer. The width is the
+  // height times the widest shape (the panel trims it to the picture's own
+  // aspect).
+  const readout = readoutPx(w, h)
+  const timerPx = rounded(readout * timerScale)
+  const diagramBoxHeight = Math.min(
+    Math.max(DIAGRAM.min, Math.sqrt(w * h) * DIAGRAM.ofSize),
+    h * DIAGRAM.maxOfHeight,
+  )
+  const diagramBoxWidth = diagramBoxHeight * DIAGRAM.aspect
+  // The box only takes room nothing else claims: beside the timer it leaves
+  // the readout its own width, the split view's room for a docked sidebar and
+  // its own end margin (a 2:1 picture otherwise outgrew the content and Adw
+  // refused the window); stacked it stays inside the content's margins.
+  const wideRoom =
+    (w > BREAKPOINTS.drawerMax ? w - BREAKPOINTS.sidebarMin : w) -
+    timerPx * DIAGRAM.readoutReserve -
+    DIAGRAM.boxInset
+  const diagramRoom =
+    diagramPlacement === 'wide' ? wideRoom : contentWidth - DIAGRAM.stackedInset
+  const diagramHeight = rounded(diagramBoxHeight * diagramScale)
   const diagramWidth =
     diagramPlacement === 'none'
       ? 0
-      : diagramPlacement === 'wide'
-        ? rounded(Math.min(w * DIAGRAM.ofWidthWide, DIAGRAM.max) * diagramScale)
-        : rounded(
-            Math.min(
-              Math.max(1, contentWidth - DIAGRAM.stackedInset),
-              DIAGRAM.max,
-            ) * diagramScale,
-          )
+      : rounded(Math.min(diagramBoxWidth, Math.max(1, diagramRoom)) * diagramScale)
 
   // One curve, two readouts: the scramble text follows the timer's size but
   // never drops below the size it had before the curve — on a phone the share
   // alone is too small to read.
-  const readout = readoutPx(w, h)
   const scrambleSize = Math.max(readout * SCRAMBLE.ofReadout, SCRAMBLE.min)
 
   return {
@@ -364,7 +391,7 @@ export function layoutFor(
     // two controls side by side, and the row gives the labels their own space.
     drawer: w <= BREAKPOINTS.drawerMax,
     selectorRow: w <= BREAKPOINTS.selectorRowMax,
-    timerPx: rounded(readout * timerScale),
+    timerPx,
     // A bigger font fits fewer characters in the same width; the slot's cap
     // grows because the same lines are taller.
     scrambleChars: Math.max(1, Math.round(SCRAMBLE_CHARS / scrambleScale)),
