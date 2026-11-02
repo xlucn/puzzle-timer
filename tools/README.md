@@ -223,9 +223,9 @@ portal prompt (trap 4) and the physical mouse (trap 5).
   sidebar is closed must reveal it *and* pop the menu (`ensureVisible` in
   `src/ui/sessionMenu.ts`).
 - The app menu is the content header's last control — Statistics, then
-  Fullscreen / Preferences / About / Shortcuts / Quit — so it stays reachable
+  Fullscreen / Preferences / Shortcuts / About / Quit — so it stays reachable
   with the sidebar closed. Walk `Tab` until its ring is on it (focus is
-  sticky, so there is no fixed stop count), `Return` to open it, `Down`×4 +
+  sticky, so there is no fixed stop count), `Return` to open it, `Down`×3 +
   `Return` for Keyboard Shortcuts.
 - The header reads, left to right: sidebar toggle → refresh → copy → select →
   image → Cancel (while inspecting) → app menu, next to the window controls.

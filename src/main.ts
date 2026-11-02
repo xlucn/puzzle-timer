@@ -293,10 +293,15 @@ app.on('activate', () => {
   const statisticsSection = new Gio.Menu()
   statisticsSection.append('Statistics', 'app.statistics')
   const applicationSection = new Gio.Menu()
-  applicationSection.append('Fullscreen', 'app.fullscreen')
+  // The label is the only state indicator: a checkable item would make GTK
+  // reserve a check column on every row of the menu.
+  applicationSection.append(
+    window.isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen',
+    'app.fullscreen',
+  )
   applicationSection.append('Preferences', 'app.preferences')
-  applicationSection.append(`About ${APP_NAME}`, 'app.about')
   applicationSection.append('Keyboard Shortcuts', 'app.shortcuts')
+  applicationSection.append(`About ${APP_NAME}`, 'app.about')
   applicationSection.append('Quit', 'app.quit')
   const appMenuModel = new Gio.Menu()
   appMenuModel.appendSection(null, statisticsSection)
@@ -1162,29 +1167,25 @@ app.on('activate', () => {
 
   // ---- app actions (wired to the menu above) ---------------------------
 
-  // Fullscreen is a stateful boolean so the menu item checks itself. The
-  // window is the source of truth — the compositor can change it too (a
-  // shell shortcut, a window manager) — and `notify::fullscreened` mirrors
-  // it into the action; the activate handler flips the state and asks the
-  // window for it.
-  const fullscreenAction = Gio.SimpleAction.newStateful(
-    'fullscreen',
-    null,
-    GLib.Variant.newBoolean(window.isFullscreen()),
-  )
+  // A plain action, not a stateful one: GTK only draws a checkmark for
+  // stateful items, but it then reserves that column on every row. The item's
+  // label carries the state instead, rebuilt from the window so a compositor
+  // shortcut changes it too.
+  const setFullscreenLabel = (): void => {
+    applicationSection.remove(0)
+    applicationSection.insert(
+      0,
+      window.isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen',
+      'app.fullscreen',
+    )
+  }
+  const fullscreenAction = Gio.SimpleAction.new('fullscreen', null)
   fullscreenAction.on('activate', () => {
-    const state = fullscreenAction.getState()
-    const fullscreen = state === null || !state.getBoolean()
-    if (fullscreen) window.fullscreen()
-    else window.unfullscreen()
-    // The window's own notify may arrive a frame later (the compositor
-    // confirms the state); flipping here keeps the checkmark immediate.
-    fullscreenAction.setState(GLib.Variant.newBoolean(fullscreen))
+    if (window.isFullscreen()) window.unfullscreen()
+    else window.fullscreen()
   })
   app.addAction(fullscreenAction)
-  window.on('notify::fullscreened', () => {
-    fullscreenAction.setState(GLib.Variant.newBoolean(window.isFullscreen()))
-  })
+  window.on('notify::fullscreened', () => setFullscreenLabel())
   // F11 toggles both ways, so leaving fullscreen never depends on reaching
   // this menu from the fullscreen view.
   app.setAccelsForAction('app.fullscreen', ['F11'])
