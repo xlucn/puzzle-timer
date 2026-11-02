@@ -157,7 +157,6 @@ src/
 │   ├── timerLabel.ts     monospace digits; gray/red/green/white + inspection
 │   ├── scrambleTypeButton.ts  header: icon-only type chooser button (J)
 │   ├── scrambleTypeTitle.ts   header: Adw.WindowTitle — category / type
-│   ├── scrambleTypeSelect.ts  two Gtk.DropDown selectors — UNHOOKED 2026-10-04
 │   ├── scrambleTypePicker.ts  shared Adw.Dialog chooser (opened by one button)
 │   ├── scramblePanel.ts  scramble text + Gtk.Picture diagram (docked)
 │   ├── timesList.ts      Gtk.ColumnView of solves
@@ -271,7 +270,7 @@ src/
     AdwComboRow:expression to be set"). `tools/prefs_probe.mjs` now asserts
     the label renders, the tripwire for a libadwaita release that stops
     doing it; `stringExpression.ts` stays for the searchable dropdowns
-    (shrink_demo A/A2, the unhooked reference selector).
+    (shrink_demo A/A2).
 
 11. **i18n — catalogs are TypeScript modules, not JSON files.**
     `src/locales/en.ts` exports the message table `as const`; every other
@@ -1412,13 +1411,12 @@ v0.1.5) behind a typed protocol, `service.ts` request queue, and a pure
 `src/core/scrambleFeed.ts` state machine that keeps the next scramble warm and
 hands it over the instant a solve finishes (also regenerates on type switch and
 on refresh). UI: `src/ui/scramblePanel.ts` (scramble text, "Generating…"
-spinner) and the two-dropdown selector `src/ui/scrambleTypeSelect.ts` —
-category → type, both searchable (see decision 10 in §4 for the GTK
-`expression` pitfall that made search silently do nothing). *Both dropdowns
-were unhooked 2026-10-04 in favour of one ellipsizing header button; the
-module is kept and the pitfall still applies to any string row with search
-on (the Preferences ComboRow keeps search off, and dropped its expression
-2026-10-06 — decision 10).*
+spinner) and a two-dropdown selector (category → type, both searchable, see
+decision 10 in §4 for the GTK `expression` pitfall that made search silently
+do nothing). *Both dropdowns were unhooked 2026-10-04 in favour of one
+ellipsizing header button; the module was removed 2026-11-02. The pitfall
+still applies to any string row with search on (the Preferences ComboRow
+keeps search off, and dropped its expression 2026-10-06 — decision 10).*
 
 Evidence:
 

@@ -10,10 +10,11 @@
  * tools/prefs_probe.mjs asserts that against the running dialog.
  *
  * node-gtk cannot set the `expression` *property* (its GValue converter has
- * no case for the GtkExpression fundamental type and aborts) — pass it to a
- * constructor/factory, or call setExpression() with a positional argument:
- * arguments are marshalled by a different path. See the full note in
- * scrambleTypeSelect.ts.
+ * no case for the GtkExpression fundamental type and aborts with "Unhandled
+ * GValue type: GtkExpression"), so pass it to a constructor or factory — or
+ * call setExpression() with a positional argument, which is marshalled by a
+ * different path. Search also defaults to matching at the front, so
+ * setSearchMatchMode(SUBSTRING) is what makes "roux" find "3x3x3 Roux".
  */
 import GObject from 'gi:GObject-2.0'
 import Gtk from 'gi:Gtk-4.0'
