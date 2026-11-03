@@ -1,9 +1,9 @@
-// Edit-dialog probe v6 (2026-11-01): Adw.Dialog + header bar with Cancel at
+// Edit-dialog probe v7 (2026-11-03): Adw.Dialog + header bar with Cancel at
 // the start and Save at the end (no dialog close button), boxed-list
-// rows (Date+copy / Scramble → ExpanderRow when long / Penalty /
+// rows (Time / Date+copy / Scramble → ExpanderRow when long / Penalty /
 // Comment), title carrying the solve number, Return→save from outside the
-// comment entry, discard path, and the form scroll view: the dialog clamps
-// against a short parent (the window floor), the form scrolls beneath the
+// comment entry, discard path, and the scroll view: the dialog clamps
+// against a short parent (the window floor), the card scrolls beneath the
 // fixed header, and the expander carries no scroller of its own.
 //
 // Usage: node --import tsx --import node-gtk/register tools/edit_dialog_probe.mjs
@@ -129,30 +129,33 @@ function buildDialog(writes, win, scramble) {
   })
   dateRow.addSuffix(copySuffix(datetime, 'Copy the date'))
 
-  const formList = new Gtk.ListBox({ cssClasses: ['boxed-list'], selectionMode: Gtk.SelectionMode.NONE })
-  formList.append(dateRow)
-  if (scrambleRow !== null) formList.append(scrambleRow)
-  formList.append(penaltyRow)
-  formList.append(commentRow)
-
   const timeLabel = new Gtk.Label({
     label: timeText(undefined),
-    halign: Gtk.Align.CENTER,
-    cssClasses: ['title-1', 'numeric'],
+    cssClasses: ['title-2', 'numeric'],
+    valign: Gtk.Align.CENTER,
   })
+  const timeRow = new Adw.ActionRow({
+    title: 'Time',
+    halign: Gtk.Align.FILL,
+  })
+  timeRow.addSuffix(timeLabel)
   penaltyGroup.on('notify::active', () => {
     timeLabel.label = timeText(penaltyFromGroup())
   })
-  const form = new Gtk.Box({
-    orientation: Gtk.Orientation.VERTICAL,
-    spacing: 12,
+
+  const formList = new Gtk.ListBox({
+    cssClasses: ['boxed-list'],
+    selectionMode: Gtk.SelectionMode.NONE,
     marginStart: 12,
     marginEnd: 12,
     marginTop: 6,
     marginBottom: 12,
   })
-  form.append(timeLabel)
-  form.append(formList)
+  formList.append(timeRow)
+  formList.append(dateRow)
+  if (scrambleRow !== null) formList.append(scrambleRow)
+  formList.append(penaltyRow)
+  formList.append(commentRow)
 
   const cancelButton = new Gtk.Button({ label: 'Cancel' })
   const saveButton = new Gtk.Button({ label: 'Save', cssClasses: ['suggested-action'] })
@@ -161,7 +164,7 @@ function buildDialog(writes, win, scramble) {
   header.packEnd(saveButton)
 
   const scroller = new Gtk.ScrolledWindow({
-    child: form,
+    child: formList,
     vexpand: true,
     hscrollbarPolicy: Gtk.PolicyType.NEVER,
     vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,
@@ -206,10 +209,10 @@ function buildDialog(writes, win, scramble) {
     penaltyRow,
     dateRow,
     scrambleRow,
+    timeRow,
     timeLabel,
     header,
     box,
-    form,
     formList,
     scroller,
     isClosed: () => closed,
@@ -258,29 +261,40 @@ app.on('activate', () => {
     }
     check(`box children = [${kids.join(', ')}] (header, scroller)`, kids.join(',') === 'AdwHeaderBar,GtkScrolledWindow')
 
-    const formKids = []
-    let f = A.form.getFirstChild()
-    while (f) {
-      formKids.push(f.constructor.name)
-      f = f.getNextSibling()
-    }
-    check(`form children = [${formKids.join(', ')}] (time, list)`, formKids.join(',') === 'GtkLabel,GtkListBox')
+    // A GtkScrolledWindow wraps its child in a viewport; the card is the
+    // first list under it.
+    const viewport = A.scroller.getChild()
+    check(
+      `scroller's viewport holds the card (${viewport.constructor.name} > ${viewport.getChild?.()?.constructor.name})`,
+      viewport.getChild?.() === A.formList,
+    )
 
     check(
-      `time = centered title-1 number (label "${A.timeLabel.label}", halign ${A.timeLabel.halign}, classes ${A.timeLabel.cssClasses.join(',')})`,
-      A.timeLabel.label === '12.34' &&
-        A.timeLabel.halign === Gtk.Align.CENTER &&
-        ['title-1', 'numeric'].every((c) => A.timeLabel.cssClasses.includes(c)),
+      `Time row carries a suffix value (title "${A.timeRow.title}", label "${A.timeLabel.label}", classes ${A.timeLabel.cssClasses.join(',')}, valign ${A.timeLabel.valign}, row classes ${A.timeRow.cssClasses.join(',') || 'none'})`,
+      A.timeRow.title === 'Time' &&
+        A.timeRow.cssClasses.length === 0 &&
+        A.timeLabel.label === '12.34' &&
+        ['title-2', 'numeric'].every((c) => A.timeLabel.cssClasses.includes(c)) &&
+        A.timeLabel.valign === Gtk.Align.CENTER,
     )
-    // the number follows the penalty toggle live (user call, 2026-10-11)
+    {
+      const [, rowRect] = A.timeRow.computeBounds(A.formList)
+      const [, labelRect] = A.timeLabel.computeBounds(A.formList)
+      check(
+        `Time value sits at the row's end (label x+w=${(labelRect.getX() + labelRect.getWidth()).toFixed(0)} row w=${rowRect.getWidth().toFixed(0)})`,
+        labelRect.getX() > rowRect.getWidth() / 2 &&
+          Math.abs(labelRect.getX() + labelRect.getWidth() - rowRect.getWidth()) <= 24,
+      )
+    }
+    // the value follows the penalty toggle live
     A.penaltyGroup.activeName = 'plus2'
-    check(`time label follows +2 → "${A.timeLabel.label}"`, A.timeLabel.label === '14.34+')
+    check(`Time label follows +2 → "${A.timeLabel.label}"`, A.timeLabel.label === '14.34+')
     A.penaltyGroup.activeName = 'dnf'
-    check(`time label follows DNF → "${A.timeLabel.label}" (solved time kept)`, A.timeLabel.label === 'DNF(12.34)')
+    check(`Time label follows DNF → "${A.timeLabel.label}" (solved time kept)`, A.timeLabel.label === 'DNF(12.34)')
     A.penaltyGroup.activeName = 'ok'
-    check(`time label follows back to OK → "${A.timeLabel.label}"`, A.timeLabel.label === '12.34')
+    check(`Time label follows back to OK → "${A.timeLabel.label}"`, A.timeLabel.label === '12.34')
 
-    // rows: Date, Scramble, Penalty, Comment
+    // rows: Time, Date, Scramble, Penalty, Comment
     const rows = []
     let r = A.formList.getFirstChild()
     while (r) {
@@ -289,31 +303,31 @@ app.on('activate', () => {
     }
     check(
       `list rows = [${rows.map((w) => w.constructor.name).join(', ')}]`,
-      rows.map((w) => w.constructor.name).join(',') === 'AdwActionRow,AdwExpanderRow,AdwActionRow,AdwEntryRow',
+      rows.map((w) => w.constructor.name).join(',') === 'AdwActionRow,AdwActionRow,AdwExpanderRow,AdwActionRow,AdwEntryRow',
     )
     check(
-      `row order Date → Scramble → Penalty → Comment (${rows.map((w) => w.title).join(' → ')})`,
-      rows.map((w) => w.title).join(' → ') === 'Date → Scramble → Penalty → Comment',
+      `row order Time → Date → Scramble → Penalty → Comment (${rows.map((w) => w.title).join(' → ')})`,
+      rows.map((w) => w.title).join(' → ') === 'Time → Date → Scramble → Penalty → Comment',
     )
     check(
-      `Date row first, property-classed (${rows[0]?.title} / ${rows[0]?.subtitle})`,
-      rows[0].title === 'Date' &&
-        rows[0].subtitle === '2026-10-10 21:03:15' &&
-        rows[0].cssClasses.includes('property'),
+      `Date row second, property-classed (${rows[1]?.title} / ${rows[1]?.subtitle})`,
+      rows[1].title === 'Date' &&
+        rows[1].subtitle === '2026-10-10 21:03:15' &&
+        rows[1].cssClasses.includes('property'),
     )
     check(
-      `long scramble → collapsed ExpanderRow (type ${rows[1]?.constructor.name}, subtitleLines=${rows[1]?.subtitleLines})`,
-      rows[1].constructor.name === 'AdwExpanderRow' &&
-        rows[1].title === 'Scramble' &&
-        rows[1].subtitle === SCRAMBLE_LONG &&
-        rows[1].subtitleLines === 1 &&
-        rows[1].expanded === false,
+      `long scramble → collapsed ExpanderRow (type ${rows[2]?.constructor.name}, subtitleLines=${rows[2]?.subtitleLines})`,
+      rows[2].constructor.name === 'AdwExpanderRow' &&
+        rows[2].title === 'Scramble' &&
+        rows[2].subtitle === SCRAMBLE_LONG &&
+        rows[2].subtitleLines === 1 &&
+        rows[2].expanded === false,
     )
     // The expander must hold the full text itself — no scroller of its own:
     // the dialog's form is the one scroll view.
     let innerScrollers = 0
     let plainFull = false
-    walk(rows[1], (w) => {
+    walk(rows[2], (w) => {
       if (w.constructor.name === 'GtkScrolledWindow') innerScrollers++
       if (
         w.constructor.name === 'GtkListBoxRow' &&
@@ -332,7 +346,7 @@ app.on('activate', () => {
       `collapsed dialog sizes to the form (box h=${boxH}px, header + form natural)`,
       boxH > 200 && boxH <= 460,
     )
-    const dateCopy = findCopy(rows[0])
+    const dateCopy = findCopy(rows[1])
     check(
       `Date copy suffix (tooltip "${dateCopy?.tooltipText ?? 'none'}", valign=${dateCopy?.valign}, flat=${dateCopy ? dateCopy.cssClasses.includes('flat') : false})`,
       dateCopy !== null &&
@@ -340,7 +354,7 @@ app.on('activate', () => {
         dateCopy.valign === Gtk.Align.CENTER &&
         dateCopy.cssClasses.includes('flat'),
     )
-    const scrambleCopy = findCopy(rows[1])
+    const scrambleCopy = findCopy(rows[2])
     check(
       `Scramble copy suffix (tooltip "${scrambleCopy?.tooltipText ?? 'none'}", valign=${scrambleCopy?.valign}, flat=${scrambleCopy ? scrambleCopy.cssClasses.includes('flat') : false})`,
       scrambleCopy !== null &&
@@ -349,13 +363,13 @@ app.on('activate', () => {
         scrambleCopy.cssClasses.includes('flat'),
     )
     check(
-      `Date row spans the card (rowW=${rows[0].computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getWidth()})`,
-      Math.abs(rows[0].computeBounds(A.formList)[1].getWidth() - A.formList.getWidth()) <= 2,
+      `Date row spans the card (rowW=${rows[1].computeBounds(A.formList)[1].getWidth().toFixed(0)} listW=${A.formList.getWidth()})`,
+      Math.abs(rows[1].computeBounds(A.formList)[1].getWidth() - A.formList.getWidth()) <= 2,
     )
 
     check(
-      `form insets 12/12/6/12 (${A.form.marginStart}/${A.form.marginEnd}/${A.form.marginTop}/${A.form.marginBottom})`,
-      A.form.marginStart === 12 && A.form.marginEnd === 12 && A.form.marginTop === 6 && A.form.marginBottom === 12,
+      `card insets 12/12/6/12 (${A.formList.marginStart}/${A.formList.marginEnd}/${A.formList.marginTop}/${A.formList.marginBottom})`,
+      A.formList.marginStart === 12 && A.formList.marginEnd === 12 && A.formList.marginTop === 6 && A.formList.marginBottom === 12,
     )
     check(
       `formList class = boxed-list, not list (${A.formList.cssClasses.join(',') || 'none'})`,
@@ -468,7 +482,7 @@ app.on('activate', () => {
           bRows.push(br)
           br = br.getNextSibling()
         }
-        const expander = bRows[1]
+        const expander = bRows[2]
         const beforeH = B.box.getHeight()
         check(
           `B opens with a collapsed ExpanderRow (type ${expander?.constructor.name}, box h=${beforeH}px)`,
@@ -544,15 +558,15 @@ app.on('activate', () => {
           }
           check(
             `short scramble → plain row ([${cRows.map((w) => w.constructor.name).join(', ')}])`,
-            cRows.map((w) => w.constructor.name).join(',') === 'AdwActionRow,AdwActionRow,AdwActionRow,AdwEntryRow',
+            cRows.map((w) => w.constructor.name).join(',') === 'AdwActionRow,AdwActionRow,AdwActionRow,AdwActionRow,AdwEntryRow',
           )
           check(
-            `plain row keeps property + exact subtitle (${cRows[1]?.subtitle})`,
-            cRows[1].cssClasses.includes('property') && cRows[1].subtitle === SCRAMBLE_SHORT,
+            `plain row keeps property + exact subtitle (${cRows[2]?.subtitle})`,
+            cRows[2].cssClasses.includes('property') && cRows[2].subtitle === SCRAMBLE_SHORT,
           )
           check(
-            `plain row copy suffix present (tooltip "${findCopy(cRows[1])?.tooltipText ?? 'none'}")`,
-            findCopy(cRows[1]) !== null && findCopy(cRows[1]).tooltipText === 'Copy the scramble',
+            `plain row copy suffix present (tooltip "${findCopy(cRows[2])?.tooltipText ?? 'none'}")`,
+            findCopy(cRows[2]) !== null && findCopy(cRows[2]).tooltipText === 'Copy the scramble',
           )
 
           // ---------- the window floor: dialog clamps, form scrolls ----------
@@ -566,7 +580,7 @@ app.on('activate', () => {
           const D = buildDialog([], shortWin, SCRAMBLE_LONG)
           D.dialog.present(shortWin)
           GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
-            const [, formNat] = D.form.measure(Gtk.Orientation.VERTICAL, D.box.getWidth())
+            const [, formNat] = D.formList.measure(Gtk.Orientation.VERTICAL, D.box.getWidth())
             check(
               `short parent clamps the dialog below the form (box h=${D.box.getHeight()} < form nat ${formNat})`,
               D.box.getHeight() < formNat,

@@ -425,46 +425,46 @@ export function createTimesList(options: TimesListOptions) {
     })
     dateRow.addSuffix(copySuffix(datetime, 'Copy the date'))
 
-    // One libadwaita list: display rows first, controls below — what you
-    // *do* sits under what you read. `boxed-list` draws the card (a bare
-    // `list` is only GtkListBox's CSS node, which every list already is).
-    // Selection off: rows are controls here, not selectable items.
-    const formList = new Gtk.ListBox({
-      cssClasses: ['boxed-list'],
-      selectionMode: Gtk.SelectionMode.NONE,
-    })
-    formList.append(dateRow)
-    if (scrambleRow !== null) formList.append(scrambleRow)
-    formList.append(penaltyRow)
-    formList.append(commentRow)
-
-    // The record's headline: title-1 (Adwaita's largest built-in heading,
-    // no custom styles), `numeric` keeping the digits tabular as it changes.
-    // Follows the penalty toggle live — always the *effective* time.
+    // The time rides at the row's end as a suffix: the title keeps the row's
+    // normal size, so the value stands out without the headline label the
+    // dialog used to carry above the card. `numeric` keeps the digits tabular
+    // as they change.
     const timeLabel = new Gtk.Label({
       label: timeText(solve.penalty),
-      halign: Gtk.Align.CENTER,
-      cssClasses: ['title-1', 'numeric'],
+      cssClasses: ['title-2', 'numeric'],
+      valign: Gtk.Align.CENTER,
     })
+    const timeRow = new Adw.ActionRow({
+      title: 'Time',
+      halign: Gtk.Align.FILL,
+    })
+    timeRow.addSuffix(timeLabel)
     // `active` notifies on every selection change, click or programmatic —
     // one hook covers both.
     penaltyGroup.on('notify::active', () => {
       timeLabel.label = timeText(penaltyFromGroup())
     })
 
-    // 12px inset so the card frame floats inside the dialog (same inset as
-    // the type picker's list); 6px on top, where the header bar supplies
-    // the rest of the gap.
-    const form = new Gtk.Box({
-      orientation: Gtk.Orientation.VERTICAL,
-      spacing: 12,
+    // Display rows first (Time, Date, Scramble), controls below — what you
+    // *do* sits under what you read. `boxed-list` draws the card (a bare
+    // `list` is only GtkListBox's CSS node, which every list already is).
+    // Selection off: rows are controls here, not selectable items. The 12px
+    // inset lets the card frame float inside the dialog (same inset as the
+    // type picker's list); 6px on top, where the header bar supplies the
+    // rest of the gap.
+    const formList = new Gtk.ListBox({
+      cssClasses: ['boxed-list'],
+      selectionMode: Gtk.SelectionMode.NONE,
       marginStart: 12,
       marginEnd: 12,
       marginTop: 6,
       marginBottom: 12,
     })
-    form.append(timeLabel)
-    form.append(formList)
+    formList.append(timeRow)
+    formList.append(dateRow)
+    if (scrambleRow !== null) formList.append(scrambleRow)
+    formList.append(penaltyRow)
+    formList.append(commentRow)
 
     // Cancel at the bar's start, suggested Save at the end where the
     // dialog's own close button used to be. Both title-button sides are off,
@@ -494,7 +494,7 @@ export function createTimesList(options: TimesListOptions) {
     // clamp, a relay expansion) engages the scrolling. Never horizontal:
     // the rows fill the card and the labels wrap.
     const scroller = new Gtk.ScrolledWindow({
-      child: form,
+      child: formList,
       vexpand: true,
       hscrollbarPolicy: Gtk.PolicyType.NEVER,
       vscrollbarPolicy: Gtk.PolicyType.AUTOMATIC,

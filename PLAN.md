@@ -1687,6 +1687,13 @@ window has exactly two buttons; Cancel and Escape discard, only Save writes.
 `focusWidget: saveButton` keeps the open-on-Save focus the natural order
 gave before (Cancel is now the first focusable child, and Return there would
 throw the edit away). Probe v6, 50/50.
+— *the time became a row (user calls, 2026-11-03)*: the big centered number
+above the card is gone; the effective time is the card's first row now — an
+`Adw.ActionRow` titled **Time** (no `property` class, so the title keeps the
+row's normal size), its value a `title-2` `numeric` suffix at the row's end
+for visual balance, still following the penalty toggle — so the dialog is one
+list (Time → Date → Scramble → Penalty → Comment) and the separate form box
+disappeared, its 12px insets moving onto the card. Probe v7, 51/51.
 
 **WCA inspection (stage 5).** A sixth timer state, `inspecting`: the first
 ready→release starts the 15 s countdown (`formatInspection`, orange, clamped),
