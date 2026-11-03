@@ -10,8 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Size settings for the timer, the scramble text and the scramble diagram.
-- A + button in the sidebar header to add a new session.
-- A fullscreen toggle in the menu, also triggered with F11 key.
+- A button in the sidebar header to add a new session.
+- A fullscreen toggle in the menu.
 
 ### Changed
 
@@ -19,8 +19,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Touching or clicking on the scramble text no longer start the timer; only the timer area is recognized.
 - The app menu is moved to the main header bar, and the session switcher is now in the sidebar's header.
 - The solve editor now has Cancel button on the left and Save button on the right.
-- The inspection settings now come first in the Timer preferences.
-- Improved sizing strategy of scramble diagram.
+- The inspection audio cues are now disabled by default.
 
 ### Fixed
 
