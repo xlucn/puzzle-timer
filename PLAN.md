@@ -1091,11 +1091,18 @@ callback is csTimer's own `(type, len, state, neutLevel)`:
   pipeline already carries it end to end — `main.ts` → `scrambleLength(type)`
   → `service.scramble(type, length)` → `protocol { length }` → the worker.
   **Only the control is missing, not a single wire.**
-- ✅ **neutral orientation** — the 4th argument. Needs a probe that the
-  bundled scrambler honours it: same seed, `333` with `n`/`1`/`2`/`6`, and
-  the outputs must differ.
+- ◑ **neutral orientation** — the 4th argument, and only partial-solve
+  scramblers read it. Measured 2026-11-03 on one seed with `n`/`1`/`2`/`6`:
+  `444ctud` and `444l8e` change, while `333`, `444wca`, `444bld`, `444edo`
+  and `444cto` return identical scrambles. csTimer passes `~~scrNeut`, so the
+  values are numbers. A control would do nothing on nearly every type —
+  decide at kickoff whether it is worth having at all.
 - ✅ **pre-scramble rotations** and the **fast alias** — pure text on our
-  side, no module involvement.
+  side, no module involvement. `setGlobal('preScr', …)` does not change
+  `getScramble`'s output (measured 2026-11-03): the bundle only reads the
+  setting when it computes the cube state behind the image, so prefixing the
+  scramble is ours to do. The fast alias is an id map (`444wca` → `444m`,
+  both in the catalogue with `defaultLength: 40`).
 - ❌ **case filter — blocked upstream, not a bug.** `getExtra` and
   `scrMgr.rndState` are bundle-internal; the module exports exactly five
   functions (`getScrambleTypes`, `getScramble`, `setSeed`, `setGlobal`,
@@ -1120,6 +1127,17 @@ it beside the selector, and that dialog is already where the type is chosen.
 Changing it must invalidate the **prefetched** scramble too, not just the
 visible one (`src/core/scrambleFeed.ts`), or the next solve starts on a
 scramble generated with the old length.
+
+**Kickoff notes (2026-11-03, measured).** The length already reaches the
+worker; the missing wire is the feed's generator, which takes only `type`
+(`main.ts` builds it around `scrambleLength(type)`), so an override has to be
+read there and the feed told to discard both scrambles. `chooseType` is the
+one place a type change lands, and `scrambleTypePicker`'s `onChange` is the
+one dialog hook — a length change there has to reach the feed as well as a
+type change does. `Adw.SpinRow` needs an `Adjustment`; the picker's dialog
+already carries `contentWidth`/`contentHeight` and a breakpoint, so the
+control can be a row above the type card without new sizing. The neutral
+finding above and the two text options still need a design call.
 
 **Checkpoint for the user:** pick `WCA > 3x3 mbld`, set the count to 3 and
 get exactly three numbered scrambles; switch to `3x3x3` and watch the control
