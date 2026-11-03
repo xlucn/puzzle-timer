@@ -35,13 +35,17 @@ const app = new Adw.Application({
   flags: Gio.ApplicationFlags.FLAGS_NONE,
 })
 
-/** Depth-first walk for the row whose title matches. */
-const findRow = (root, title) => {
+/**
+ * Depth-first walk for the row whose title matches. `typeName` disambiguates
+ * when a page carries the same title as one of its rows (the Timer page).
+ */
+const findRow = (root, title, typeName = null) => {
   if (root === null) return null
-  if (root.getTitle?.() === title) return root
+  const typeOk = typeName === null || root.constructor.name === typeName
+  if (typeOk && root.getTitle?.() === title) return root
   let child = root.getFirstChild?.() ?? null
   while (child !== null) {
-    const hit = findRow(child, title)
+    const hit = findRow(child, title, typeName)
     if (hit !== null) return hit
     child = child.getNextSibling?.()
   }
@@ -111,7 +115,7 @@ app.on('activate', () => {
 
     const cues = findRow(dialog, 'Inspection sound cues')
     check(cues !== null, 'found the sound cues SwitchRow')
-    if (cues !== null) check(cues.getActive() === true, 'cues start ON (default)')
+    if (cues !== null) check(cues.getActive() === false, 'cues start OFF (default)')
 
     // Row order in the Timer page (user call, 2026-11-01): the two
     // inspection switches lead the group, ahead of the starting gestures.
@@ -159,22 +163,22 @@ app.on('activate', () => {
     }
 
     // Appearance → Sizes: one SpinRow per scale, all opening on 1.00.
-    const timerScale = findRow(dialog, 'Timer readout')
-    check(timerScale !== null, 'found the Timer readout SpinRow')
+    const timerScale = findRow(dialog, 'Timer', 'AdwSpinRow')
+    check(timerScale !== null, 'found the Timer SpinRow')
     if (timerScale !== null) {
       check(Math.abs(timerScale.value - 1) < 1e-9, `opens on 1.00 (got ${timerScale.value})`)
       timerScale.value = 1.5
     }
 
-    const scrambleScale = findRow(dialog, 'Scramble text')
+    const scrambleScale = findRow(dialog, 'Scramble text', 'AdwSpinRow')
     check(scrambleScale !== null, 'found the Scramble text SpinRow')
     if (scrambleScale !== null) {
       check(Math.abs(scrambleScale.value - 1) < 1e-9, `opens on 1.00 (got ${scrambleScale.value})`)
       scrambleScale.value = 0.75
     }
 
-    const diagramScale = findRow(dialog, 'Scramble diagram')
-    check(diagramScale !== null, 'found the Scramble diagram SpinRow')
+    const diagramScale = findRow(dialog, 'Scramble image', 'AdwSpinRow')
+    check(diagramScale !== null, 'found the Scramble image SpinRow')
     if (diagramScale !== null) {
       check(Math.abs(diagramScale.value - 1) < 1e-9, `opens on 1.00 (got ${diagramScale.value})`)
       diagramScale.value = 0.5
@@ -196,7 +200,7 @@ app.on('activate', () => {
       check(prefs.holdThresholdMs === 550, 'the merged preference holds 550 ms')
       check(prefs.inspection === false, 'the merged preference has inspection off')
       check(prefs.mouseStart === true, 'the merged preference has mouse control on')
-      check(prefs.inspectionSound === true, 'untouched fields survive the merge')
+      check(prefs.inspectionSound === false, 'untouched fields survive the merge')
       check(
         patches.some((p) => p.colorScheme === 'dark'),
         `the ComboRow reported the colour scheme (${JSON.stringify(patches)})`,
