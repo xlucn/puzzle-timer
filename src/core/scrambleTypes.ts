@@ -402,3 +402,20 @@ const LENGTH_BY_ID = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type.default
 export function scrambleLength(id: string): number {
   return LENGTH_BY_ID.get(id) ?? 0
 }
+
+/**
+ * What the length argument counts for `id`. Almost every length-driven type
+ * takes a number of random moves; multi-blind takes a number of scrambles and
+ * "lots of 3x3x3s" a number of cubes. The UI labels the control from this,
+ * so the same spinner never says "moves" over a count.
+ */
+export type ScrambleLengthKind = 'moves' | 'scrambles' | 'cubes'
+
+const LENGTH_KIND_BY_ID: ReadonlyMap<string, ScrambleLengthKind> = new Map([
+  ['r3ni', 'scrambles'],
+  ['r3', 'cubes'],
+])
+
+export function scrambleLengthKind(id: string): ScrambleLengthKind {
+  return LENGTH_KIND_BY_ID.get(id) ?? 'moves'
+}

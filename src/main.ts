@@ -44,8 +44,8 @@ import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
 import { createPreferences } from './ui/preferences.js'
 import { createScramblePanel } from './ui/scramblePanel.js'
+import { createScrambleTypeControl } from './ui/scrambleTypeControl.js'
 import { createScrambleTypePicker } from './ui/scrambleTypePicker.js'
-import { createScrambleTypeButton } from './ui/scrambleTypeButton.js'
 import { createScrambleTypeTitle } from './ui/scrambleTypeTitle.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsDialog } from './ui/shortcuts.js'
@@ -360,14 +360,21 @@ app.on('activate', () => {
   const scrambleService = createScrambleService()
   const feed = new ScrambleFeed({
     type: SCRAMBLE_DEFAULT_TYPE,
-    generate: async (type) => {
-      const { scramble, image } = await scrambleService.scrambleWithImage(
-        type,
-        scrambleLength(type),
-      )
+    length: scrambleLength(SCRAMBLE_DEFAULT_TYPE),
+    generate: async (type, length) => {
+      const { scramble, image } = await scrambleService.scrambleWithImage(type, length)
       rememberImage(type, scramble, image)
       return scramble
     },
+  })
+
+  // One control for the type: the button half opens the picker (built below —
+  // only the click reaches it), the arrow half edits the length. The length is
+  // never persisted: it follows the type change back to the catalogue default.
+  const typeControl = createScrambleTypeControl({
+    initialType: SCRAMBLE_DEFAULT_TYPE,
+    onChoose: () => typePicker.open(),
+    onLengthChange: (length) => feed.setLength(length),
   })
 
   const scramblePanel = createScramblePanel({ getImage: imageFor })
@@ -389,7 +396,8 @@ app.on('activate', () => {
    * contract, so one handler keeps the title and picker from disagreeing.
    */
   const chooseType = (type: string): void => {
-    feed.setType(type)
+    feed.setType(type, scrambleLength(type))
+    typeControl.setType(type)
     // `retyped` rides the index subscription above, which writes the file.
     library.setScrambleType(library.activeId, type)
     typeTitle.selectType(type)
@@ -419,7 +427,10 @@ app.on('activate', () => {
   const applySessionType = (id: string): void => {
     const type = library.find(id)?.scrambleType ?? SCRAMBLE_DEFAULT_TYPE
     if (type === feed.state.type) return
-    if (typeTitle.selectType(type) && typePicker.selectType(type)) feed.setType(type)
+    if (typeTitle.selectType(type) && typePicker.selectType(type)) {
+      feed.setType(type, scrambleLength(type))
+      typeControl.setType(type)
+    }
   }
   library.subscribe((change) => {
     if (change.kind === 'switched') applySessionType(change.id)
@@ -462,8 +473,7 @@ app.on('activate', () => {
   header.packStart(copyScramble)
 
   // Icon-only — the type name lives in the header title (typeTitle).
-  const typeButton = createScrambleTypeButton({ onActivate: () => typePicker.open() })
-  header.packStart(typeButton.widget)
+  header.packStart(typeControl.widget)
 
   // Drives the scrambleImage preference through applyPreferences — the same
   // single-writer path the Preferences SwitchRow uses, so prefs.json, the
@@ -678,7 +688,7 @@ app.on('activate', () => {
   //     raise no surface event) all land here.
 
   /** In header pack order, so one loop moves and repacks them together. */
-  const scrambleControls = [refreshScramble, copyScramble, typeButton.widget]
+  const scrambleControls = [refreshScramble, copyScramble, typeControl.widget]
 
   /**
    * Move the scramble controls between header and bottom bar (all together:

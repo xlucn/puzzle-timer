@@ -2,8 +2,9 @@
  * scrambleTypePicker.ts — the scramble-type chooser: one dialog, two doors.
  *
  * The dialog is the only place a type is *chosen*. Both layouts open it
- * through the same `Gtk.Button` (src/ui/scrambleTypeButton.ts), reparented
- * between the header and the bottom bar — and the type name lives in the
+ * through the same button half of the type control
+ * (src/ui/scrambleTypeControl.ts), reparented between the header and the
+ * bottom bar — and the type name lives in the
  * header's WindowTitle (src/ui/scrambleTypeTitle.ts), so one dialog and one
  * `onChange` path cover every layout.
  *

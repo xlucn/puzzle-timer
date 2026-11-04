@@ -11,9 +11,9 @@ const base = '../src/ui'
 const { createScramblePanel } = await import(`${base}/scramblePanel.ts`)
 const { createTimerView } = await import(`${base}/timerLabel.ts`)
 const { createStatsStrip } = await import(`${base}/statsStrip.ts`)
-const { createScrambleTypeButton } = await import(`${base}/scrambleTypeButton.ts`)
-const { createScrambleTypeTitle } = await import(`${base}/scrambleTypeTitle.ts`)
 const { SCRAMBLE_DEFAULT_TYPE } = await import('../src/core/scrambleTypes.ts')
+const { createScrambleTypeControl } = await import(`${base}/scrambleTypeControl.ts`)
+const { createScrambleTypeTitle } = await import(`${base}/scrambleTypeTitle.ts`)
 const { layoutFor } = await import('../src/core/layout.ts')
 
 const statsStrip = createStatsStrip({
@@ -22,7 +22,11 @@ const statsStrip = createStatsStrip({
 })
 const timerView = createTimerView({ statsStrip })
 const scramblePanel = createScramblePanel({ getImage: () => null })
-const typeButton = createScrambleTypeButton({ onActivate: () => {} })
+const typeControl = createScrambleTypeControl({
+  initialType: SCRAMBLE_DEFAULT_TYPE,
+  onChoose: () => {},
+  onLengthChange: () => {},
+})
 
 const typeTitle = createScrambleTypeTitle({ initialType: SCRAMBLE_DEFAULT_TYPE })
 const header = new Adw.HeaderBar()
@@ -35,7 +39,7 @@ const selectorBar = new Gtk.Box({
 })
 selectorBar.append(new Gtk.Button({ iconName: 'view-refresh-symbolic', cssClasses: ['flat'] }))
 selectorBar.append(new Gtk.Button({ iconName: 'edit-copy-symbolic', cssClasses: ['flat'] }))
-selectorBar.append(typeButton.widget)
+selectorBar.append(typeControl.widget)
 selectorBar.append(new Gtk.ToggleButton({ iconName: 'image-x-generic-symbolic', cssClasses: ['flat'] }))
 
 const mainContent = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
@@ -164,7 +168,7 @@ console.error(`[c] slot=${panelSlot?.constructor.name} text=${textLabel?.constru
   h('TOAST', toast, -1)
   h('header (row)', header, -1)
   h('selectorBar', selectorBar, -1)
-  h('typeButton', typeButton.widget, -1)
+  h('typeControl', typeControl.widget, -1)
   h('scramblePanel', scramblePanel.widget, -1)
   h('timerView', timerView.widget, -1)
   h('statsStrip', statsStrip.widget, -1)

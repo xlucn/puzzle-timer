@@ -46,8 +46,13 @@ interface Inflight {
 export interface ScrambleFeedOptions {
   /** Type to open with. */
   type: string
-  /** Generates one scramble; rejects (or resolves empty) when it cannot. */
-  generate: (type: string) => Promise<string>
+  /** Length to open with: moves, or a count, as the type defines it. */
+  length: number
+  /**
+   * Generates one scramble; rejects (or resolves empty) when it cannot.
+   * The length travels with the type because the user may override it.
+   */
+  generate: (type: string, length: number) => Promise<string>
 }
 
 const EMPTY_SCRAMBLE = 'the scrambler returned an empty scramble'
@@ -57,8 +62,9 @@ function messageOf(error: unknown): string {
 }
 
 export class ScrambleFeed {
-  private readonly generate: (type: string) => Promise<string>
+  private readonly generate: (type: string, length: number) => Promise<string>
   private currentType: string
+  private currentLength: number
   private scrambleText: string | null = null
   private warm: string | null = null
   private inflight: Inflight | null = null
@@ -69,6 +75,7 @@ export class ScrambleFeed {
   constructor(options: ScrambleFeedOptions) {
     this.generate = options.generate
     this.currentType = options.type
+    this.currentLength = options.length
   }
 
   get state(): ScrambleFeedState {
@@ -114,10 +121,24 @@ export class ScrambleFeed {
     this.begin('current')
   }
 
-  /** Switch scramble type; anything in flight for the old type is dropped. */
-  setType(type: string): void {
-    if (type === this.currentType) return
+  /**
+   * Switch the scramble type (and the length that belongs with it); anything
+   * in flight for the old pair is dropped.
+   */
+  setType(type: string, length: number): void {
+    if (type === this.currentType && length === this.currentLength) return
     this.currentType = type
+    this.currentLength = length
+    this.restart()
+  }
+
+  /**
+   * A new length for the type already selected — the visible and the
+   * prefetched scramble both described the old length, so both go.
+   */
+  setLength(length: number): void {
+    if (length === this.currentLength) return
+    this.currentLength = length
     this.restart()
   }
 
@@ -143,6 +164,7 @@ export class ScrambleFeed {
 
   private begin(role: Role): void {
     const type = this.currentType
+    const length = this.currentLength
     const seq = ++this.seq
     this.inflight = { seq, role }
     if (role === 'current') {
@@ -153,7 +175,7 @@ export class ScrambleFeed {
 
     let pending: Promise<string>
     try {
-      pending = this.generate(type)
+      pending = this.generate(type, length)
     } catch (error) {
       pending = Promise.reject(error)
     }

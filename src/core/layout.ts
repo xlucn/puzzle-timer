@@ -307,7 +307,7 @@ function readoutPx(w: number, h: number): number {
  *
  * Long labels are not a factor: the header's selector is an icon button and the
  * type text lives in the window title, whose `Adw.WindowTitle` template
- * labels ellipsize (see src/ui/scrambleTypeButton.ts and
+ * labels ellipsize (see src/ui/scrambleTypeControl.ts and
  * src/ui/scrambleTypeTitle.ts), so the header's *min* stays small, it absorbs
  * whatever it is given, and the labels have a place to go.
  *

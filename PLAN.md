@@ -1110,38 +1110,57 @@ callback is csTimer's own `(type, len, state, neutLevel)`:
   needs an upstream export, or a faithful re-implementation of the
   case-filter tables. Recorded here so nobody re-opens it as a defect.
 
-**Design calls (user, 2026-10-10):**
+**Design calls (user, 2026-10-10; extended 2026-11-03):**
 
-- **Scope: everything reachable** — length/count, neutral orientation,
-  pre-scramble and the fast alias; the case filter stays blocked.
+- **Scope: length/count, pre-scramble and the fast alias** — neutral
+  orientation drops out (2026-11-03: measured to change only `444ctud`/
+  `444l8e`, nothing else), and the case filter stays blocked.
 - **The length resets on type change**, mirroring csTimer exactly: it is
   re-read from the type's `defaultLength` whenever the type changes and is
   **not persisted** — so no `Preferences` field and no `SessionEntry` field.
   Anyone adding one later is working against this call.
-- **Only types with `defaultLength > 0` show the control** — the same test
-  csTimer uses to enable `scrLen`. That covers MBLD (`r3ni`, 5), the relay
-  `r3` (5), `easyc`/`easyxc` (3/4) and every random-move type.
+- **The control is one `Adw.SplitButton` in the header, not a picker row**
+  (user call, 2026-11-03): the button half opens the type picker, the arrow
+  half edits the type that is already chosen, so choosing and tuning are two
+  halves of one control. Its popover holds the length row, labelled by what
+  the number counts — `Moves`, `Number of scrambles` for MBLD, `Number of
+  cubes` for the relay. Where the catalogue fixes the length
+  (`defaultLength: 0`) the popover is detached, which libadwaita renders as
+  an insensitive arrow while the picker half stays live — the same effect as
+  csTimer greying its field, without freezing the type button. A separate
+  options button was rejected: it read as a second, unrelated action beside
+  the type, and cost a header slot.
 
-**Where it lives:** the type-picker dialog is the natural home — csTimer puts
-it beside the selector, and that dialog is already where the type is chosen.
-Changing it must invalidate the **prefetched** scramble too, not just the
-visible one (`src/core/scrambleFeed.ts`), or the next solve starts on a
-scramble generated with the old length.
+**Where it lives:** the split button joins `scrambleControls`, so the narrow
+layout carries it into the bottom bar with refresh/copy. The length belongs
+to `ScrambleFeed`: the generator takes `(type, length)`, and both a type
+change and a length change discard the visible **and** prefetched scramble,
+or the next solve starts on a scramble generated with the old length.
 
-**Kickoff notes (2026-11-03, measured).** The length already reaches the
-worker; the missing wire is the feed's generator, which takes only `type`
-(`main.ts` builds it around `scrambleLength(type)`), so an override has to be
-read there and the feed told to discard both scrambles. `chooseType` is the
-one place a type change lands, and `scrambleTypePicker`'s `onChange` is the
-one dialog hook — a length change there has to reach the feed as well as a
-type change does. `Adw.SpinRow` needs an `Adjustment`; the picker's dialog
-already carries `contentWidth`/`contentHeight` and a breakpoint, so the
-control can be a row above the type card without new sizing. The neutral
-finding above and the two text options still need a design call.
+**Landed 2026-11-03 (first pass: length).** `ScrambleFeed` now carries the
+length the way it carries the type: the generator takes `(type, length)`,
+`setType(type, length)` and `setLength(n)` restart on the existing sequence
+stamp, so a late result for the old pair is dropped rather than shown.
+`src/ui/scrambleOptions.ts` owns the popover and its rows,
+`src/ui/scrambleTypeControl.ts` the split button, and `main.ts` passes
+`scrambleLength(type)` on every type change — that is the reset, and the
+reason nothing is persisted. Measurements: the split button is 59 px wide
+against 74 for the old type + options pair (34 + 34 + 6 spacing), so the
+header's minimum shrank; `tools/scramble_control_probe.mjs` checks both
+halves, the per-type row, the single-callback edit, rounding, and the
+detach/re-attach of the popover around a fixed-length type (19 checks);
+`npm test` is 255. Live on Xephyr: `r3ni` at 5 → spin 3 → three numbered
+scrambles (5 × 117 words → 3 × 68), one `gdk_frame_timings_submitted` warning
+on the spin commit, the same one the popover shows in the probe.
+
+**Still to do here:** the pre-scramble text row and the `444wca` → `444m`
+fast alias, both as further rows in the same popover. Neutral orientation
+stays out (finding above).
 
 **Checkpoint for the user:** pick `WCA > 3x3 mbld`, set the count to 3 and
-get exactly three numbered scrambles; switch to `3x3x3` and watch the control
-reset and disappear (`333` has `defaultLength: 0`).
+get exactly three numbered scrambles; switch to `3x3x3` and watch the arrow
+grey out while the type button still opens the picker (`333` has
+`defaultLength: 0`).
 
 ### M9 — scheduled (i18n)
 

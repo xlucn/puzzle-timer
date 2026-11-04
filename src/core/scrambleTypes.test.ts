@@ -7,6 +7,7 @@ import {
   SCRAMBLE_TYPES,
   groupOfScrambleType,
   scrambleLength,
+  scrambleLengthKind,
   scrambleTypeLabel,
   scrambleTypeTitle,
 } from './scrambleTypes.js'
@@ -52,6 +53,16 @@ describe('scrambleTypes', () => {
     expect(scrambleLength('r3ni')).toBe(5) // five cubes for multi-blind
     // unknown ids fall back to 0 (the feed reports the empty result)
     expect(scrambleLength('no-such-type')).toBe(0)
+  })
+
+  it('knows when the length counts scrambles rather than moves', () => {
+    expect(scrambleLengthKind('333o')).toBe('moves')
+    expect(scrambleLengthKind('444wca')).toBe('moves')
+    expect(scrambleLengthKind('easyc')).toBe('moves')
+    expect(scrambleLengthKind('r3ni')).toBe('scrambles') // multi-blind
+    expect(scrambleLengthKind('r3')).toBe('cubes') // lots of 3x3x3s
+    // an id with no catalogue entry still gets the common reading
+    expect(scrambleLengthKind('no-such-type')).toBe('moves')
   })
 
   it('builds the two selector levels csTimer uses: category, then type', () => {

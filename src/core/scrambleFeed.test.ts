@@ -21,17 +21,25 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
  * promise it settles later.
  */
 function fakeGenerator() {
-  const calls: { type: string; deferred: ReturnType<typeof deferred<string>> }[] = []
-  const generate = vi.fn((type: string) => {
+  const calls: {
+    type: string
+    length: number
+    deferred: ReturnType<typeof deferred<string>>
+  }[] = []
+  const generate = vi.fn((type: string, length: number) => {
     const d = deferred<string>()
-    calls.push({ type, deferred: d })
+    calls.push({ type, length, deferred: d })
     return d.promise
   })
   return { generate, calls }
 }
 
-function feedWith(generator: ReturnType<typeof fakeGenerator>, type = '333') {
-  const feed = new ScrambleFeed({ type, generate: generator.generate })
+function feedWith(
+  generator: ReturnType<typeof fakeGenerator>,
+  type = '333',
+  length = 0,
+) {
+  const feed = new ScrambleFeed({ type, length, generate: generator.generate })
   return feed
 }
 
@@ -120,7 +128,7 @@ describe('ScrambleFeed', () => {
     const feed = feedWith(generator)
 
     feed.start() // generating a 3x3 scramble
-    feed.setType('444wca')
+    feed.setType('444wca', 40)
     expect(feed.state.type).toBe('444wca')
     expect(feed.state.scramble).toBeNull()
 
@@ -140,8 +148,69 @@ describe('ScrambleFeed', () => {
     const feed = feedWith(generator)
 
     feed.start()
-    feed.setType('333')
+    feed.setType('333', 0)
     expect(generator.calls).toHaveLength(1)
+  })
+
+  it('setLength() drops the displayed and the prefetched scramble', async () => {
+    const generator = fakeGenerator()
+    const feed = feedWith(generator, '333o', 25)
+
+    feed.start()
+    generator.calls[0].deferred.resolve('25-move scramble')
+    await flush()
+    generator.calls[1].deferred.resolve('25-move warm')
+    await flush()
+
+    feed.setLength(10)
+    expect(feed.state.scramble).toBeNull()
+    expect(generator.calls[2].length).toBe(10) // the old pair is gone
+    generator.calls[2].deferred.resolve('10-move scramble')
+    await flush()
+
+    expect(feed.state.scramble).toBe('10-move scramble')
+    expect(generator.calls[3].length).toBe(10) // the warm one uses it too
+    expect(generator.calls.map((call) => call.type)).toEqual([
+      '333o',
+      '333o',
+      '333o',
+      '333o',
+    ])
+  })
+
+  it('setLength() drops a result generated for the old length', async () => {
+    const generator = fakeGenerator()
+    const feed = feedWith(generator, '333o', 25)
+
+    feed.start() // generating 25 moves
+    feed.setLength(10)
+    generator.calls[0].deferred.resolve('stale 25-move scramble')
+    await flush()
+    expect(feed.state.scramble).toBeNull() // discarded, not displayed
+
+    generator.calls[1].deferred.resolve('10-move scramble')
+    await flush()
+    expect(feed.state.scramble).toBe('10-move scramble')
+  })
+
+  it('setLength() to the length already selected does nothing', async () => {
+    const generator = fakeGenerator()
+    const feed = feedWith(generator, '333o', 25)
+
+    feed.start()
+    feed.setLength(25)
+    expect(generator.calls).toHaveLength(1)
+  })
+
+  it('setType() with the same type but a new length regenerates', async () => {
+    const generator = fakeGenerator()
+    const feed = feedWith(generator, '333o', 25)
+
+    feed.start()
+    feed.setType('333o', 10)
+    expect(feed.state.type).toBe('333o')
+    expect(feed.state.scramble).toBeNull()
+    expect(generator.calls[1].length).toBe(10)
   })
 
   it('refresh() replaces the displayed scramble and the warm one', async () => {
@@ -219,6 +288,7 @@ describe('ScrambleFeed', () => {
   it('survives a generator that throws synchronously', async () => {
     const feed = new ScrambleFeed({
       type: '333',
+      length: 0,
       generate: () => {
         throw new Error('worker not running')
       },
