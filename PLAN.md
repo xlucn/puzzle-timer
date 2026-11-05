@@ -23,9 +23,10 @@ list.
 
 **Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict).** The queue is
-now **M8–M12, M16 and M17**; M17 is the phone-package slice M15 attached.
-M14 (touch) landed on 2026-10-23 and M7 (size preferences) on 2026-10-28.
+`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8 landed
+2026-11-06**).** The queue is now **M9–M12, M16 and M17**; M17 is the
+phone-package slice M15 attached. M14 (touch) landed on 2026-10-23 and M7
+(size preferences) on 2026-10-28.
 Numbers are stable identifiers, not queue positions (§6). Two of the
 adjacencies are
 dependencies rather than preferences: i18n lands ahead of every string-heavy
@@ -547,9 +548,9 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M8–M12, M16 and M17**; M13 landed on 2026-10-22
-as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, and **M15 on 2026-10-31**,
-and the landed M0–M6 log closes the section. A number never
+The queue is **M9–M12, M16 and M17**; M13 landed on 2026-10-22
+as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, **M15 on 2026-10-31** and
+**M8 on 2026-11-06**, and the landed M0–M6 log closes the section. A number never
 moves: only the queue does.
 
 | # | Deliverable | Done when |
@@ -562,7 +563,7 @@ moves: only the queue does.
 | **M5** | Preferences dialog, full shortcut set, scramble image (Rsvg), dark-mode theming, empty states/toasts, polish | Something to use daily |
 | **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
 | **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×294 floor still holds |
-| **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change |
+| **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change — **landed 2026-11-06: neutral dropped by measurement, case filter stays blocked** |
 | **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese |
 | **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
 | **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
@@ -1064,7 +1065,7 @@ Small and self-contained — deliberately the first thing scheduled (user call,
 900×540 that the digits read the size asked for and the diagram still clears
 the timer.
 
-### M8 — scheduled (scramble type options)
+### M8 — landed 2026-11-06 (scramble type options)
 
 Added 2026-10-10 — csTimer's per-type scramble options. **Independent of every
 other milestone**: it needs nothing from them and none of them needs it, so it
@@ -1097,12 +1098,13 @@ callback is csTimer's own `(type, len, state, neutLevel)`:
   and `444cto` return identical scrambles. csTimer passes `~~scrNeut`, so the
   values are numbers. A control would do nothing on nearly every type —
   decide at kickoff whether it is worth having at all.
-- ✅ **pre-scramble rotations** and the **fast alias** — pure text on our
-  side, no module involvement. `setGlobal('preScr', …)` does not change
-  `getScramble`'s output (measured 2026-11-03): the bundle only reads the
-  setting when it computes the cube state behind the image, so prefixing the
-  scramble is ours to do. The fast alias is an id map (`444wca` → `444m`,
-  both in the catalogue with `defaultLength: 40`).
+- ✅ **pre-scramble** and the **fast alias** — `setGlobal('preScr', …)` is
+  csTimer's own knob: it leaves `getScramble`'s output unchanged (measured
+  2026-11-03, and again 2026-11-05 including the scrambler's third argument)
+  and changes `getImage` of the same scramble, so the module draws the
+  diagram from it and the text is never rewritten. The fast alias is an id
+  map (`444wca` → `444m`, both in the catalogue with `defaultLength: 40`),
+  swapped at generation time.
 - ❌ **case filter — blocked upstream, not a bug.** `getExtra` and
   `scrMgr.rndState` are bundle-internal; the module exports exactly five
   functions (`getScrambleTypes`, `getScramble`, `setSeed`, `setGlobal`,
@@ -1148,8 +1150,8 @@ reason nothing is persisted. Measurements: the split button is 59 px wide
 against 74 for the old type + options pair (34 + 34 + 6 spacing), so the
 header's minimum shrank; `tools/scramble_control_probe.mjs` checks both
 halves, the per-type row, the single-callback edit, rounding, and the
-detach/re-attach of the popover around a fixed-length type (19 checks);
-`npm test` is 255. Live on Xephyr: `r3ni` at 5 → spin 3 → three numbered
+detach/re-attach of the popover around a fixed-length type (24 checks);
+`npm test` is 257. Live on Xephyr: `r3ni` at 5 → spin 3 → three numbered
 scrambles (5 × 117 words → 3 × 68), one `gdk_frame_timings_submitted` warning
 on the spin commit, the same one the popover shows in the probe.
 
@@ -1165,8 +1167,8 @@ Measured, and the reason for this split: `setGlobal('preScr', 'y')` changes
 `getImage(scramble, type)` for the same scramble (3x3 and 4x4, SVG content
 differs), while `getScramble` ignores the setting and also ignores the
 scrambler's third argument (`getScramble('333', 0, true)`), so the module
-cannot put the setup into the text even if asked. `tools/prescr_probe.mjs`
-in /tmp holds the one-scramble-two-diagrams experiment.
+cannot put the setup into the text even if asked.
+`tools/prescr_probe.mjs` holds the one-scramble-two-diagrams experiment.
 
 **Fast 4x4 (2026-11-05).** A `Fast scramble` switch in the type control's
 popover, shown only where `fastScrambleType()` has an answer — today just
@@ -2054,17 +2056,18 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M8–M12, M16 and M17 scheduled — M15 landed 2026-10-31** — the phone
-  runtime is **viable**, and M17 is the scoped postmarketOS/Alpine package it
-  attached. Next is M8 scramble type
-  options → M9 i18n → M10 csTimer import/export → M11 records & statistics →
+- **M9–M12, M16 and M17 scheduled — M8 landed 2026-11-06** — the scramble
+  type control carries the length, the pre-scramble (a preference through the
+  module's `preScr` global) and the fast 4x4 switch; neutral orientation was
+  dropped by measurement. Next is M9 i18n → M10 csTimer import/export → M11
+  records & statistics →
   M12 charts → M16 AUR package → M17 phone package. M13 is out of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
   (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M8–M12, M16 and M17 remain scheduled.
+  changelog entries. Nothing was dropped: M9–M12, M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and
