@@ -362,7 +362,14 @@ app.on('activate', () => {
     type: SCRAMBLE_DEFAULT_TYPE,
     length: scrambleLength(SCRAMBLE_DEFAULT_TYPE),
     generate: async (type, length) => {
-      const { scramble, image } = await scrambleService.scrambleWithImage(type, length)
+      // The worker hands the pre-scramble to cstimer_module as its `preScr`
+      // global, so the module draws the diagram from it; the text is the
+      // scramble itself.
+      const { scramble, image } = await scrambleService.scrambleWithImage(
+        type,
+        length,
+        prefs.preScramble,
+      )
       rememberImage(type, scramble, image)
       return scramble
     },
@@ -1282,6 +1289,9 @@ app.on('activate', () => {
       imageToggle.active = prefs.scrambleImage
     }
     if ('inspection' in patch) timer.setInspection(prefs.inspection, nowMs())
+    // A new pre-scramble changes the diagram of the scramble on screen, and of
+    // the one kept warm behind it.
+    if ('preScramble' in patch) feed.refresh()
   }
 
   // Built fresh on open, one patch per row change, routed through

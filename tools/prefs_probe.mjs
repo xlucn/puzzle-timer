@@ -154,6 +154,15 @@ app.on('activate', () => {
       theme.selected = 2 // "Dark"
     }
 
+    // Scramble page: the pre-scramble text — csTimer's global for the diagram.
+    const preScramble = findRow(dialog, 'Moves', 'AdwEntryRow')
+    check(preScramble !== null, 'found the pre-scramble EntryRow')
+    if (preScramble !== null) {
+      check(preScramble.getText() === '', `opens empty (got "${preScramble.getText()}")`)
+      preScramble.setText('  y ')
+      preScramble.emit('entry-activated')
+    }
+
     // Scramble page: the image switch.
     const image = findRow(dialog, 'Show the scramble image')
     check(image !== null, 'found the scramble image SwitchRow')
@@ -221,6 +230,11 @@ app.on('activate', () => {
       check(prefs.timerScale === 1.5, 'the merged preference has the timer scale')
       check(prefs.scrambleScale === 0.75, 'the merged preference has the scramble scale')
       check(prefs.diagramScale === 0.5, 'the merged preference has the diagram scale')
+      check(
+        patches.some((p) => p.preScramble === 'y'),
+        `the pre-scramble row reported the trimmed text (${JSON.stringify(patches.filter((p) => 'preScramble' in p))})`,
+      )
+      check(prefs.preScramble === 'y', 'the merged preference has the pre-scramble')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
       app.quit()

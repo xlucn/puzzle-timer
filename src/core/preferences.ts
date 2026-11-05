@@ -30,6 +30,11 @@ export interface Preferences {
   inspectionSound: boolean
   /** Show a picture of the scramble when its type has one (SVG, via Gtk.Svg). */
   scrambleImage: boolean
+  /**
+   * csTimer's pre-scramble for the diagram (the module's `preScr` global):
+   * a setup the diagram is drawn from, e.g. `y`. Empty for none.
+   */
+  preScramble: string
   /** Whether a mouse press can start and stop the timer; touch and keys always can. */
   mouseStart: boolean
   /** Light/dark theming; `system` follows the desktop. */
@@ -66,6 +71,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   inspection: true,
   inspectionSound: false,
   scrambleImage: true,
+  preScramble: '',
   mouseStart: false,
   colorScheme: 'system',
   timerScale: 1,
@@ -97,6 +103,11 @@ export function normalizePreferences(value: unknown): Preferences {
       ? (scheme as ColorScheme)
       : DEFAULT_PREFERENCES.colorScheme
 
+  const preScramble =
+    typeof raw.preScramble === 'string'
+      ? raw.preScramble.trim()
+      : DEFAULT_PREFERENCES.preScramble
+
   const flag = (key: keyof Preferences): boolean =>
     typeof raw[key] === 'boolean'
       ? (raw[key] as boolean)
@@ -117,6 +128,7 @@ export function normalizePreferences(value: unknown): Preferences {
     inspection: flag('inspection'),
     inspectionSound: flag('inspectionSound'),
     scrambleImage: flag('scrambleImage'),
+    preScramble,
     mouseStart: flag('mouseStart'),
     colorScheme,
     timerScale: scale('timerScale', MIN_SIZE_SCALE),

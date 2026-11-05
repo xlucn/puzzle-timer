@@ -229,6 +229,31 @@ export function createPreferences(options: PreferencesPanelOptions) {
       title: 'Scramble',
       iconName: 'image-x-generic-symbolic',
     })
+
+    // One value for every type: it is csTimer's `preScr`, which the module
+    // applies when it draws the diagram. Committed on Enter, on the apply
+    // button (the touch path) or when the dialog closes.
+    const preScrambleGroup = new Adw.PreferencesGroup({
+      title: 'Pre-scramble',
+      description: 'Moves applied to the scramble diagram, e.g. y or z2.',
+    })
+    const preScrambleRow = new Adw.EntryRow({
+      title: 'Moves',
+      text: prefs.preScramble,
+      showApplyButton: true,
+    })
+    const commitPreScramble = (): void => {
+      const text = (preScrambleRow.text ?? '').trim()
+      if (text === options.get().preScramble) return
+      preScrambleRow.text = text
+      options.set({ preScramble: text })
+    }
+    preScrambleRow.on('apply', commitPreScramble)
+    preScrambleRow.on('entry-activated', commitPreScramble)
+    dialog.on('closed', commitPreScramble)
+    preScrambleGroup.add(preScrambleRow)
+    scramblePage.add(preScrambleGroup)
+
     const scrambleGroup = new Adw.PreferencesGroup({
       title: 'Image',
       description:

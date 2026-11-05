@@ -1153,14 +1153,29 @@ detach/re-attach of the popover around a fixed-length type (19 checks);
 scrambles (5 × 117 words → 3 × 68), one `gdk_frame_timings_submitted` warning
 on the spin commit, the same one the popover shows in the probe.
 
-**Still to do here:** the pre-scramble text row and the `444wca` → `444m`
-fast alias, both as further rows in the same popover. Neutral orientation
-stays out (finding above).
+**Pre-scramble (2026-11-05, user call): the module does it.** It is a
+**global preference** (`Preferences.preScramble`, an entry row on the
+Scramble page of the Preferences dialog), not a popover row and not
+per-type: `main.ts` hands it to the worker with every request, and the
+worker sets it as csTimer's own `preScr` global (`cstimer.setGlobal`) before
+generating. The module then draws the diagram from that setup, so there is
+**no text prefixing anywhere** — the scramble text stays the bare scramble.
+
+Measured, and the reason for this split: `setGlobal('preScr', 'y')` changes
+`getImage(scramble, type)` for the same scramble (3x3 and 4x4, SVG content
+differs), while `getScramble` ignores the setting and also ignores the
+scrambler's third argument (`getScramble('333', 0, true)`), so the module
+cannot put the setup into the text even if asked. `tools/prescr_probe.mjs`
+in /tmp holds the one-scramble-two-diagrams experiment.
+
+**Still to do here:** the `444wca` → `444m` fast alias (a further row in the
+type control's popover). Neutral orientation stays out (finding above).
 
 **Checkpoint for the user:** pick `WCA > 3x3 mbld`, set the count to 3 and
 get exactly three numbered scrambles; switch to `3x3x3` and watch the arrow
 grey out while the type button still opens the picker (`333` has
-`defaultLength: 0`).
+`defaultLength: 0`). Then put `y` in Preferences → Scramble → Pre-scramble
+and watch the diagram turn with the scramble on screen, text unchanged.
 
 ### M9 — scheduled (i18n)
 

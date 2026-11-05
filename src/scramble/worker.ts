@@ -31,6 +31,10 @@ function handle(request: ScrambleRequest): ScrambleResponse {
   try {
     switch (request.cmd) {
       case 'scramble': {
+        // csTimer's own pre-scramble: the module reads this global when it
+        // draws the state, so the diagram follows the preference and the text
+        // stays the scramble itself.
+        cstimer.setGlobal('preScr', request.preScramble)
         const scramble = cstimer.getScramble(request.type, request.length)
         if (!request.withImage) return { id: request.id, ok: true, value: scramble }
         return {

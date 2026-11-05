@@ -31,13 +31,17 @@ export interface ScrambleServiceOptions {
 
 export interface ScrambleService {
   /** Generate one scramble. Rejects if the worker fails, stalls or throws. */
-  scramble(type: string, length: number): Promise<string>
+  scramble(type: string, length: number, preScramble?: string): Promise<string>
   /**
    * Generate one scramble *and* its SVG image in a single round trip: the
    * panel needs both at the same instant, and a request that lands after the
    * text would move the timer after it had settled.
    */
-  scrambleWithImage(type: string, length: number): Promise<ScramblePayload>
+  scrambleWithImage(
+    type: string,
+    length: number,
+    preScramble?: string,
+  ): Promise<ScramblePayload>
   /** SVG of an already-generated scramble; null when its type has none. */
   image(scramble: string, type: string): Promise<string | null>
   /** Stop the worker and fail everything in flight. Idempotent. */
@@ -135,8 +139,15 @@ export function createScrambleService(options: ScrambleServiceOptions = {}): Scr
   }
 
   return {
-    scramble(type: string, length: number): Promise<string> {
-      return request((id) => ({ id, cmd: 'scramble', type, length, withImage: false })).then(
+    scramble(type: string, length: number, preScramble = ''): Promise<string> {
+      return request((id) => ({
+        id,
+        cmd: 'scramble',
+        type,
+        length,
+        preScramble,
+        withImage: false,
+      })).then(
         (value) => {
           if (typeof value !== 'string') {
             throw new Error('scramble worker returned no scramble')
@@ -146,8 +157,19 @@ export function createScrambleService(options: ScrambleServiceOptions = {}): Scr
       )
     },
 
-    scrambleWithImage(type: string, length: number): Promise<ScramblePayload> {
-      return request((id) => ({ id, cmd: 'scramble', type, length, withImage: true })).then(
+    scrambleWithImage(
+      type: string,
+      length: number,
+      preScramble = '',
+    ): Promise<ScramblePayload> {
+      return request((id) => ({
+        id,
+        cmd: 'scramble',
+        type,
+        length,
+        preScramble,
+        withImage: true,
+      })).then(
         (value) => {
           const payload = value as ScramblePayload | null
           if (payload === null || typeof payload.scramble !== 'string') {

@@ -34,6 +34,7 @@ describe('normalizePreferences', () => {
       inspection: false,
       inspectionSound: false,
       scrambleImage: false,
+      preScramble: 'y',
       mouseStart: true,
       colorScheme: 'dark',
       timerScale: 1.25,
@@ -51,6 +52,13 @@ describe('normalizePreferences', () => {
       MAX_HOLD_THRESHOLD_MS,
     )
     expect(normalizePreferences({ holdThresholdMs: 1234.4 }).holdThresholdMs).toBe(1234)
+  })
+
+  it('keeps the pre-scramble and trims it', () => {
+    expect(DEFAULT_PREFERENCES.preScramble).toBe('')
+    expect(normalizePreferences({ preScramble: '  z2 ' }).preScramble).toBe('z2')
+    // A non-string hand edit falls back instead of taking the file down.
+    expect(normalizePreferences({ preScramble: 42 }).preScramble).toBe('')
   })
 
   it('falls back per field, not per file', () => {

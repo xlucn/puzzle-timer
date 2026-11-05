@@ -19,7 +19,15 @@ export interface ScramblePayload {
 
 /** Main thread → worker. `id` is echoed back in the reply. */
 export type ScrambleRequest =
-  | { id: number; cmd: 'scramble'; type: string; length: number; withImage: boolean }
+  | {
+      id: number
+      cmd: 'scramble'
+      type: string
+      length: number
+      /** csTimer's pre-scramble for the diagram; '' for none. */
+      preScramble: string
+      withImage: boolean
+    }
   | { id: number; cmd: 'image'; scramble: string; type: string }
   | { id: number; cmd: 'seed'; seed: string }
 

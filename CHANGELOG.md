@@ -10,6 +10,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - A dropdown arrow on the scramble type button to change options related to the current scramble type if available.
+- A pre-scramble setting that turns the scramble diagram to a chosen orientation.
 
 ## [0.2.1] — 2026-11-03
 
