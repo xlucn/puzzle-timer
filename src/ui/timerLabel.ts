@@ -9,6 +9,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import { t } from '../core/i18n.js'
 import { INSPECTION_DNF_MS, type TimerSnapshot, type TimerState } from '../core/timer.js'
 import { formatInspection, formatSolve, formatTime } from '../core/time.js'
 import { createFontSize } from './fontSize.js'
@@ -48,14 +49,24 @@ styles.add(`
   .timer-display.expired                   { color: @error_color; }
 `)
 
-const HINTS: Record<TimerState, string> = {
-  idle: 'Hold Space or touch to start',
-  holding: 'Keep holding…',
-  ready: 'Release to start',
-  'inspection-ready': 'Release to inspect',
-  inspecting: 'Inspection — Space starts, Esc cancels',
-  running: 'Press any key or tap to stop',
-  stopped: 'Hold Space or touch to start',
+/** The hint line is built per render, so a locale set at startup reaches it. */
+const hintFor = (state: TimerState): string => {
+  switch (state) {
+    case 'idle':
+      return t('timer.hint.idle')
+    case 'holding':
+      return t('timer.hint.holding')
+    case 'ready':
+      return t('timer.hint.ready')
+    case 'inspection-ready':
+      return t('timer.hint.inspectionReady')
+    case 'inspecting':
+      return t('timer.hint.inspecting')
+    case 'running':
+      return t('timer.hint.running')
+    case 'stopped':
+      return t('timer.hint.idle')
+  }
 }
 
 /**
@@ -91,7 +102,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
   const applyFontSize = createFontSize('.timer-display')
 
   const hint = new Gtk.Label({
-    label: HINTS.idle,
+    label: hintFor('idle'),
     // Built-in dim-label (Adwaita: opacity var(--dim-opacity) = 55%) instead
     // of a hand-rolled color rule; the size is the default 11pt.
     cssClasses: ['dim-label'],
@@ -158,7 +169,7 @@ export function createTimerView(options?: { statsStrip?: StatsStrip }) {
       expired = inInspection && snapshot.inspectionMs >= INSPECTION_DNF_MS
       label.setLabel(text)
       applyClasses()
-      hint.setLabel(HINTS[snapshot.state])
+      hint.setLabel(hintFor(snapshot.state))
     },
   }
 }

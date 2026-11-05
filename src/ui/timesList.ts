@@ -34,6 +34,7 @@ import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 import Pango from 'gi:Pango-1.0'
 
+import { t } from '../core/i18n.js'
 import { MAX_COMMENT_LENGTH, type Session, type Solve } from '../core/session.js'
 import type { SessionLibrary } from '../core/sessionLibrary.js'
 import { effectiveTimes, windowAtEach } from '../core/stats.js'
@@ -156,7 +157,7 @@ export function createTimesList(options: TimesListOptions) {
   const indexColumn = makeColumn('#', ['caption', 'dim-label', 'numeric'], (solve) => String(current.indexOf(solve.id) + 1))
   // formatSolve, not formatTime: shows what the solve actually scored (the
   // "+" suffix or a bare "DNF").
-  const timeColumn = makeColumn('Time', ['numeric'], (solve) => formatSolve(solve.timeMs, solve.penalty))
+  const timeColumn = makeColumn(t('list.time'), ['numeric'], (solve) => formatSolve(solve.timeMs, solve.penalty))
   // The window *ending* at each solve, so the column reads as the history of
   // the run instead of today's number on every row. Incomplete window: em
   // dash, never a partial average (NaN means "not yet" — core/stats.ts).
@@ -189,8 +190,8 @@ export function createTimesList(options: TimesListOptions) {
 
   const empty = new Adw.StatusPage({
     iconName: 'view-list-symbolic',
-    title: 'No solves yet',
-    description: 'Finish a solve and it will appear here.',
+    title: t('list.empty.title'),
+    description: t('list.empty.body'),
     vexpand: true,
   })
 
@@ -220,10 +221,10 @@ export function createTimesList(options: TimesListOptions) {
   })
 
   const editButton = new Gtk.Button({
-    tooltipText: 'Edit the selected solve — penalty and comment (Ctrl+E)',
+    tooltipText: t('list.edit.tooltip'),
   })
   editButton.setChild(
-    new Adw.ButtonContent({ iconName: 'document-edit-symbolic', label: 'Edit' }),
+    new Adw.ButtonContent({ iconName: 'document-edit-symbolic', label: t('list.edit') }),
   )
   editButton.on('clicked', () => {
     const solve = singleSelected()
@@ -234,7 +235,7 @@ export function createTimesList(options: TimesListOptions) {
     // Icon-only: the trash is unambiguous, and the label's ~45px is what
     // lets the info label show "#12 · 3.35+" in full instead of "#12 …".
     iconName: 'user-trash-symbolic',
-    tooltipText: 'Delete the selected solve(s) (Delete)',
+    tooltipText: t('list.delete.tooltip'),
   })
   deleteButton.on('clicked', () => deleteSelected())
 
@@ -322,9 +323,9 @@ export function createTimesList(options: TimesListOptions) {
     // Mnemonics (Alt+O / Alt+2 / Alt+D) reach the internal GtkButtons —
     // the test path (AGENTS.md: never aim a mouse at it).
     const penaltyGroup = new Adw.ToggleGroup({ valign: Gtk.Align.CENTER })
-    penaltyGroup.add(new Adw.Toggle({ label: '_OK', name: 'ok', useUnderline: true }))
-    penaltyGroup.add(new Adw.Toggle({ label: '+_2', name: 'plus2', useUnderline: true }))
-    penaltyGroup.add(new Adw.Toggle({ label: '_DNF', name: 'dnf', useUnderline: true }))
+    penaltyGroup.add(new Adw.Toggle({ label: t('list.penalty.ok'), name: 'ok', useUnderline: true }))
+    penaltyGroup.add(new Adw.Toggle({ label: t('list.penalty.plus2'), name: 'plus2', useUnderline: true }))
+    penaltyGroup.add(new Adw.Toggle({ label: t('list.penalty.dnf'), name: 'dnf', useUnderline: true }))
     // Toggles first, selection second: naming a toggle the group does not
     // hold yet sets nothing (adw-toggle-group.c).
     penaltyGroup.activeName = solve.penalty ?? 'ok'
@@ -334,7 +335,7 @@ export function createTimesList(options: TimesListOptions) {
       const activeName = penaltyGroup.getActiveName()
       return activeName === 'plus2' || activeName === 'dnf' ? activeName : undefined
     }
-    const penaltyRow = new Adw.ActionRow({ title: 'Penalty', halign: Gtk.Align.FILL })
+    const penaltyRow = new Adw.ActionRow({ title: t('list.penalty'), halign: Gtk.Align.FILL })
     penaltyRow.addSuffix(penaltyGroup)
 
     // maxLength caps the text natively; the save path keeps its slice as
@@ -343,7 +344,7 @@ export function createTimesList(options: TimesListOptions) {
     // text never carries activates-default, so this property is the sole
     // gate; the text widget consumes Return itself).
     const commentRow = new Adw.EntryRow({
-      title: 'Comment',
+      title: t('list.comment'),
       text: solve.comment ?? '',
       maxLength: MAX_COMMENT_LENGTH,
     })
@@ -382,22 +383,22 @@ export function createTimesList(options: TimesListOptions) {
 
       if (solve.scramble.length <= EXPAND_SCRAMBLE_ABOVE) {
         const row = new Adw.ActionRow({
-          title: 'Scramble',
+          title: t('list.scramble'),
           subtitle: solve.scramble,
           halign: Gtk.Align.FILL,
           cssClasses: ['property'],
         })
-        row.addSuffix(copySuffix(solve.scramble, 'Copy the scramble'))
+        row.addSuffix(copySuffix(solve.scramble, t('list.copy.scramble')))
         return row
       }
 
       const row = new Adw.ExpanderRow({
-        title: 'Scramble',
+        title: t('list.scramble'),
         subtitle: solve.scramble,
         subtitleLines: 1,
         halign: Gtk.Align.FILL,
       })
-      row.addSuffix(copySuffix(solve.scramble, 'Copy the scramble'))
+      row.addSuffix(copySuffix(solve.scramble, t('list.copy.scramble')))
       row.addRow(
         new Gtk.ListBoxRow({
           child: new Gtk.Label({
@@ -418,12 +419,12 @@ export function createTimesList(options: TimesListOptions) {
     // restores the subtitle to full size, so the value is the emphasized
     // half.
     const dateRow = new Adw.ActionRow({
-      title: 'Date',
+      title: t('list.date'),
       subtitle: datetime,
       halign: Gtk.Align.FILL,
       cssClasses: ['property'],
     })
-    dateRow.addSuffix(copySuffix(datetime, 'Copy the date'))
+    dateRow.addSuffix(copySuffix(datetime, t('list.copy.date')))
 
     // The time rides at the row's end as a suffix: the title keeps the row's
     // normal size, so the value stands out without the headline label the
@@ -435,7 +436,7 @@ export function createTimesList(options: TimesListOptions) {
       valign: Gtk.Align.CENTER,
     })
     const timeRow = new Adw.ActionRow({
-      title: 'Time',
+      title: t('list.time'),
       halign: Gtk.Align.FILL,
     })
     timeRow.addSuffix(timeLabel)
@@ -472,9 +473,9 @@ export function createTimesList(options: TimesListOptions) {
     // (adw-dialog.c: "set show-start-title-buttons and show-end-title-buttons
     // to FALSE to remove it"); Cancel and Escape both discard, only Save
     // writes.
-    const cancelButton = new Gtk.Button({ label: 'Cancel' })
+    const cancelButton = new Gtk.Button({ label: t('common.cancel') })
     const saveButton = new Gtk.Button({
-      label: 'Save',
+      label: t('common.save'),
       cssClasses: ['suggested-action', 'text-button'],
     })
     const header = new Adw.HeaderBar({
@@ -507,7 +508,7 @@ export function createTimesList(options: TimesListOptions) {
     const dialog = new Adw.Dialog({
       // A plain HeaderBar picks the dialog's title up itself when it roots
       // (adw-header-bar.c), so the string lives here and nowhere else.
-      title: `Edit solve #${solveNumber}`,
+      title: t('list.edit.title', { number: solveNumber }),
       child: box,
       // Fixed width: a GtkLabel's natural width is its text on one line, so
       // a long scramble would stretch the dialog across the screen.
@@ -575,7 +576,7 @@ export function createTimesList(options: TimesListOptions) {
     footerInfo.setLabel(
       solves.length === 1
         ? `#${current.indexOf(solves[0].id) + 1}  ·  ${formatSolve(solves[0].timeMs, solves[0].penalty)}`
-        : `${solves.length} selected`,
+        : t('list.selected', { count: solves.length }),
     )
   }
 

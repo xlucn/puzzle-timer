@@ -15,7 +15,11 @@ import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
+import { setLocale } from '../src/core/i18n.js'
 import { createScrambleTypeControl } from '../src/ui/scrambleTypeControl.js'
+
+// Probes assert English labels, so fix the catalog rather than the host locale.
+setLocale('en')
 
 const log = (...args) => console.error('[o]', ...args)
 let failures = 0

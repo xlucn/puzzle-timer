@@ -28,6 +28,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import { t } from '../core/i18n.js'
 import type { ScrambleFeedState } from '../core/scrambleFeed.js'
 import { createFontSize } from './fontSize.js'
 
@@ -48,8 +49,8 @@ styles.add(`
   }
 `)
 
-const GENERATING = 'Generating scramble…'
-const FAILED = (reason: string) => `Scramble failed: ${reason}`
+/** The warm-up failure keeps its reason; the catalog carries the frame. */
+const FAILED = (reason: string) => t('scramble.failed', { reason })
 
 /**
  * The panel's own vertical margins (see `widget` below). They are *outside*
@@ -225,7 +226,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     // Resting state = built-in caption (size) + dim-label (dim); the error
     // state swaps dim-label out so the red reads full-strength.
     cssClasses: ['scramble-status', 'caption', 'dim-label'],
-    label: GENERATING,
+    label: t('scramble.generating'),
     wrap: true,
     maxWidthChars: 60, // cap the natural width so long errors wrap too
     visible: false,
@@ -237,7 +238,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
   // stray box. Trade-off: black outlines go low-contrast on the dark theme —
   // worth a scheme-aware card if it reads badly.
   const picture = new Gtk.Picture({
-    alternativeText: 'Scramble diagram',
+    alternativeText: t('scramble.diagram'),
     canShrink: true,
     // Decorative: a press over the picture must reach the content's timer
     // gesture, not stop at the picture.
@@ -388,7 +389,7 @@ export function createScramblePanel(options: ScramblePanelOptions) {
     statusRow.setVisible(state.scramble === null)
     setSpinning(generating)
     if (state.scramble === null) {
-      status.setLabel(generating ? GENERATING : FAILED(state.error ?? ''))
+      status.setLabel(generating ? t('scramble.generating') : FAILED(state.error ?? ''))
       status.setCssClasses(
         generating ? ['scramble-status', 'caption', 'dim-label'] : ['scramble-status', 'caption', 'error'],
       )

@@ -371,6 +371,7 @@ describe('store — preferences', () => {
       preScramble: 'y',
       mouseStart: true,
       colorScheme: 'dark',
+      language: 'zh-CN',
       timerScale: 1.25,
       scrambleScale: 0.9,
       diagramScale: 0.5,

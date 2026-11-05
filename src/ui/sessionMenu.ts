@@ -19,6 +19,7 @@ import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 import Pango from 'gi:Pango-1.0'
 
+import { t } from '../core/i18n.js'
 import { MAX_NAME_LENGTH, SessionLibrary, type NameError } from '../core/sessionLibrary.js'
 
 export interface SessionMenuOptions {
@@ -61,11 +62,11 @@ export function createSessionMenu(options: SessionMenuOptions) {
   const messageFor = (error: NameError): string => {
     switch (error) {
       case 'empty':
-        return 'A session needs a name.'
+        return t('session.error.name')
       case 'long':
-        return `Names are up to ${MAX_NAME_LENGTH} characters.`
+        return t('session.error.long', { count: MAX_NAME_LENGTH })
       case 'duplicate':
-        return 'A session with that name already exists.'
+        return t('session.error.taken')
     }
   }
 
@@ -81,7 +82,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
   }) => {
     const entry = new Gtk.Entry({
       text: settings.initial,
-      placeholderText: 'Session name',
+      placeholderText: t('session.name'),
       // Enter submits: activates the dialog's default response instead of
       // needing a trip to the buttons.
       activatesDefault: true,
@@ -92,7 +93,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
       heading: settings.heading,
       extraChild: entry,
     })
-    dialog.addResponse('cancel', 'Cancel')
+    dialog.addResponse('cancel', t('common.cancel'))
     dialog.addResponse('accept', settings.acceptLabel)
     dialog.setResponseAppearance('accept', Adw.ResponseAppearance.SUGGESTED)
     dialog.setDefaultResponse('accept')
@@ -142,7 +143,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
     child: label,
     // The child is custom, so the dropdown arrow has to be asked for.
     alwaysShowArrow: true,
-    tooltipText: 'Session',
+    tooltipText: t('session.tooltip'),
     cssClasses: ['flat'],
     hexpand: true,
   })
@@ -165,9 +166,9 @@ export function createSessionMenu(options: SessionMenuOptions) {
   newAction.on('activate', () => {
     button.popdown() // close the menu before a dialog takes focus
     promptForName({
-      heading: 'New session',
-      acceptLabel: 'Create',
-      body: 'Each session keeps its own list of solves.',
+      heading: t('session.new'),
+      acceptLabel: t('common.create'),
+      body: t('session.new.description'),
       initial: '',
       exceptId: null,
       onSubmit: (name) => library.create(name),
@@ -180,7 +181,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
   // accelerator and any future entry point cannot drift.
   const newButton = new Gtk.Button({
     iconName: 'list-add-symbolic',
-    tooltipText: 'New session (Ctrl+N)',
+    tooltipText: t('session.new.tooltip'),
     cssClasses: ['flat'],
     actionName: 'app.sessionNew',
   })
@@ -190,8 +191,8 @@ export function createSessionMenu(options: SessionMenuOptions) {
     button.popdown()
     const active = library.active
     promptForName({
-      heading: 'Rename session',
-      acceptLabel: 'Rename',
+      heading: t('session.rename'),
+      acceptLabel: t('common.rename'),
       body: '',
       initial: active.name,
       exceptId: active.id,
@@ -206,14 +207,14 @@ export function createSessionMenu(options: SessionMenuOptions) {
     const active = library.active
     const count = options.getSolveCount(active.id)
     const dialog = new Adw.AlertDialog({
-      heading: `Delete “${active.name}”?`,
+      heading: t('session.delete.title', { name: active.name }),
       body:
         count === 0
-          ? 'This cannot be undone.'
-          : `${count} solve${count === 1 ? '' : 's'} will be removed. This cannot be undone.`,
+          ? t('session.delete.empty')
+          : t('session.delete.body', { count }),
     })
-    dialog.addResponse('cancel', 'Cancel')
-    dialog.addResponse('delete', 'Delete')
+    dialog.addResponse('cancel', t('common.cancel'))
+    dialog.addResponse('delete', t('common.delete'))
     dialog.setResponseAppearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
     // Escape and Enter land on Cancel: deleting a session is guarded, never
     // the default.
@@ -271,8 +272,8 @@ export function createSessionMenu(options: SessionMenuOptions) {
     }
 
     const management = new Gio.Menu()
-    management.append('Rename…', 'app.sessionRename')
-    management.append('Delete…', 'app.sessionDelete')
+    management.append(t('session.rename.menu'), 'app.sessionRename')
+    management.append(t('session.delete.menu'), 'app.sessionDelete')
 
     const menu = new Gio.Menu()
     // Two sections, so GTK draws the separator between the list and the

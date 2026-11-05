@@ -21,6 +21,7 @@
  */
 import Adw from 'gi:Adw-1'
 
+import { tGroup } from '../core/i18n.js'
 import { SCRAMBLE_GROUPS, scrambleTypeTitle } from '../core/scrambleTypes.js'
 
 /**
@@ -39,7 +40,10 @@ export function createScrambleTypeTitle(options: ScrambleTypeTitleOptions) {
   let currentId = options.initialType
 
   const first = scrambleTypeTitle(currentId)
-  const widget: Title = new Adw.WindowTitle({ title: first.category, subtitle: first.name })
+  const widget: Title = new Adw.WindowTitle({
+    title: tGroup(first.category),
+    subtitle: first.name,
+  })
 
   /**
    * Point the title at `id` — same contract as the picker's selectType: the
@@ -52,7 +56,7 @@ export function createScrambleTypeTitle(options: ScrambleTypeTitleOptions) {
     if (!known) return false
     currentId = id
     const { category, name } = scrambleTypeTitle(id)
-    widget.title = category
+    widget.title = tGroup(category)
     widget.subtitle = name
     return true
   }

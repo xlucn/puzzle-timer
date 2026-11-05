@@ -43,6 +43,7 @@
 import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 
+import { t, tGroup, tSection } from '../core/i18n.js'
 import { BREAKPOINTS } from '../core/layout.js'
 import { SCRAMBLE_GROUPS, SCRAMBLE_SECTIONS } from '../core/scrambleTypes.js'
 
@@ -84,7 +85,7 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
 
   const openDialog = (): void => {
     const dialog = new Adw.Dialog({
-      title: 'Scramble type',
+      title: t('scramble.type'),
       // A default size, not a managed one: the dialog clamps itself to the
       // parent window and the breakpoint below collapses the split when the
       // allocated width is too narrow.
@@ -105,9 +106,9 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     // sections are contiguous slices of SCRAMBLE_GROUPS in order.
     const sidebar = new Adw.Sidebar()
     SCRAMBLE_SECTIONS.forEach((section) => {
-      const sidebarSection = new Adw.SidebarSection({ title: section.name })
+      const sidebarSection = new Adw.SidebarSection({ title: tSection(section.name) })
       section.groups.forEach((group) =>
-        sidebarSection.append(new Adw.SidebarItem({ title: group.name })),
+        sidebarSection.append(new Adw.SidebarItem({ title: tGroup(group.name) })),
       )
       sidebar.append(sidebarSection)
     })
@@ -157,8 +158,11 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
     contentToolbar.addTopBar(contentHeader)
     contentToolbar.content = typeScroller
 
-    const categoryPage = new Adw.NavigationPage({ title: 'Category', child: sidebarToolbar })
-    const typePage = new Adw.NavigationPage({ title: 'Scramble type', child: contentToolbar })
+    const categoryPage = new Adw.NavigationPage({
+      title: t('scramble.category'),
+      child: sidebarToolbar,
+    })
+    const typePage = new Adw.NavigationPage({ title: t('scramble.type'), child: contentToolbar })
     const split = new Adw.NavigationSplitView({
       sidebar: categoryPage,
       content: typePage,
@@ -209,7 +213,7 @@ export function createScrambleTypePicker(options: ScrambleTypePickerOptions) {
         typeList.remove(old)
         old = typeList.getRowAtIndex(0) // advance: removing the same wrapper twice warns "non-child" and never terminates
       }
-      typePage.title = groups[browse].name
+      typePage.title = tGroup(groups[browse].name)
       let first: ListBoxRow | null = null
       let live: ListBoxRow | null = null
       for (const choice of groups[browse].choices) {

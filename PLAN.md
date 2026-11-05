@@ -23,8 +23,8 @@ list.
 
 **Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8 landed
-2026-11-06**).** The queue is now **M9–M12, M16 and M17**; M17 is the
+`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8 and M9
+landed 2026-11-06**).** The queue is now **M10–M12, M16 and M17**; M17 is the
 phone-package slice M15 attached. M14 (touch) landed on 2026-10-23 and M7
 (size preferences) on 2026-10-28.
 Numbers are stable identifiers, not queue positions (§6). Two of the
@@ -68,10 +68,11 @@ point at:
   would take an upstream change or a re-implementation of the case-filter
   tables. Independent of every other milestone; evidence and design calls in
   §6.
-- **M9 — i18n.** A `t()` over typed catalogs (`src/locales/en.ts` is the
-  source of truth, `zh-CN.ts` is `Record<keyof typeof en, …>` so the compiler
-  lists every missing translation), a `language` preference
-  (`system | en | zh-CN`, restart to apply), and `Intl` for dates and counts.
+- **M9 — i18n (landed 2026-11-06).** A `t()` over typed catalogs
+  (`src/locales/en.ts` is the source of truth, `zh-CN.ts` is
+  `Record<keyof typeof en, …>` so the compiler lists every missing
+  translation), a `language` preference (`system | en | zh-CN`, restart to
+  apply), and `Intl` for dates and counts.
 - **M10 — csTimer-compatible import/export.** One JSON codec, both
   directions (was "dropped as not needed" on 2026-09-30; reinstated by
   decision 2026-10-05). Format evidence in §5, decisions 11–12 in §4.
@@ -548,10 +549,10 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M9–M12, M16 and M17**; M13 landed on 2026-10-22
+The queue is **M10–M12, M16 and M17**; M13 landed on 2026-10-22
 as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, **M15 on 2026-10-31** and
-**M8 on 2026-11-06**, and the landed M0–M6 log closes the section. A number never
-moves: only the queue does.
+**M8 and M9 on 2026-11-06**, and the landed M0–M6 log closes the section. A
+number never moves: only the queue does.
 
 | # | Deliverable | Done when |
 |---|---|---|
@@ -564,7 +565,7 @@ moves: only the queue does.
 | **M6** | Adaptive layout: `Adw.Breakpoint`-driven drawer sidebar on narrow windows (retiring the "drawer is M5 polish" note), a header that adapts instead of truncating, sidebar width bounds that grow with large windows instead of pinning at 320, timer/scramble that use the space they get | The layout looks deliberate at every window size |
 | **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×294 floor still holds |
 | **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change — **landed 2026-11-06: neutral dropped by measurement, case filter stays blocked** |
-| **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese |
+| **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese — **landed 2026-11-06** |
 | **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
 | **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
 | **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
@@ -1182,7 +1183,7 @@ grey out while the type button still opens the picker (`333` has
 `defaultLength: 0`). Then put `y` in Preferences → Scramble → Pre-scramble
 and watch the diagram turn with the scramble on screen, text unchanged.
 
-### M9 — scheduled (i18n)
+### M9 — landed 2026-11-06 (i18n)
 
 Order settled 2026-10-05: i18n goes **before every string-heavy feature**
 (M10 and M11), so those are written translated instead of swept afterwards.
@@ -1210,10 +1211,24 @@ nothing, and waiting behind i18n would have delayed it for no gain.
   are deliberately compact and numeric (already locale-neutral, and the list
   column is narrow); `Intl.DateTimeFormat` is used for the new PB-history
   dates in M11, where there is room.
-- **Probe first** — does GTK's own "Open"/"Cancel" localise under node-gtk?
-  node-gtk never calls `setlocale`/`bindtextdomain` (grepped, no matches), so
-  stock widget strings may stay English regardless of our catalogs. If so,
-  that is a documented limitation of a handful of labels, not a blocker.
+- **Stock strings (probed 2026-11-06)** — node-gtk itself never calls
+  `setlocale`/`bindtextdomain` (grepped, no matches), but GTK's own
+  `gtk_init` does call `setlocale`; under `LANG=zh_CN.UTF-8`,
+  `g_dgettext("gtk40", "Close")` answers 关闭. GTK's and libadwaita's own
+  labels therefore localise when the desktop has their translations; our
+  catalogs cover every app-owned string either way.
+
+**Landed 2026-11-06.** `src/core/i18n.ts` carries the module-level locale,
+`t(key, params?)`, `Intl.PluralRules` selection and `formatCount`/`formatDate`;
+`src/locales/en.ts` is the source of truth and `zh-CN.ts` is a
+`Record<MessageKey, Message>`, with `npm test` at 267. `Preferences.language`
+(`system | en | zh-CN`) is validated per field and resolved once in `main.ts`
+before the window exists; changing it toasts a restart reminder. Every literal
+in `src/ui/*`, `src/main.ts`'s menus/toasts/tooltips and the shortcuts dialog
+now goes through `t()`; the 44 scramble *group* names and the four picker
+sections are translated, the ~209 type names stay English.
+`tools/i18n_probe.mjs` builds the timer, Preferences and the shortcuts dialog
+under `zh-CN` and reads the labels back from the widget tree.
 
 **Checkpoint for the user:** switch Language to 中文, restart, read back the
 sidebar app menu, the app-functions menu, Preferences and Statistics.
@@ -2056,18 +2071,18 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M9–M12, M16 and M17 scheduled — M8 landed 2026-11-06** — the scramble
-  type control carries the length, the pre-scramble (a preference through the
-  module's `preScr` global) and the fast 4x4 switch; neutral orientation was
-  dropped by measurement. Next is M9 i18n → M10 csTimer import/export → M11
-  records & statistics →
-  M12 charts → M16 AUR package → M17 phone package. M13 is out of the queue:
+- **M10–M12, M16 and M17 scheduled — M8 and M9 landed 2026-11-06** — the
+  scramble type control carries the length, the pre-scramble (a preference
+  through the module's `preScr` global) and the fast 4x4 switch, and the UI
+  reads English or Chinese through typed catalogs. Next is M10 csTimer
+  import/export → M11 records & statistics → M12 charts → M16 AUR package →
+  M17 phone package. M13 is out of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
   (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M9–M12, M16 and M17 remain scheduled.
+  changelog entries. Nothing was dropped: M10–M12, M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and

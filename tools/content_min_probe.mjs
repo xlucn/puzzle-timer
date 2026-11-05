@@ -8,6 +8,8 @@ import Gtk from 'gi:Gtk-4.0'
 Gtk.init()
 
 const base = '../src/ui'
+const { setLocale } = await import('../src/core/i18n.ts')
+setLocale('en')
 const { createScramblePanel } = await import(`${base}/scramblePanel.ts`)
 const { createTimerView } = await import(`${base}/timerLabel.ts`)
 const { createStatsStrip } = await import(`${base}/statsStrip.ts`)

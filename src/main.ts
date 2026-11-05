@@ -31,6 +31,7 @@ import {
   type ContentSize,
   type DiagramPlacement,
 } from './core/layout.js'
+import { resolveLanguage, setLocale, t } from './core/i18n.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
 import {
@@ -59,7 +60,6 @@ import { createTimerView } from './ui/timerLabel.js'
 import { createTimesList } from './ui/timesList.js'
 
 const APP_ID = 'io.github.xlucn.PuzzleTimer'
-const APP_NAME = 'Puzzle Timer'
 /** Matches the hicolor tree under data/icons. */
 const ICON_NAME = 'puzzle-timer'
 
@@ -115,8 +115,16 @@ app.on('activate', () => {
   // via node), so this URL resolves in either case.
   styles.addFile(new URL('../style.css', import.meta.url))
 
+  // Settings first: the language has to be in force before any widget reads
+  // a catalog — the window title included.
+  const loadedPrefs = store.loadPreferences()
+  if (loadedPrefs.notice !== null) console.error(`[store] ${loadedPrefs.notice}`)
+  let prefs = loadedPrefs.preferences
+  setLocale(resolveLanguage(prefs.language))
+  const appName = t('app.name')
+
   const window = new Adw.ApplicationWindow({ application: app })
-  window.setTitle(APP_NAME)
+  window.setTitle(appName)
 
   // The app icon lives in a hicolor tree inside the repo, because a source
   // checkout has no install prefix to drop icons into. The search path holds
@@ -153,7 +161,7 @@ app.on('activate', () => {
   // renders leftmost, right beside the sidebar it opens.
   const sidebarToggle = new Gtk.ToggleButton({
     iconName: 'sidebar-show-symbolic',
-    tooltipText: 'Show solve list',
+    tooltipText: t('menu.showList'),
     active: true,
     cssClasses: ['flat'],
   })
@@ -169,12 +177,9 @@ app.on('activate', () => {
   if (index.notice !== null) console.error(`[store] ${index.notice}`)
   const library = new SessionLibrary(index.sessions, index.activeId)
 
-  // Settings: one object for the whole run. Every change goes through
-  // applyPreferences() below (defined with the timer wiring), so the file on
-  // disk and the running app can never hold different values.
-  const loadedPrefs = store.loadPreferences()
-  if (loadedPrefs.notice !== null) console.error(`[store] ${loadedPrefs.notice}`)
-  let prefs = loadedPrefs.preferences
+  // `prefs` is one object for the whole run (loaded above, before the UI).
+  // Every change goes through applyPreferences() below, so the file on disk
+  // and the running app can never hold different values.
 
   // The colour scheme is applied as soon as prefs are known — before the
   // window is presented — so the very first paint is already right. On the
@@ -210,7 +215,7 @@ app.on('activate', () => {
       // stderr has the detail; the user gets the headline — toasted on first
       // touch, so an empty list is never silent about why it is empty.
       console.error(`[store] ${fromDisk.notice}`)
-      toastOverlay.addToast(new Adw.Toast({ title: 'Session file could not be read', timeout: 10 }))
+      toastOverlay.addToast(new Adw.Toast({ title: t('toast.sessionFileUnreadable'), timeout: 10 }))
     }
     const session = new Session(fromDisk.solves)
     const unsubscribe = session.subscribe(() => store.scheduleSave(id, session.solves))
@@ -250,8 +255,8 @@ app.on('activate', () => {
    */
   const offerUndo = (target: Session, removed: readonly RemovedSolve[]) => {
     const toast = new Adw.Toast({
-      title: removed.length === 1 ? 'Solve deleted' : `${removed.length} solves deleted`,
-      buttonLabel: 'Undo',
+      title: t('toast.solvesDeleted', { count: removed.length }),
+      buttonLabel: t('common.undo'),
     })
     toast.on('button-clicked', () => {
       for (const entry of [...removed].reverse()) target.restore(entry)
@@ -295,18 +300,18 @@ app.on('activate', () => {
   // Two sections: Statistics alone, then the application-level actions — a
   // second section is what draws the separator.
   const statisticsSection = new Gio.Menu()
-  statisticsSection.append('Statistics', 'app.statistics')
+  statisticsSection.append(t('menu.statistics'), 'app.statistics')
   const applicationSection = new Gio.Menu()
   // The label is the only state indicator: a checkable item would make GTK
   // reserve a check column on every row of the menu.
   applicationSection.append(
-    window.isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen',
+    window.isFullscreen() ? t('menu.exitFullscreen') : t('menu.fullscreen'),
     'app.fullscreen',
   )
-  applicationSection.append('Preferences', 'app.preferences')
-  applicationSection.append('Keyboard Shortcuts', 'app.shortcuts')
-  applicationSection.append(`About ${APP_NAME}`, 'app.about')
-  applicationSection.append('Quit', 'app.quit')
+  applicationSection.append(t('menu.preferences'), 'app.preferences')
+  applicationSection.append(t('menu.shortcuts'), 'app.shortcuts')
+  applicationSection.append(t('menu.about', { name: appName }), 'app.about')
+  applicationSection.append(t('menu.quit'), 'app.quit')
   const appMenuModel = new Gio.Menu()
   appMenuModel.appendSection(null, statisticsSection)
   appMenuModel.appendSection(null, applicationSection)
@@ -314,7 +319,7 @@ app.on('activate', () => {
     iconName: 'open-menu-symbolic',
     menuModel: appMenuModel,
     primary: true,
-    tooltipText: 'Main menu',
+    tooltipText: t('menu.main'),
   })
 
   const timesList = createTimesList({
@@ -460,7 +465,7 @@ app.on('activate', () => {
 
   const refreshScramble = new Gtk.Button({
     iconName: 'view-refresh-symbolic',
-    tooltipText: 'New scramble',
+    tooltipText: t('scramble.new'),
     cssClasses: ['flat'],
   })
   refreshScramble.on('clicked', () => feed.refresh())
@@ -479,11 +484,11 @@ app.on('activate', () => {
       .setContent(Gdk.ContentProvider.newForBytes('text/plain;charset=utf-8', bytes))
     // The accelerator has no visible subject — the toast is the only proof
     // the key did anything.
-    toastOverlay.addToast(new Adw.Toast({ title: 'Scramble copied', timeout: 2 }))
+    toastOverlay.addToast(new Adw.Toast({ title: t('scramble.copied'), timeout: 2 }))
   }
   const copyScramble = new Gtk.Button({
     iconName: 'edit-copy-symbolic',
-    tooltipText: 'Copy the scramble (Ctrl+C)',
+    tooltipText: t('scramble.copy'),
     cssClasses: ['flat'],
   })
   copyScramble.on('clicked', runCopy)
@@ -502,7 +507,7 @@ app.on('activate', () => {
   // applyPreferences).
   const imageToggle = new Gtk.ToggleButton({
     iconName: 'image-x-generic-symbolic',
-    tooltipText: 'Show the scramble image',
+    tooltipText: t('scramble.image'),
     active: prefs.scrambleImage,
     halign: Gtk.Align.END, // no effect in the header's natural-width end box; right-aligns in the bar
     cssClasses: ['flat'],
@@ -520,8 +525,8 @@ app.on('activate', () => {
   // so there is one cancellation route, and it exists only while inspecting;
   // the timer subscription below shows and hides it.
   const cancelInspection = new Gtk.Button({
-    label: 'Cancel',
-    tooltipText: 'Cancel the inspection (Esc)',
+    label: t('common.cancel'),
+    tooltipText: t('menu.cancelInspection'),
     // `destructive-action` is Adwaita's alert red for a button; the inspection
     // is abandoned, so it reads as the one action that ends something.
     cssClasses: ['destructive-action'],
@@ -1206,7 +1211,7 @@ app.on('activate', () => {
     applicationSection.remove(0)
     applicationSection.insert(
       0,
-      window.isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen',
+      window.isFullscreen() ? t('menu.exitFullscreen') : t('menu.fullscreen'),
       'app.fullscreen',
     )
   }
@@ -1227,7 +1232,7 @@ app.on('activate', () => {
     // package.json or CHANGELOG.md.
     const releaseNotes = releaseNotesHtml()
     const about = new Adw.AboutDialog({
-      applicationName: APP_NAME,
+      applicationName: appName,
       applicationIcon: ICON_NAME,
       developerName: 'Lu Xu',
       version: APP_VERSION,
@@ -1236,17 +1241,13 @@ app.on('activate', () => {
       ...(releaseNotes === null
         ? {}
         : { releaseNotes, releaseNotesVersion: APP_VERSION }),
-      comments:
-        'A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\n' +
-        'Scrambles are provided by the cstimer_module package, part of the ' +
-        'csTimer project (GPL-3.0).\n' +
-        'Written with the assistance of AI/LLM tools.',
+      comments: t('app.about.comments'),
       // No developers list: developerName already credits the author, and the
       // only thing it would add is a contact address, which stays unpublished.
       copyright: '© 2026 Lu Xu',
       licenseType: Gtk.License.GPL_3_0,
     })
-    about.addAcknowledgementSection('Built with', [
+    about.addAcknowledgementSection(t('app.about.builtWith'), [
       'csTimer and cstimer_module by Shuang Chen',
       'node-gtk',
       'GTK and libadwaita',
@@ -1306,6 +1307,11 @@ app.on('activate', () => {
     // A new pre-scramble changes the diagram of the scramble on screen, and of
     // the one kept warm behind it.
     if ('preScramble' in patch) feed.refresh()
+    // Catalogs are read while widgets are built; this dialog was labelled
+    // under the old locale, so the new one lands on the next launch.
+    if ('language' in patch) {
+      toastOverlay.addToast(new Adw.Toast({ title: t('prefs.language.restart') }))
+    }
   }
 
   // Built fresh on open, one patch per row change, routed through
@@ -1409,11 +1415,11 @@ app.on('activate', () => {
 
   // Surface the load notices (details already went to stderr).
   if (index.notice !== null) {
-    toastOverlay.addToast(new Adw.Toast({ title: 'Session list could not be read', timeout: 10 }))
+    toastOverlay.addToast(new Adw.Toast({ title: t('toast.sessionListUnreadable'), timeout: 10 }))
   }
   if (loadedPrefs.notice !== null) {
     toastOverlay.addToast(
-      new Adw.Toast({ title: 'Settings could not be read — defaults are in use', timeout: 10 }),
+      new Adw.Toast({ title: t('toast.settingsUnreadable'), timeout: 10 }),
     )
   }
 

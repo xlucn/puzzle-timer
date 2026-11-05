@@ -11,7 +11,9 @@
  *      the way main.ts's applyPreferences() does;
  *   5. the Theme ComboRow renders the selected item's label from a plain
  *      Gtk.StringList with no Gtk.Expression (the expression was dropped
- *      2026-10-06 — this is what says a future libadwaita still does it).
+ *      2026-10-06 — this is what says a future libadwaita still does it);
+ *   6. the Language ComboRow reports `zh-CN` as a patch (the catalog itself is
+ *      switched only on the next launch).
  *
  * Run:
  *   GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/prefs_probe.mjs
@@ -20,8 +22,12 @@ import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 
+import { setLocale } from '../src/core/i18n.js'
 import { DEFAULT_PREFERENCES, normalizePreferences } from '../src/core/preferences.js'
 import { createPreferences } from '../src/ui/preferences.js'
+
+// Probes assert English labels, so fix the catalog rather than the host locale.
+setLocale('en')
 
 const log = (...args) => console.error('[probe]', ...args)
 let failures = 0
@@ -154,6 +160,19 @@ app.on('activate', () => {
       theme.selected = 2 // "Dark"
     }
 
+    // Appearance → Language: a ComboRow over the catalogs. It persists like
+    // any other setting; main.ts owns the restart reminder.
+    const language = findRow(dialog, 'Language', 'AdwComboRow')
+    check(language !== null, 'found the Language ComboRow')
+    if (language !== null) {
+      check(language.selected === 0, `opens on "Follow system" (got ${language.selected})`)
+      check(
+        shownLabels(language).includes('Follow system'),
+        'the language row labels its choices',
+      )
+      language.selected = 2 // 中文
+    }
+
     // Scramble page: the pre-scramble text — csTimer's global for the diagram.
     const preScramble = findRow(dialog, 'Moves', 'AdwEntryRow')
     check(preScramble !== null, 'found the pre-scramble EntryRow')
@@ -235,6 +254,11 @@ app.on('activate', () => {
         `the pre-scramble row reported the trimmed text (${JSON.stringify(patches.filter((p) => 'preScramble' in p))})`,
       )
       check(prefs.preScramble === 'y', 'the merged preference has the pre-scramble')
+      check(
+        patches.some((p) => p.language === 'zh-CN'),
+        `the Language ComboRow reported zh-CN (${JSON.stringify(patches.filter((p) => 'language' in p))})`,
+      )
+      check(prefs.language === 'zh-CN', 'the merged preference has the language')
 
       log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
       app.quit()

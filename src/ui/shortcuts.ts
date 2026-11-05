@@ -26,6 +26,8 @@
  */
 import Adw from 'gi:Adw-1'
 
+import { t } from '../core/i18n.js'
+
 /**
  * The `gi:*` shims export a *value* namespace only (AGENTS.md), so widget
  * types come from InstanceType.
@@ -42,7 +44,7 @@ export type ShortcutsDialog = InstanceType<typeof Adw.ShortcutsDialog>
  * "Space").
  */
 export function createShortcutsDialog(): ShortcutsDialog {
-  const dialog = new Adw.ShortcutsDialog({ title: 'Keyboard Shortcuts' })
+  const dialog = new Adw.ShortcutsDialog({ title: t('shortcuts.title') })
 
   const section = (title: string, entries: Array<[string, string]>): void => {
     const group = Adw.ShortcutsSection.new(title)
@@ -52,47 +54,47 @@ export function createShortcutsDialog(): ShortcutsDialog {
     dialog.add(group)
   }
 
-  section('Timer', [
+  section(t('shortcuts.group.timer'), [
     // Key names are case-sensitive gdk_keyval names: "space", not "Space"
     // (an unparsable accelerator silently renders as an empty chip).
-    ['Start and stop the timer', 'space'],
-    ['Cancel the inspection countdown', 'Escape'],
+    [t('shortcuts.startStop'), 'space'],
+    [t('shortcuts.cancelInspection'), 'Escape'],
   ])
-  section('Scramble', [
+  section(t('shortcuts.group.scramble'), [
     // The scramble text is display-only (not selectable), so this is how the
     // text gets out — beside refresh in the header, or here.
-    ['Copy the scramble', '<Ctrl>C'],
+    [t('shortcuts.copyScramble'), '<Ctrl>C'],
   ])
-  section('Solve list', [
+  section(t('shortcuts.group.list'), [
     // In a narrow window the list is a drawer over the content; Ctrl+B is
     // the way in and out at any size (the split view's own toggle button has
     // no accelerator of its own), and Escape is the drawer's way out — after
     // anything else that wanted the key (the inspection cancel above, an open
     // popover) has had it.
-    ['Show or hide the sidebar', '<Ctrl>b'],
-    ['Hide the drawer', 'Escape'],
-    ['Delete the selected solves', 'Delete'],
-    ['Clear the penalty of the newest solve', '<Ctrl>1'],
-    ['Give the newest solve +2', '<Ctrl>2'],
-    ['Mark the newest solve DNF', '<Ctrl>3'],
-    ['Edit the selected (or newest) solve', '<Ctrl>E'],
+    [t('shortcuts.sidebar'), '<Ctrl>b'],
+    [t('shortcuts.hideDrawer'), 'Escape'],
+    [t('shortcuts.deleteSolves'), 'Delete'],
+    [t('shortcuts.clearPenalty'), '<Ctrl>1'],
+    [t('shortcuts.plus2'), '<Ctrl>2'],
+    [t('shortcuts.dnf'), '<Ctrl>3'],
+    [t('shortcuts.editSolve'), '<Ctrl>E'],
   ])
-  section('Sessions', [
-    ['Open the session menu', '<Ctrl>S'],
-    ['New session', '<Ctrl>N'],
-    ['Rename the active session', 'F2'],
-    ['Delete the active session', '<Ctrl>Delete'],
+  section(t('shortcuts.group.sessions'), [
+    [t('shortcuts.sessionMenu'), '<Ctrl>S'],
+    [t('shortcuts.newSession'), '<Ctrl>N'],
+    [t('shortcuts.renameSession'), 'F2'],
+    [t('shortcuts.deleteSession'), '<Ctrl>Delete'],
   ])
-  section('Statistics', [
-    ['Open the statistics dialog', '<Ctrl>T'],
+  section(t('stats.title'), [
+    [t('shortcuts.statistics'), '<Ctrl>T'],
   ])
-  section('General', [
+  section(t('shortcuts.group.general'), [
     // <Ctrl>question is the gdk keyval name for '?': a literal '?' does
     // not parse and would render an empty chip (the keyval rule above).
-    ['Open the keyboard reference', '<Ctrl>question'],
-    ['Open preferences', '<Ctrl>comma'],
-    ['Toggle fullscreen', 'F11'],
-    ['Quit', '<Ctrl>Q'],
+    [t('shortcuts.keyboard'), '<Ctrl>question'],
+    [t('shortcuts.preferences'), '<Ctrl>comma'],
+    [t('shortcuts.fullscreen'), 'F11'],
+    [t('shortcuts.quit'), '<Ctrl>Q'],
   ])
 
   return dialog

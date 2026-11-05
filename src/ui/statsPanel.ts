@@ -20,6 +20,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
+import { t } from '../core/i18n.js'
 import type { Session } from '../core/session.js'
 import type { SessionLibrary } from '../core/sessionLibrary.js'
 import { type PbTarget, type StatKind, sessionStats } from '../core/stats.js'
@@ -59,12 +60,14 @@ export interface StatsPanelOptions {
   getSession: () => Session
 }
 
+type StatsRowName = 'stats.single' | 'stats.mo3' | 'stats.ao5' | 'stats.ao12'
+
 /** Row order — records from shortest window to longest, single first. */
-const ROWS: { kind: StatKind; name: string }[] = [
-  { kind: 'single', name: 'Single' },
-  { kind: 'mo3', name: 'mo3' },
-  { kind: 'ao5', name: 'ao5' },
-  { kind: 'ao12', name: 'ao12' },
+const ROWS: { kind: StatKind; name: StatsRowName }[] = [
+  { kind: 'single', name: 'stats.single' },
+  { kind: 'mo3', name: 'stats.mo3' },
+  { kind: 'ao5', name: 'stats.ao5' },
+  { kind: 'ao12', name: 'stats.ao12' },
 ]
 
 export function createStatsPanel(options: StatsPanelOptions) {
@@ -74,7 +77,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       case 'value':
         return formatTime(target.ms)
       case 'always':
-        return 'Any'
+        return t('stats.any')
       case 'never':
       case 'none':
         return '—'
@@ -99,12 +102,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
     // Built-ins instead of rules: caption (82% + 400 weight) + dim-label
     // (55%) is the platform's small secondary text.
     attach(0, 0, cell('', ['caption', 'dim-label']))
-    attach(1, 0, cell('Current', ['caption', 'dim-label']))
-    attach(2, 0, cell('Best', ['caption', 'dim-label']))
-    attach(3, 0, cell('Target', ['caption', 'dim-label']))
+    attach(1, 0, cell(t('stats.current'), ['caption', 'dim-label']))
+    attach(2, 0, cell(t('stats.best'), ['caption', 'dim-label']))
+    attach(3, 0, cell(t('stats.target'), ['caption', 'dim-label']))
 
     // ---- one row per record ----------------------------------------------
     ROWS.forEach(({ kind, name }, index) => {
+      const label = t(name)
       const row = index + 1
 
       let current: string
@@ -118,7 +122,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const best = stats.best[kind] === null ? '—' : formatAverage(stats.best[kind]!.value)
       const target = targetText(stats.target[kind])
 
-      attach(0, row, cell(name, [])) // default size — the platform's plain row label
+      attach(0, row, cell(label, [])) // default size — the platform's plain row label
       attach(1, row, cell(current, current === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
       attach(2, row, cell(best, best === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
       attach(3, row, cell(target, target === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
@@ -129,13 +133,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
     const meanValue = total === 0 ? '—' : formatAverage(mean)
     const caption =
       total === 0
-        ? 'No solves yet'
+        ? t('stats.empty')
         : dnfCount === 0
-          ? `${total} solve${total === 1 ? '' : 's'}`
-          : `${count} of ${total} counted · ${dnfCount} DNF${dnfCount === 1 ? '' : 's'}`
+          ? t('stats.solves', { count: total })
+          : `${t('stats.counted', { count, total })} · ${t('stats.dnf', { count: dnfCount })}`
 
     const meanRow = ROWS.length + 1
-    attach(0, meanRow, cell('Session mean', []))
+    attach(0, meanRow, cell(t('stats.mean'), []))
     attach(1, meanRow, cell(meanValue, meanValue === '—' ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']))
     const captionLabel = cell(caption, ['caption', 'dim-label'])
     grid.attach(captionLabel, 2, meanRow, 2, 1)
@@ -153,7 +157,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
     box.append(
       new Adw.HeaderBar({
         titleWidget: new Adw.WindowTitle({
-          title: 'Statistics',
+          title: t('stats.title'),
           subtitle: options.library.active.name,
         }),
         showTitle: true,

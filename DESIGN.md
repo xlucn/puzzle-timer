@@ -28,12 +28,16 @@ src/
 │   ├── scrambleTypes.ts   206-type catalogue + group/section structure (data-driven)
 │   ├── scrambleFeed.ts    prefetch state machine: type switch / advance / ready
 │   ├── layout.ts        every size threshold and the adaptive-layout rules
+│   ├── i18n.ts          t(), plural selection, locale + system-language resolution
 │   └── preferences.ts   Preferences shape, defaults, per-field validation
 ├── scramble/
 │   ├── worker.ts        worker_threads host for cstimer_module
 │   ├── protocol.ts      typed request/response messages worker ↔ main
 │   ├── cstimerLang.ts   type-id → cstimer_module language-table mapping
 │   └── service.ts       prefetch queue — the next scramble is always warm
+├── locales/
+│   ├── en.ts            source-of-truth catalog and the scramble group/section names
+│   └── zh-CN.ts         complete Chinese catalog, typed against en.ts
 ├── platform/
 │   ├── store.ts         atomic JSON persistence in the XDG data dir
 │   ├── random.ts        CSPRNG seeding
@@ -129,9 +133,12 @@ breaking:
   button.
 - **One version, one place.** The app version comes from `package.json` via
   `src/platform/meta.ts`, never a literal.
-
-(Not yet built, but decided: i18n through typed TypeScript catalogs — see
-PLAN.md decision 11.)
+- **i18n is typed catalogs, not gettext.** `src/core/i18n.ts` holds a
+  module-level locale and `t()`; `src/locales/en.ts` is the source of truth
+  and `zh-CN.ts` is a `Record<MessageKey, Message>`, so a missing translation
+  is a compile error. The `language` preference is resolved once, in
+  `main.ts` before any widget is built, because catalogs are read while
+  widgets are constructed; changing it needs a restart.
 
 ## csTimer compatibility
 

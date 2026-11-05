@@ -22,6 +22,7 @@ import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
+import { t, type Language } from '../core/i18n.js'
 import {
   HOLD_THRESHOLD_STEP_MS,
   MAX_HOLD_THRESHOLD_MS,
@@ -55,30 +56,44 @@ export interface PreferencesPanelOptions {
   set: (patch: Partial<Preferences>) => void
 }
 
+type ColorSchemeKey = 'prefs.theme.system' | 'prefs.theme.light' | 'prefs.theme.dark'
+
 /** The colour-scheme choices, in the order the ComboRow lists them. */
-const COLOR_SCHEME_CHOICES: { id: ColorScheme; label: string }[] = [
-  { id: 'system', label: 'Follow system' },
-  { id: 'light', label: 'Light' },
-  { id: 'dark', label: 'Dark' },
+const COLOR_SCHEME_CHOICES: { id: ColorScheme; key: ColorSchemeKey }[] = [
+  { id: 'system', key: 'prefs.theme.system' },
+  { id: 'light', key: 'prefs.theme.light' },
+  { id: 'dark', key: 'prefs.theme.dark' },
+]
+
+type LanguageKey =
+  | 'prefs.language.system'
+  | 'prefs.language.english'
+  | 'prefs.language.chinese'
+
+/** The language choices, in the order the ComboRow lists them. */
+const LANGUAGE_CHOICES: { id: Language; key: LanguageKey }[] = [
+  { id: 'system', key: 'prefs.language.system' },
+  { id: 'en', key: 'prefs.language.english' },
+  { id: 'zh-CN', key: 'prefs.language.chinese' },
 ]
 
 export function createPreferences(options: PreferencesPanelOptions) {
   const open = (): InstanceType<typeof Adw.PreferencesDialog> => {
     const prefs = options.get()
-    const dialog = new Adw.PreferencesDialog({ title: 'Preferences', searchEnabled: false })
+    const dialog = new Adw.PreferencesDialog({ title: t('prefs.title'), searchEnabled: false })
 
     // ---- page: timer ------------------------------------------------------
     const timerPage = new Adw.PreferencesPage({
-      title: 'Timer',
+      title: t('prefs.timer.title'),
       iconName: 'preferences-system-time-symbolic',
     })
-    const timerGroup = new Adw.PreferencesGroup({ title: 'Starting a solve' })
+    const timerGroup = new Adw.PreferencesGroup({ title: t('prefs.timer.group') })
 
     // Inspection first: it decides what the two starting gestures below
     // lead into.
     const inspectionRow = new Adw.SwitchRow({
-      title: 'WCA inspection',
-      subtitle: 'Show a 15-second count down before the solve starts',
+      title: t('prefs.inspection'),
+      subtitle: t('prefs.inspection.subtitle'),
       active: prefs.inspection,
     })
     inspectionRow.on('notify::active', () => {
@@ -87,8 +102,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     timerGroup.add(inspectionRow)
 
     const cuesRow = new Adw.SwitchRow({
-      title: 'Inspection sound cues',
-      subtitle: 'If enabled, first beep at 8 s, second at 12 s',
+      title: t('prefs.cues'),
+      subtitle: t('prefs.cues.subtitle'),
       active: prefs.inspectionSound,
     })
     cuesRow.on('notify::active', () => {
@@ -100,8 +115,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // value arrives as 0.05 s steps or whatever the user types; rounding to
     // whole milliseconds is the storage contract, not a display concern.
     const holdRow = new Adw.SpinRow({
-      title: 'Hold time',
-      subtitle: 'How long Space must be held to start the timer',
+      title: t('prefs.hold'),
+      subtitle: t('prefs.hold.subtitle'),
       digits: 2,
       numeric: true, // the entry takes digits only — no "1e3" nonsense
       adjustment: new Gtk.Adjustment({
@@ -117,8 +132,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     timerGroup.add(holdRow)
 
     const mouseRow = new Adw.SwitchRow({
-      title: 'Mouse control',
-      subtitle: 'Click to start inspection or stop; hold to start the timer',
+      title: t('prefs.mouse'),
+      subtitle: t('prefs.mouse.subtitle'),
       active: prefs.mouseStart,
     })
     mouseRow.on('notify::active', () => {
@@ -133,14 +148,14 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // libadwaita's StyleManager is application-wide, so choosing here
     // repaints every window at once — including this one.
     const appearancePage = new Adw.PreferencesPage({
-      title: 'Appearance',
+      title: t('prefs.appearance.title'),
       iconName: 'preferences-desktop-appearance-symbolic',
     })
-    const appearanceGroup = new Adw.PreferencesGroup({ title: 'Colour scheme' })
+    const appearanceGroup = new Adw.PreferencesGroup({ title: t('prefs.scheme.group') })
 
     const schemeRow = new Adw.ComboRow({
-      title: 'Theme',
-      model: Gtk.StringList.new(COLOR_SCHEME_CHOICES.map((choice) => choice.label)),
+      title: t('prefs.theme'),
+      model: Gtk.StringList.new(COLOR_SCHEME_CHOICES.map((choice) => t(choice.key))),
     })
     // No GtkExpression: a plain Gtk.StringList labels itself — measured
     // side by side with and without on GTK 4.22.5 / libadwaita 1.9.4;
@@ -168,8 +183,8 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // (src/core/layout.ts) — the curve still decides the size, these only say
     // how much of it is shown.
     const sizesGroup = new Adw.PreferencesGroup({
-      title: 'Sizes',
-      description: 'Scale the timer, the scramble text and the image.',
+      title: t('prefs.sizes.group'),
+      description: t('prefs.sizes.description'),
     })
 
     const scaleRow = (row: {
@@ -200,33 +215,58 @@ export function createPreferences(options: PreferencesPanelOptions) {
     }
 
     scaleRow({
-      title: 'Timer',
-      subtitle: 'Size of the timer digits',
+      title: t('prefs.size.timer'),
+      subtitle: t('prefs.size.timer.subtitle'),
       value: prefs.timerScale,
       min: MIN_SIZE_SCALE,
       onChange: (timerScale) => options.set({ timerScale }),
     })
     scaleRow({
-      title: 'Scramble text',
-      subtitle: 'Size of the scramble above the timer',
+      title: t('prefs.size.scramble'),
+      subtitle: t('prefs.size.scramble.subtitle'),
       value: prefs.scrambleScale,
       min: MIN_SIZE_SCALE,
       onChange: (scrambleScale) => options.set({ scrambleScale }),
     })
     scaleRow({
-      title: 'Scramble image',
-      subtitle: 'Size of the scramble picture',
+      title: t('prefs.size.diagram'),
+      subtitle: t('prefs.size.diagram.subtitle'),
       value: prefs.diagramScale,
       min: MIN_DIAGRAM_SCALE,
       onChange: (diagramScale) => options.set({ diagramScale }),
     })
 
     appearancePage.add(sizesGroup)
+
+    // ---- group: language --------------------------------------------------
+    // The change is persisted like any other, but catalogs are read while
+    // widgets are built: only a restart re-labels the window (main.ts toasts
+    // that reminder). Offering it here, not on its own page, keeps the
+    // Appearance page's "how it looks" grouping intact.
+    const languageGroup = new Adw.PreferencesGroup({
+      title: t('prefs.language.group'),
+      description: t('prefs.language.restart'),
+    })
+    const languageRow = new Adw.ComboRow({
+      title: t('prefs.language.row'),
+      model: Gtk.StringList.new(LANGUAGE_CHOICES.map((choice) => t(choice.key))),
+    })
+    languageRow.selected = Math.max(
+      0,
+      LANGUAGE_CHOICES.findIndex((choice) => choice.id === prefs.language),
+    )
+    languageRow.on('notify::selected', () => {
+      const choice = LANGUAGE_CHOICES[languageRow.selected]
+      if (choice !== undefined) options.set({ language: choice.id })
+    })
+    languageGroup.add(languageRow)
+    appearancePage.add(languageGroup)
+
     dialog.add(appearancePage)
 
     // ---- page: scramble --------------------------------------------------
     const scramblePage = new Adw.PreferencesPage({
-      title: 'Scramble',
+      title: t('prefs.page.scramble'),
       iconName: 'image-x-generic-symbolic',
     })
 
@@ -234,11 +274,11 @@ export function createPreferences(options: PreferencesPanelOptions) {
     // applies when it draws the diagram. Committed on Enter, on the apply
     // button (the touch path) or when the dialog closes.
     const preScrambleGroup = new Adw.PreferencesGroup({
-      title: 'Pre-scramble',
-      description: 'Moves applied to the scramble diagram, e.g. y or z2.',
+      title: t('prefs.preScramble.group'),
+      description: t('prefs.preScramble.description'),
     })
     const preScrambleRow = new Adw.EntryRow({
-      title: 'Moves',
+      title: t('prefs.preScramble.row'),
       text: prefs.preScramble,
       showApplyButton: true,
     })
@@ -255,13 +295,12 @@ export function createPreferences(options: PreferencesPanelOptions) {
     scramblePage.add(preScrambleGroup)
 
     const scrambleGroup = new Adw.PreferencesGroup({
-      title: 'Image',
-      description:
-        'Show the picture of the scramble.',
+      title: t('prefs.image.group'),
+      description: t('prefs.image.description'),
     })
 
     const imageRow = new Adw.SwitchRow({
-      title: 'Show the scramble image',
+      title: t('prefs.image.row'),
       active: prefs.scrambleImage,
     })
     imageRow.on('notify::active', () => {

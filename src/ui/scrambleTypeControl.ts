@@ -18,6 +18,7 @@
  */
 import Adw from 'gi:Adw-1'
 
+import { t } from '../core/i18n.js'
 import { scrambleLength } from '../core/scrambleTypes.js'
 import { createScrambleOptions } from './scrambleOptions.js'
 
@@ -43,8 +44,8 @@ export function createScrambleTypeControl(options: ScrambleTypeControlOptions) {
     // Icon-only, so the tooltip is the only thing that names the action —
     // without it the half would be indistinguishable from refresh/copy.
     iconName: 'view-list-symbolic',
-    tooltipText: 'Choose the scramble type',
-    dropdownTooltip: 'Scramble options',
+    tooltipText: t('scramble.chooseType'),
+    dropdownTooltip: t('scramble.options'),
     popover: scrambleOptions.popover,
     cssClasses: ['flat'],
   })

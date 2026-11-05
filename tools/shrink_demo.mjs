@@ -18,6 +18,8 @@ import Gtk from 'gi:Gtk-4.0'
 import Adw from 'gi:Adw-1'
 import GLib from 'gi:GLib-2.0'
 
+const { setLocale } = await import('../src/core/i18n.ts')
+setLocale('en')
 const { SCRAMBLE_GROUPS, scrambleTypeLabel } = await import('../src/core/scrambleTypes.ts')
 const { makeStringExpression } = await import('../src/ui/stringExpression.ts')
 const { createScrambleTypePicker } = await import('../src/ui/scrambleTypePicker.ts')

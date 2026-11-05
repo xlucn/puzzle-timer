@@ -14,6 +14,8 @@
  * their settings.
  */
 
+import { LANGUAGES, type Language } from './i18n.js'
+
 /** Light/dark theming: `system` follows the desktop (Adw.ColorScheme). */
 export type ColorScheme = 'system' | 'light' | 'dark'
 
@@ -39,6 +41,11 @@ export interface Preferences {
   mouseStart: boolean
   /** Light/dark theming; `system` follows the desktop. */
   colorScheme: ColorScheme
+  /**
+   * UI language: `system` follows the desktop, anything else is a catalog tag
+   * resolved once at startup (src/core/i18n.ts).
+   */
+  language: Language
   /** Multiplier on the timer readout's size (src/core/layout.ts). */
   timerScale: number
   /** Multiplier on the scramble text: bigger text, fewer characters per line. */
@@ -74,6 +81,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   preScramble: '',
   mouseStart: false,
   colorScheme: 'system',
+  language: 'system',
   timerScale: 1,
   scrambleScale: 1,
   diagramScale: 1,
@@ -108,6 +116,11 @@ export function normalizePreferences(value: unknown): Preferences {
       ? raw.preScramble.trim()
       : DEFAULT_PREFERENCES.preScramble
 
+  const language =
+    typeof raw.language === 'string' && (LANGUAGES as readonly string[]).includes(raw.language)
+      ? (raw.language as Language)
+      : DEFAULT_PREFERENCES.language
+
   const flag = (key: keyof Preferences): boolean =>
     typeof raw[key] === 'boolean'
       ? (raw[key] as boolean)
@@ -131,6 +144,7 @@ export function normalizePreferences(value: unknown): Preferences {
     preScramble,
     mouseStart: flag('mouseStart'),
     colorScheme,
+    language,
     timerScale: scale('timerScale', MIN_SIZE_SCALE),
     scrambleScale: scale('scrambleScale', MIN_SIZE_SCALE),
     diagramScale: scale('diagramScale', MIN_DIAGRAM_SCALE),

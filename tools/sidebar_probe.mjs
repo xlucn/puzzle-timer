@@ -27,7 +27,11 @@ import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 import { Session } from '../src/core/session.js'
 import { SessionLibrary } from '../src/core/sessionLibrary.js'
+import { setLocale } from '../src/core/i18n.js'
 import { createTimesList } from '../src/ui/timesList.js'
+
+// Probes assert English labels, so fix the catalog rather than the host locale.
+setLocale('en')
 
 const log = (...args) => console.error('[probe]', ...args)
 // The shims expose the allocation under Gtk.Widget.getSize(orientation)

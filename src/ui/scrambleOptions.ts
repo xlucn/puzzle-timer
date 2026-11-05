@@ -17,6 +17,7 @@
 import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 
+import { t } from '../core/i18n.js'
 import {
   fastScrambleType,
   scrambleLength,
@@ -38,11 +39,11 @@ const MAX_LENGTH = 999
 const titleFor = (type: string): string => {
   switch (scrambleLengthKind(type)) {
     case 'scrambles':
-      return 'Number of scrambles'
+      return t('scramble.scrambles')
     case 'cubes':
-      return 'Number of cubes'
+      return t('scramble.cubes')
     case 'moves':
-      return 'Moves'
+      return t('scramble.moves')
   }
 }
 
@@ -58,7 +59,7 @@ export function createScrambleOptions(options: ScrambleOptionsOptions) {
     }),
   })
 
-  const fastRow = new Adw.SwitchRow({ title: 'Fast scramble' })
+  const fastRow = new Adw.SwitchRow({ title: t('scramble.fast') })
 
   const list = new Gtk.ListBox({
     cssClasses: ['boxed-list'],

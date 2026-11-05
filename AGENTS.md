@@ -178,14 +178,16 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   port the math, not the DOM — ao5/ao12/mo3 trimming, DNF-as-∞, penalties, and
   the same rule for csTimer's data-file format and chart math (PLAN.md §5).
   Attribute csTimer and `cstimer_module` in the About dialog.
-- **`t()` — M9's rule, not in force yet**: `src/core/i18n.ts` and
-  `src/locales/` do not exist and `src/ui/` still has literals. Once they
-  land: no bare literals in `src/ui/`, the menus, the toasts or the tooltips.
-  Catalogs are TS modules: `src/locales/en.ts` is the source of truth and
-  every other locale is `Record<keyof typeof en, Message>`, so a missing key
-  is a compile error, never a raw key on screen. Times stay in `formatTime`;
-  the narrow list/edit timestamps stay numeric — `Intl.DateTimeFormat` is for
-  dates with room around them.
+- **No bare user-visible literals.** Every label, tooltip, menu entry, toast
+  and dialog text in `src/ui/` and `src/main.ts` goes through `t()` from
+  `src/core/i18n.ts`. Catalogs are TS modules: `src/locales/en.ts` is the
+  source of truth and every other locale is `Record<keyof typeof en, Message>`,
+  so a missing key is a compile error, never a raw key on screen. Scramble
+  group and section names are translated; the ~209 type names stay English.
+  Times stay in `formatTime`; the narrow list/edit timestamps stay numeric —
+  `Intl.DateTimeFormat` is for dates with room around them. `main.ts` resolves
+  the `language` preference once, before any widget is built; a change needs a
+  restart.
 - **The About dialog** is `Adw.AboutDialog` (`Adw.AboutWindow` is
   deprecated); its licence enum is `Gtk.License.GPL_3_0`, which means *3.0 or
   later* and matches `package.json`'s `GPL-3.0-or-later` (`GPL_3_0_ONLY` does
@@ -283,11 +285,11 @@ package scheduled as M16**. Stackmat is a **long-term** goal (PLAN.md), not
 current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; follow the milestone blocks,
-don't redesign them): **M9** i18n → **M10** csTimer import/export → **M11**
-records & statistics → **M12** charts → **M16** AUR package (one blocker left:
-the repo must be public at tag time; PLAN.md §6 has the draft PKGBUILD).
-Numbers are stable identifiers, not queue positions: reorder the queue, never
-the numbers. M7, M15 and M8 landed; their blocks stay in PLAN.md §6.
+don't redesign them): **M10** csTimer import/export → **M11** records &
+statistics → **M12** charts → **M16** AUR package (one blocker left: the repo
+must be public at tag time; PLAN.md §6 has the draft PKGBUILD). Numbers are
+stable identifiers, not queue positions: reorder the queue, never the
+numbers. M7, M15, M8 and M9 landed; their blocks stay in PLAN.md §6.
 
 Only **M15** may reopen packaging any further (Flatpak, deb, AppStream).
 

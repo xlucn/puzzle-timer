@@ -37,6 +37,7 @@ describe('normalizePreferences', () => {
       preScramble: 'y',
       mouseStart: true,
       colorScheme: 'dark',
+      language: 'zh-CN',
       timerScale: 1.25,
       scrambleScale: 0.9,
       diagramScale: 0.5,
@@ -71,6 +72,15 @@ describe('normalizePreferences', () => {
       colorScheme: 'neon', // unknown → default
     })
     expect(prefs).toEqual({ ...DEFAULT_PREFERENCES, inspectionSound: false })
+  })
+
+  it('defaults to the system language and rejects an unknown tag', () => {
+    expect(DEFAULT_PREFERENCES.language).toBe('system')
+    expect(normalizePreferences({}).language).toBe('system')
+    expect(normalizePreferences({ language: 'zh-CN' }).language).toBe('zh-CN')
+    expect(normalizePreferences({ language: 'en' }).language).toBe('en')
+    expect(normalizePreferences({ language: 'fr' }).language).toBe('system')
+    expect(normalizePreferences({ language: 42 }).language).toBe('system')
   })
 
   it('rejects an unknown colour scheme but keeps the rest of the file', () => {
