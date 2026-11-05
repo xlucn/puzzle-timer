@@ -1168,8 +1168,11 @@ scrambler's third argument (`getScramble('333', 0, true)`), so the module
 cannot put the setup into the text even if asked. `tools/prescr_probe.mjs`
 in /tmp holds the one-scramble-two-diagrams experiment.
 
-**Still to do here:** the `444wca` → `444m` fast alias (a further row in the
-type control's popover). Neutral orientation stays out (finding above).
+**Fast 4x4 (2026-11-05).** A `Fast scramble` switch in the type control's
+popover, shown only where `fastScrambleType()` has an answer — today just
+`444wca` → `444m`. It swaps the id in the generator only, so the chosen type
+stays what the session and the header show, and both scrambles are 40 moves.
+Session-only, like the length. Neutral orientation stays out (finding above).
 
 **Checkpoint for the user:** pick `WCA > 3x3 mbld`, set the count to 3 and
 get exactly three numbered scrambles; switch to `3x3x3` and watch the arrow

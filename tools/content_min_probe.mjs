@@ -26,6 +26,7 @@ const typeControl = createScrambleTypeControl({
   initialType: SCRAMBLE_DEFAULT_TYPE,
   onChoose: () => {},
   onLengthChange: () => {},
+  onFastScrambleChange: () => {},
 })
 
 const typeTitle = createScrambleTypeTitle({ initialType: SCRAMBLE_DEFAULT_TYPE })

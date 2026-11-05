@@ -4,22 +4,32 @@
  * The type picker chooses *which* scrambler runs; this edits how the chosen
  * one runs, so it lives on the header control rather than inside the picker.
  *
- * The first option is the length the worker passes to getScramble(): a move
- * count for random-move types, a count of scrambles or cubes for multi-blind
- * and relays. The catalogue owns the default and the meaning of the number;
- * this module owns only the editing and reports it through `onChange`. Nothing
- * is persisted: a type change resets the length to that type's default.
+ * Two options, and the same split between a per-type value and a global tweak:
+ *   - length — the number the worker passes to getScramble(): moves for
+ *     random-move types, a count of scrambles or cubes for multi-blind and
+ *     relays. The catalogue owns the default and the meaning.
+ *   - fast scramble — swap a slow solver for its random-move stand-in
+ *     (`fastScrambleType`). Only shown for the types that have one.
+ *
+ * Nothing here is persisted: a type change resets the length to that type's
+ * default, and the fast switch lasts for the session only.
  */
 import Adw from 'gi:Adw-1'
 import Gtk from 'gi:Gtk-4.0'
 
-import { scrambleLength, scrambleLengthKind } from '../core/scrambleTypes.js'
+import {
+  fastScrambleType,
+  scrambleLength,
+  scrambleLengthKind,
+} from '../core/scrambleTypes.js'
 
 export interface ScrambleOptionsOptions {
   /** Type to open on; the rows read the rest from the catalogue. */
   initialType: string
   /** Called with the new length, after the user changes the spinner. */
   onChange: (length: number) => void
+  /** Called when the fast-scramble switch flips. */
+  onFastScramble: (fast: boolean) => void
 }
 
 /** csTimer's length input allows three digits; the same ceiling here. */
@@ -48,12 +58,15 @@ export function createScrambleOptions(options: ScrambleOptionsOptions) {
     }),
   })
 
+  const fastRow = new Adw.SwitchRow({ title: 'Fast scramble' })
+
   const list = new Gtk.ListBox({
     cssClasses: ['boxed-list'],
     selectionMode: Gtk.SelectionMode.NONE,
     widthRequest: 260,
   })
   list.append(lengthRow)
+  list.append(fastRow)
 
   const popover = new Gtk.Popover({ child: list })
 
@@ -75,12 +88,19 @@ export function createScrambleOptions(options: ScrambleOptionsOptions) {
     options.onChange(value)
   })
 
+  fastRow.on('notify::active', () => {
+    if (syncing) return
+    options.onFastScramble(fastRow.active)
+  })
+
   /**
-   * Point the rows at `type`, at that type's default length. A type with no
-   * length leaves them untouched: the control detaches this popover, so the
-   * stale number can never be read, and it is never a wrong one either.
+   * Point the rows at `type`. The fast switch appears only where the
+   * catalogue has a stand-in; a type with no length leaves the length row
+   * untouched: the control detaches this popover, so the stale number can
+   * never be read, and it is never a wrong one either.
    */
   const setType = (type: string): void => {
+    fastRow.visible = fastScrambleType(type) !== null
     const length = scrambleLength(type)
     if (length <= 0) return
     syncing = true

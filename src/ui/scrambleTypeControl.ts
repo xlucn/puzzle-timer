@@ -28,12 +28,15 @@ export interface ScrambleTypeControlOptions {
   onChoose: () => void
   /** Called with an edited length, after the user changes the spinner. */
   onLengthChange: (length: number) => void
+  /** Called when the fast-scramble switch flips. */
+  onFastScrambleChange: (fast: boolean) => void
 }
 
 export function createScrambleTypeControl(options: ScrambleTypeControlOptions) {
   const scrambleOptions = createScrambleOptions({
     initialType: options.initialType,
     onChange: options.onLengthChange,
+    onFastScramble: options.onFastScrambleChange,
   })
 
   const widget = new Adw.SplitButton({

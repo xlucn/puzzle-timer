@@ -404,6 +404,19 @@ export function scrambleLength(id: string): number {
 }
 
 /**
+ * The random-move stand-in for a type whose own scramble runs a solver, or
+ * null when it has none. csTimer's "fast" option swaps it in: 4x4x4
+ * random-state takes about a second, the random-move list is instant, and
+ * both are 40 moves. The chosen type stays what the session and the header
+ * show — only the generator changes.
+ */
+const FAST_ALIAS_BY_ID: ReadonlyMap<string, string> = new Map([['444wca', '444m']])
+
+export function fastScrambleType(id: string): string | null {
+  return FAST_ALIAS_BY_ID.get(id) ?? null
+}
+
+/**
  * What the length argument counts for `id`. Almost every length-driven type
  * takes a number of random moves; multi-blind takes a number of scrambles and
  * "lots of 3x3x3s" a number of cubes. The UI labels the control from this,

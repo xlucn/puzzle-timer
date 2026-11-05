@@ -1,13 +1,13 @@
-// Scramble-control probe (2026-11-03): the header's Adw.SplitButton — the
-// button half opens the type picker, the arrow half opens the current type's
-// options, one popover holding a single length SpinRow.
+// Scramble-control probe (2026-11-03; fast switch 2026-11-05): the header's
+// Adw.SplitButton — the button half opens the type picker, the arrow half opens
+// the current type's options in one popover.
 //
-// Checks the two halves (icon, both tooltips, flat), the row per type (Moves /
-// Number of scrambles / Number of cubes), that a programmatic type change does
-// not look like a user edit, that a user edit reaches the callback once and
-// integer-only, and — the reason this is a split button at all — that a type
-// with no length detaches the popover, which libadwaita renders as an
-// insensitive arrow while the picker half stays live.
+// Rows: the length (per type) and the fast-scramble switch (only for types with
+// a random-move stand-in — the pre-scramble is a preference). Checks both
+// halves and their tooltips, the per-type length, the switch's visibility and
+// callback, the single-callback edit, rounding, and — the reason this is a
+// split button at all — that a type with no length detaches the popover, which
+// libadwaita renders as an insensitive arrow while the picker half stays live.
 //
 // Usage: node --import tsx --import node-gtk/register tools/scramble_control_probe.mjs
 import Adw from 'gi:Adw-1'
@@ -57,6 +57,7 @@ app.on('activate', () => {
   window.setDefaultSize(900, 540)
 
   const lengths = []
+  const fasts = []
   let chooses = 0
   const control = createScrambleTypeControl({
     initialType: 'r3ni',
@@ -64,6 +65,7 @@ app.on('activate', () => {
       chooses += 1
     },
     onLengthChange: (length) => lengths.push(length),
+    onFastScrambleChange: (fast) => fasts.push(fast),
   })
 
   const header = new Adw.HeaderBar({ showTitle: false })
@@ -75,7 +77,8 @@ app.on('activate', () => {
   const split = control.widget
   const popover = split.getPopover()
   const list = popover.getChild()
-  const row = list.getFirstChild()
+  const lengthRow = list.getFirstChild()
+  const fastRow = lengthRow.getNextSibling()
   const arrow = childOf(split, 'GtkMenuButton')
   const arrowToggle = childOf(arrow, 'GtkToggleButton')
 
@@ -97,9 +100,10 @@ app.on('activate', () => {
     check(
       list.constructor.name === 'GtkListBox' &&
         list.cssClasses.includes('boxed-list') &&
-        row.constructor.name === 'AdwSpinRow' &&
-        row.getNextSibling() === null,
-      `popover holds a boxed list with one SpinRow (${list.constructor.name} > ${row.constructor.name})`,
+        lengthRow.constructor.name === 'AdwSpinRow' &&
+        fastRow.constructor.name === 'AdwSwitchRow' &&
+        fastRow.getNextSibling() === null,
+      `popover holds the length and fast rows (${list.constructor.name} > ${lengthRow.constructor.name}, ${fastRow.constructor.name})`,
     )
     check(
       split.getPopover() === popover && popover.getParent() === arrow,
@@ -115,11 +119,12 @@ app.on('activate', () => {
 
   const checkR3ni = () => {
     check(
-      row.title === 'Number of scrambles' && Math.abs(row.value - 5) < 1e-9,
-      `3x3 mbld: "Number of scrambles", starts at 5 (title "${row.title}", value ${row.value})`,
+      lengthRow.title === 'Number of scrambles' && Math.abs(lengthRow.value - 5) < 1e-9,
+      `3x3 mbld: "Number of scrambles", starts at 5 (title "${lengthRow.title}", value ${lengthRow.value})`,
     )
+    check(!fastRow.visible, `3x3 mbld has no fast switch (visible=${fastRow.visible})`)
     const before = lengths.length
-    row.value = 3
+    lengthRow.value = 3
     check(
       lengths.length === before + 1 && lengths.at(-1) === 3,
       `a user edit reports 3 once (${JSON.stringify(lengths)})`,
@@ -128,19 +133,19 @@ app.on('activate', () => {
     const again = lengths.length
     control.setType('r3ni')
     check(
-      lengths.length === again && Math.abs(row.value - 5) < 1e-9,
-      `a type refresh at the same default stays silent and restores 5 (${row.value})`,
+      lengths.length === again && Math.abs(lengthRow.value - 5) < 1e-9,
+      `a type refresh at the same default stays silent and restores 5 (${lengthRow.value})`,
     )
   }
 
   const checkMoves = () => {
     control.setType('333o')
     check(
-      row.title === 'Moves' && Math.abs(row.value - 25) < 1e-9,
-      `random move: "Moves", 25 (title "${row.title}", value ${row.value})`,
+      lengthRow.title === 'Moves' && Math.abs(lengthRow.value - 25) < 1e-9,
+      `random move: "Moves", 25 (title "${lengthRow.title}", value ${lengthRow.value})`,
     )
     const before = lengths.length
-    row.value = 10
+    lengthRow.value = 10
     check(
       lengths.length === before + 1 && lengths.at(-1) === 10,
       `a real change reports 10 once (${JSON.stringify(lengths)})`,
@@ -150,21 +155,39 @@ app.on('activate', () => {
   const checkCubes = () => {
     control.setType('r3')
     check(
-      row.title === 'Number of cubes' && Math.abs(row.value - 5) < 1e-9,
-      `relay: "Number of cubes", 5 (title "${row.title}", value ${row.value})`,
+      lengthRow.title === 'Number of cubes' && Math.abs(lengthRow.value - 5) < 1e-9,
+      `relay: "Number of cubes", 5 (title "${lengthRow.title}", value ${lengthRow.value})`,
     )
   }
 
   const checkInteger = () => {
     control.setType('555wca') // 60 moves
     const before = lengths.length
-    row.value = 12.6
+    lengthRow.value = 12.6
     check(
-      Math.abs(row.value - 13) < 1e-9 &&
+      Math.abs(lengthRow.value - 13) < 1e-9 &&
         lengths.at(-1) === 13 &&
         lengths.length === before + 1,
-      `a fractional spin is rounded before it leaves the row (got ${row.value}, reported ${lengths.at(-1)})`,
+      `a fractional spin is rounded before it leaves the row (got ${lengthRow.value}, reported ${lengths.at(-1)})`,
     )
+  }
+
+  const checkFast = () => {
+    const before = fasts.length
+    control.setType('444wca')
+    check(
+      fastRow.visible && Math.abs(lengthRow.value - 40) < 1e-9,
+      `4x4x4 shows the fast switch and keeps its 40 moves (visible=${fastRow.visible}, value ${lengthRow.value})`,
+    )
+    check(fasts.length === before, `a type change does not flip the switch (${JSON.stringify(fasts)})`)
+    fastRow.active = true
+    fastRow.active = false
+    check(
+      fasts.length === before + 2 && fasts.at(-2) === true && fasts.at(-1) === false,
+      `the switch reports both flips once each (${JSON.stringify(fasts)})`,
+    )
+    control.setType('555wca')
+    check(!fastRow.visible, `5x5x5 has no fast switch (visible=${fastRow.visible})`)
   }
 
   const checkNoLength = () => {
@@ -172,6 +195,7 @@ app.on('activate', () => {
     arrow.popup()
     after(400, () => {
       check(popover.visible, `the arrow opens the popover (visible=${popover.visible})`)
+
       control.setType('333') // random-state: no length
       after(300, () => {
         check(
@@ -182,9 +206,12 @@ app.on('activate', () => {
           split.sensitive && arrowToggle.sensitive === false,
           `only the arrow is disabled: picker half sensitive=${split.sensitive}, arrow toggle sensitive=${arrowToggle.sensitive}`,
         )
-        const before = chooses
+        const choosesBefore = chooses
         split.emit('clicked')
-        check(chooses === before + 1, `the picker half still works on a length-less type (${chooses})`)
+        check(
+          chooses === choosesBefore + 1,
+          `the picker half still works on a length-less type (${chooses})`,
+        )
         // Detaching must not be a one-way door.
         control.setType('444wca')
         check(
@@ -195,7 +222,10 @@ app.on('activate', () => {
         // path — what a click takes — does.
         arrow.popup()
         after(400, () => {
-          check(popover.visible, `the restored arrow opens the popover (visible=${popover.visible})`)
+          check(
+            popover.visible,
+            `the restored arrow opens the popover (visible=${popover.visible})`,
+          )
           log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
           app.quit()
         })
@@ -213,6 +243,7 @@ app.on('activate', () => {
     checkMoves()
     checkCubes()
     checkInteger()
+    checkFast()
     checkNoLength()
   })
 })

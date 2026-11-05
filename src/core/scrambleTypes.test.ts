@@ -5,6 +5,7 @@ import {
   SCRAMBLE_GROUPS,
   SCRAMBLE_SECTIONS,
   SCRAMBLE_TYPES,
+  fastScrambleType,
   groupOfScrambleType,
   scrambleLength,
   scrambleLengthKind,
@@ -53,6 +54,16 @@ describe('scrambleTypes', () => {
     expect(scrambleLength('r3ni')).toBe(5) // five cubes for multi-blind
     // unknown ids fall back to 0 (the feed reports the empty result)
     expect(scrambleLength('no-such-type')).toBe(0)
+  })
+
+  it('knows which types have a fast random-move stand-in', () => {
+    expect(fastScrambleType('444wca')).toBe('444m')
+    // The stand-in is a catalogue type in its own right, at the same length,
+    // so swapping it in changes nothing but the generator.
+    expect(scrambleLength(fastScrambleType('444wca') ?? '')).toBe(scrambleLength('444wca'))
+    expect(fastScrambleType('555wca')).toBeNull()
+    expect(fastScrambleType('333')).toBeNull()
+    expect(fastScrambleType('no-such-type')).toBeNull()
   })
 
   it('knows when the length counts scrambles rather than moves', () => {

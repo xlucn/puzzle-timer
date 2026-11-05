@@ -15,7 +15,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 | `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, both structural bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its widest step is 900 px, so a `1280x800` screen is enough |
 | `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets |
-| `scramble_control_probe.mjs` | Headless: the header's type control (`Adw.SplitButton`) — both halves and their tooltips, the popover's single length row per type, the user-edit callback, and the arrow alone going insensitive on a type with no length |
+| `scramble_control_probe.mjs` | Headless: the header's type control (`Adw.SplitButton`) — both halves and their tooltips, the popover's length row per type and the fast-scramble switch, their callbacks, and the arrow alone going insensitive on a type with no length |
 | `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
 | `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the floor line of the layout walk) |
 | `preview_probe.mjs` | Headless: Adaptive Preview premises — content sits in the emulated screen and the window's breakpoints measure that screen (what makes content-basis ground correct) |

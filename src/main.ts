@@ -33,7 +33,11 @@ import {
 } from './core/layout.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
-import { SCRAMBLE_DEFAULT_TYPE, scrambleLength } from './core/scrambleTypes.js'
+import {
+  SCRAMBLE_DEFAULT_TYPE,
+  fastScrambleType,
+  scrambleLength,
+} from './core/scrambleTypes.js'
 import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core/session.js'
 import { SessionLibrary } from './core/sessionLibrary.js'
 import type { Penalty } from './core/time.js'
@@ -358,6 +362,11 @@ app.on('activate', () => {
   // The type dropdown and the refresh button live in the header; the text
   // itself sits above the timer (see createScramblePanel).
   const scrambleService = createScrambleService()
+
+  // The fast switch is session-only and read where the scramble is built: a
+  // type's random-move stand-in replaces the id, so the chosen type stays what
+  // the session and the header show.
+  let fastScramble = false
   const feed = new ScrambleFeed({
     type: SCRAMBLE_DEFAULT_TYPE,
     length: scrambleLength(SCRAMBLE_DEFAULT_TYPE),
@@ -365,8 +374,9 @@ app.on('activate', () => {
       // The worker hands the pre-scramble to cstimer_module as its `preScr`
       // global, so the module draws the diagram from it; the text is the
       // scramble itself.
+      const alias = fastScramble ? fastScrambleType(type) : null
       const { scramble, image } = await scrambleService.scrambleWithImage(
-        type,
+        alias ?? type,
         length,
         prefs.preScramble,
       )
@@ -382,6 +392,10 @@ app.on('activate', () => {
     initialType: SCRAMBLE_DEFAULT_TYPE,
     onChoose: () => typePicker.open(),
     onLengthChange: (length) => feed.setLength(length),
+    onFastScrambleChange: (fast) => {
+      fastScramble = fast
+      feed.refresh()
+    },
   })
 
   const scramblePanel = createScramblePanel({ getImage: imageFor })
