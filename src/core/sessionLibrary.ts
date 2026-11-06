@@ -133,10 +133,23 @@ export class SessionLibrary {
   }
 
   /**
-   * Create a session and switch to it (a new session is what you wanted to
-   * work in). Returns the entry, or null when the name is unusable.
+   * Create a session, by default switching to it (a new session is what you
+   * wanted to work in). Returns the entry, or null when the name is unusable.
+   *
+   * `beforeAnnounce` runs after the entry is in the list but before any
+   * listener hears about it. The importer uses it to seed the new session in
+   * the caller's cache, so the first UI reaction already reads the imported
+   * solves rather than an empty file.
+   *
+   * `activate: false` creates without switching. An import uses it so a file
+   * with several sessions switches once at the end instead of once per
+   * session, which would queue a scramble for every type it passed through.
    */
-  create(rawName: string): SessionEntry | null {
+  create(
+    rawName: string,
+    beforeAnnounce?: (entry: SessionEntry) => void,
+    activate = true,
+  ): SessionEntry | null {
     const name = rawName.trim()
     if (this.nameError(name) !== null) return null
 
@@ -151,8 +164,9 @@ export class SessionLibrary {
         : {}),
     }
     this.items.push(entry)
+    beforeAnnounce?.(entry)
     this.emit({ kind: 'created', entry })
-    this.switchTo(entry.id)
+    if (activate) this.switchTo(entry.id)
     return entry
   }
 

@@ -360,6 +360,12 @@ export function groupOfScrambleType(id: string): string | undefined {
 }
 
 const TYPE_BY_ID = new Map(SCRAMBLE_TYPES.map((type) => [type.id, type]))
+const TYPE_IDS = new Set(TYPE_BY_ID.keys())
+
+/** Whether `id` names a type in this catalogue (a hand-edited file's guard). */
+export function isScrambleType(id: string): boolean {
+  return TYPE_IDS.has(id)
+}
 
 /**
  * Both levels of the menu on one line: `Category - type`.

@@ -23,9 +23,9 @@ list.
 
 **Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8 and M9
-landed 2026-11-06**).** The queue is now **M10–M12, M16 and M17**; M17 is the
-phone-package slice M15 attached. M14 (touch) landed on 2026-10-23 and M7
+`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8, M9 and
+M10 landed 2026-11-06**).** The queue is now **M11–M12, M16 and M17**; M17 is
+the phone-package slice M15 attached. M14 (touch) landed on 2026-10-23 and M7
 (size preferences) on 2026-10-28.
 Numbers are stable identifiers, not queue positions (§6). Two of the
 adjacencies are
@@ -73,9 +73,10 @@ point at:
   `Record<keyof typeof en, …>` so the compiler lists every missing
   translation), a `language` preference (`system | en | zh-CN`, restart to
   apply), and `Intl` for dates and counts.
-- **M10 — csTimer-compatible import/export.** One JSON codec, both
-  directions (was "dropped as not needed" on 2026-09-30; reinstated by
-  decision 2026-10-05). Format evidence in §5, decisions 11–12 in §4.
+- **M10 — csTimer-compatible import/export (landed 2026-11-06).** One JSON
+  codec, both directions (was "dropped as not needed" on 2026-09-30;
+  reinstated by decision 2026-10-05). Format evidence in §5, decisions 11–12
+  in §4.
 - **M11 — records and statistics**: PB history (value, date, how long it
   stood), σ / best / worst / range, ao50/ao100/ao1000, per-day activity
   (solves/day, current + longest streak, best day). The Statistics dialog
@@ -294,14 +295,16 @@ src/
     Two findings from reading csTimer's `export.js` and `lib/storage.js`
     shape the export: `loadData()` runs `localStorage.clear()` when the file
     has a `properties` key, and `storage.importAll()` **overwrites** slots
-    `1…sessionN` rather than merging. So the export must carry
-    `properties = { sessionN, sessionData }` — omit it and csTimer keeps its
-    settings but silently drops every session past *its* current count — and
-    importing into csTimer is a **restore**, not an append. csTimer resets its
-    own settings to defaults in that case; there is no way to preserve
-    settings we were never given, so the confirmation dialog says so. Import
-    *from* csTimer is the safe direction and creates one new session per file
-    session (`SessionLibrary` already dedupes names).
+    `1…sessionN` rather than merging — so importing into csTimer is a
+    **restore**, not an append. Our export carries
+    `properties = { sessionN, sessionData }`; a real csTimer export (measured
+    2026-11-07) carried no `sessionN` even with all 15 session keys, so
+    csTimer derives the count — `sessionData` is the load-bearing half and
+    the count is belt-and-braces. csTimer resets its own settings to defaults
+    in that case; there is no way to preserve settings we were never given,
+    and exporting adds no warning step — the save dialog is the whole flow.
+    Import *from* csTimer is the safe direction and creates one new session
+    per file session (`SessionLibrary` already dedupes names).
 
 13. **Statistics growth — one incremental sorted window, not repeated sorts.**
     `bestWindow()` currently sorts every window it inspects; adding ao1000
@@ -487,18 +490,19 @@ properties: { sessionN: <int>,
 | `val[1]` time | **milliseconds**, raw and unpenalised → maps straight onto `Solve.timeMs` + `Solve.penalty` with no arithmetic |
 | `val[2…]` | phase splits — we have no field for them; drop and count |
 | index 1 / 2 | scramble / comment (empty string, not absent) |
-| index 3 | date in **epoch seconds** → `createdAtMs = date * 1000` |
+| index 3 | date in **epoch seconds** → `createdAtMs = date * 1000`; **optional** — older exports omit the element entirely (or write 0), imported as 0 = unknown and rendered as a blank timestamp |
 | `sessionData[i].opt.scrType` | csTimer's type id — *already* our id space (`333`, `444wca`, `pyrso`, …); validate against our 206-entry catalogue, fall back to the default |
 
 **Import into csTimer is a restore, and it wipes its settings.**
 `export.js:loadData()` does `if ('properties' in data) { localStorage.clear();
 … }` before `storage.importAll(data)`; `importAll` then writes
-`obj['session'+i]` for `i = 1…kernel.getProp('sessionN')` — so a missing
-session key becomes empty rather than being left alone. Consequences:
-`sessionN` **must** be present (else sessions past csTimer's current count are
-dropped), and csTimer's own settings return to defaults (it shows a delta
-confirmation first, and there is nothing we could put in `properties` to stop
-it). Import *from* csTimer reads only, so it is the safe direction.
+`obj['session'+i]` for `i = 1…kernel.getProp('sessionN')`. Consequences:
+importing is a restore, and csTimer's own settings return to defaults (it
+shows a delta confirmation first, and there is nothing we could put in
+`properties` to stop it). A real export measured 2026-11-07 had **no**
+`sessionN` while listing all 15 session keys, so the count comes from the
+keys rather than the property; our export still writes it. Import *from*
+csTimer reads only, so it is the safe direction.
 
 ### Rust: embedding the scrambler vs. porting it (researched 2026-10-08)
 
@@ -549,10 +553,10 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M10–M12, M16 and M17**; M13 landed on 2026-10-22
+The queue is **M11–M12, M16 and M17**; M13 landed on 2026-10-22
 as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, **M15 on 2026-10-31** and
-**M8 and M9 on 2026-11-06**, and the landed M0–M6 log closes the section. A
-number never moves: only the queue does.
+**M8, M9 and M10 on 2026-11-06**, and the landed M0–M6 log closes the
+section. A number never moves: only the queue does.
 
 | # | Deliverable | Done when |
 |---|---|---|
@@ -566,7 +570,7 @@ number never moves: only the queue does.
 | **M7** | Size preferences: timer readout / scramble text / scramble diagram scales, applied by `layoutFor()` rather than beside it; the duplicated diagram caps unified | A size slider changes the live UI and the 360×294 floor still holds |
 | **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change — **landed 2026-11-06: neutral dropped by measurement, case filter stays blocked** |
 | **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese — **landed 2026-11-06** |
-| **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out |
+| **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out — **landed 2026-11-06** |
 | **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
 | **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
@@ -1233,7 +1237,7 @@ under `zh-CN` and reads the labels back from the widget tree.
 **Checkpoint for the user:** switch Language to 中文, restart, read back the
 sidebar app menu, the app-functions menu, Preferences and Statistics.
 
-### M10 — scheduled (csTimer import/export)
+### M10 — landed 2026-11-06 (csTimer import/export)
 
 - **Codec** — `src/core/csTimerFormat.ts`: `parse(text) → { sessions, warnings }`
   and `format(sessions) → text`, following §5's format table exactly.
@@ -1246,8 +1250,8 @@ sidebar app menu, the app-functions menu, Preferences and Statistics.
   next load and would vanish silently); phase splits dropped and counted.
   Sessions ordered by `rank`, each created via `SessionLibrary.create()` and
   seeded straight into `Session` + `scheduleSave()`.
-- **Export** — all sessions, `properties = { sessionN, sessionData }`, with
-  the restore/settings caveat stated in the confirmation (decision 12).
+- **Export** — all sessions, `properties = { sessionN, sessionData }`; the
+  save dialog follows immediately (no extra confirmation, decision 12).
 - **UI** — `app.importData` / `app.exportData` on the app-functions menu,
   `<Ctrl+O>` / `<Ctrl+Shift+S>` (both free as of 2026-10-05; verify with
   `Gtk.acceleratorParse`), entries in `Adw.ShortcutsDialog`.
@@ -1256,6 +1260,35 @@ sidebar app menu, the app-functions menu, Preferences and Statistics.
   `save`/`saveFinish`) and `AsyncCallEnvironment` looks like exactly the
   machinery a GIO async callback needs, but no one here has called one.
   Fallback is `Gtk.FileChooserNative`.
+
+**Landed 2026-11-06.** `src/core/csTimerFormat.ts` parses and writes the
+format above; `src/core/sessionImport.ts` turns parsed sessions into library
+entries, and `SessionLibrary.create` gained a `beforeAnnounce` hook so the
+caller seeds the new `Session` before the list can load an empty file for it.
+Import validates the session type against the catalogue, dedupes names with a
+numeric suffix, truncates comments, counts dropped phase splits and reports
+malformed rows without losing the rest. Rows without a date — csTimer leaves
+the element off older solves — still import, with 0 for the timestamp and a
+blank date. Sessions are created with
+`activate: false` and the import switches once, to the first one, so a
+multi-session file does not queue a scramble for every type it passes
+through. The solve list and stats strip re-render only when the active
+`Session` object changes, not on every library event: rebuilding a 50 000-solve
+list once per created session froze the window for ~9 s on a 15-session
+import, and the same import now takes ~55 ms. Export writes
+`properties = { sessionN, sessionData }` and opens the save dialog directly.
+`src/platform/files.ts` does the async read/write; `main.ts` owns the two
+dialogs, the menu entries and `<Ctrl>O` / `<Ctrl>Shift+S`.
+
+**File dialog probe (2026-11-06).** `tools/file_dialog_probe.mjs` calls the
+real `Gtk.FileDialog`: the async callbacks fire under node-gtk with three
+arguments, and a `Gio.Cancellable` makes `openFinish`/`saveFinish` throw
+"Dismissed by user" / "Cancelled by application" rather than aborting. The
+filter (`patterns: ['*.json', '*.txt']`, because csTimer's own backups
+are `.txt` files of JSON) attaches without trouble. Under Xephyr
+the dialog is portal-backed and does not map in the nested display, so the
+file-picking half is a real-desktop checkpoint; `tools/import_probe.mjs`
+covers the file → sessions → index → files → export path headlessly.
 
 **Checkpoint for the user:** import a csTimer file and watch the sessions
 appear; export it back and open the result in csTimer.
@@ -2071,18 +2104,19 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M10–M12, M16 and M17 scheduled — M8 and M9 landed 2026-11-06** — the
-  scramble type control carries the length, the pre-scramble (a preference
-  through the module's `preScr` global) and the fast 4x4 switch, and the UI
-  reads English or Chinese through typed catalogs. Next is M10 csTimer
-  import/export → M11 records & statistics → M12 charts → M16 AUR package →
-  M17 phone package. M13 is out of the queue:
+- **M11–M12, M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06** —
+  the scramble type control carries the length, the pre-scramble (a
+  preference through the module's `preScr` global) and the fast 4x4 switch,
+  the UI reads English or Chinese through typed catalogs, and a csTimer file
+  imports into sessions and exports back out. Next is M11 records &
+  statistics → M12 charts → M16 AUR package → M17 phone package. M13 is out
+  of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
   (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M10–M12, M16 and M17 remain scheduled.
+  changelog entries. Nothing was dropped: M11–M12, M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and

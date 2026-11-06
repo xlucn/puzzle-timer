@@ -88,6 +88,10 @@ export function createShortcutsDialog(): ShortcutsDialog {
   section(t('stats.title'), [
     [t('shortcuts.statistics'), '<Ctrl>T'],
   ])
+  section(t('shortcuts.group.data'), [
+    [t('shortcuts.importData'), '<Ctrl>O'],
+    [t('shortcuts.exportData'), '<Ctrl><Shift>S'],
+  ])
   section(t('shortcuts.group.general'), [
     // <Ctrl>question is the gdk keyval name for '?': a literal '?' does
     // not parse and would render an empty chip (the keyval rule above).

@@ -13,6 +13,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A pre-scramble setting that turns the scramble diagram to a chosen orientation.
 - A fast 4x4 option that trades the WCA random-state scramble for instant random moves.
 - Language options, currently English and Simplified Chinese.
+- Import from and export to csTimer data files.
 
 ## [0.2.1] — 2026-11-03
 

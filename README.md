@@ -56,6 +56,7 @@ Here is what is done by me, at the current stage:
 - **Sessions**: create/rename/switch/delete, per-session scramble type.
 - **Statistics**: ao5/ao12/mo3, targets, etc.
 - **Records**: `+2`/`DNF`, comments, scramble.
+- **Migration**: import from and export to csTimer's data files.
 
 ## Install
 

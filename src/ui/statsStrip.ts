@@ -110,11 +110,10 @@ export function createStatsStrip(options: StatsStripOptions) {
   let unsubscribe: Unsubscribe = current.subscribe(refresh)
   options.library.subscribe(() => {
     const next = options.getSession()
-    if (next !== current) {
-      unsubscribe()
-      current = next
-      unsubscribe = current.subscribe(refresh)
-    }
+    if (next === current) return
+    unsubscribe()
+    current = next
+    unsubscribe = current.subscribe(refresh)
     refresh()
   })
   refresh()

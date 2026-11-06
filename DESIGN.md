@@ -25,6 +25,8 @@ src/
 │   ├── stats.ts         ao5/ao12/mo3 trimming, best single/avg, PB target
 │   ├── session.ts       Solve & Session models, CRUD, undo, penalties, comments
 │   ├── sessionLibrary.ts  session index rules: names, ids, active, scramble type
+│   ├── csTimerFormat.ts   csTimer data-file codec (parse + format, round-trip tested)
+│   ├── sessionImport.ts   parsed file sessions → library entries and seeded Session objects
 │   ├── scrambleTypes.ts   206-type catalogue + group/section structure (data-driven)
 │   ├── scrambleFeed.ts    prefetch state machine: type switch / advance / ready
 │   ├── layout.ts        every size threshold and the adaptive-layout rules
@@ -42,6 +44,7 @@ src/
 │   ├── store.ts         atomic JSON persistence in the XDG data dir
 │   ├── random.ts        CSPRNG seeding
 │   ├── audio.ts         inspection beeps — pre-rendered pulses, fire-and-forget
+│   ├── files.ts         async read/write of the file picked in a Gtk.FileDialog
 │   └── meta.ts          version/license/URLs, read from package.json
 └── ui/                 GTK widgets — the only place that imports gi:*
 ```
@@ -142,14 +145,15 @@ breaking:
 
 ## csTimer compatibility
 
-csTimer's data-file format will land as a pure codec
-(`src/core/csTimerFormat.ts`, round-trip tested — M10, not built yet); only
-the file chooser and the toast are UI. Two findings from csTimer's own source shape the export: a
-file carrying `properties` makes csTimer clear its `localStorage`, and
-importing into csTimer **overwrites** sessions rather than merging — so an
-export must carry `properties = { sessionN, sessionData }`, and importing
-into csTimer is a *restore*, not an append. Importing *from* csTimer is the
-safe direction.
+The format is a pure codec (`src/core/csTimerFormat.ts`, round-trip tested);
+`src/core/sessionImport.ts` turns parsed sessions into library entries and
+seeds their `Session` objects before the library announces them. Only the
+file dialogs and the toasts are UI. Two findings from
+csTimer's own source shape the export: a file carrying `properties` makes
+csTimer clear its `localStorage`, and importing into csTimer **overwrites**
+sessions rather than merging — so an export must carry
+`properties = { sessionN, sessionData }`, and importing into csTimer is a
+*restore*, not an append. Importing *from* csTimer is the safe direction.
 
 ## Licensing
 

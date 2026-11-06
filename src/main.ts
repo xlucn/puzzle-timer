@@ -31,6 +31,11 @@ import {
   type ContentSize,
   type DiagramPlacement,
 } from './core/layout.js'
+import {
+  formatCsTimerData,
+  parseCsTimerData,
+  type ExportSession,
+} from './core/csTimerFormat.js'
 import { resolveLanguage, setLocale, t } from './core/i18n.js'
 import { ScrambleFeed } from './core/scrambleFeed.js'
 import type { Preferences } from './core/preferences.js'
@@ -40,10 +45,12 @@ import {
   scrambleLength,
 } from './core/scrambleTypes.js'
 import { Session, type RemovedSolve, type Solve, type Unsubscribe } from './core/session.js'
+import { importIntoLibrary } from './core/sessionImport.js'
 import { SessionLibrary } from './core/sessionLibrary.js'
 import type { Penalty } from './core/time.js'
 import { Timer, type TimerState } from './core/timer.js'
 import { playInspectionCue } from './platform/audio.js'
+import { readTextFile, writeTextFile } from './platform/files.js'
 import { APP_ISSUES, APP_REPOSITORY, APP_VERSION, releaseNotesHtml } from './platform/meta.js'
 import * as store from './platform/store.js'
 import { createScrambleService } from './scramble/service.js'
@@ -297,10 +304,13 @@ app.on('activate', () => {
 
   // The app's one menu, in the content header — app-wide actions belong to
   // the window, and this one stays reachable while the sidebar is closed.
-  // Two sections: Statistics alone, then the application-level actions — a
-  // second section is what draws the separator.
+  // Three sections (Statistics, Data, application-level actions); a section
+  // boundary is what draws the separator.
   const statisticsSection = new Gio.Menu()
   statisticsSection.append(t('menu.statistics'), 'app.statistics')
+  const dataSection = new Gio.Menu()
+  dataSection.append(t('menu.importData'), 'app.importData')
+  dataSection.append(t('menu.exportData'), 'app.exportData')
   const applicationSection = new Gio.Menu()
   // The label is the only state indicator: a checkable item would make GTK
   // reserve a check column on every row of the menu.
@@ -314,6 +324,7 @@ app.on('activate', () => {
   applicationSection.append(t('menu.quit'), 'app.quit')
   const appMenuModel = new Gio.Menu()
   appMenuModel.appendSection(null, statisticsSection)
+  appMenuModel.appendSection(null, dataSection)
   appMenuModel.appendSection(null, applicationSection)
   const appMenuButton = new Gtk.MenuButton({
     iconName: 'open-menu-symbolic',
@@ -1323,6 +1334,161 @@ app.on('activate', () => {
     set: (patch) => applyPreferences(patch),
   })
   app.setAccelsForAction('app.preferences', ['<Control>comma'])
+
+  // ---- csTimer import / export -------------------------------------------
+  // The codec (src/core/csTimerFormat.ts) owns the shape; this block owns the
+  // two dialogs and the one place imported solves enter the session cache.
+  /** The JSON filter both file dialogs share. */
+  const transferFilter = () => {
+    const filter = new Gtk.FileFilter({
+      name: t('transfer.filter'),
+      // csTimer's own backups are named .txt even though the content is
+      // JSON, so an import must not hide them behind a .json-only filter.
+      patterns: ['*.json', '*.txt'],
+      suffixes: ['json', 'txt'],
+    })
+    const filters = Gio.ListStore.new(GObject.typeFromName('GtkFileFilter'))
+    filters.append(filter)
+    return { filter, filters }
+  }
+
+  /** A cancelled file dialog is not an error and says nothing. */
+  const isDismissed = (error: unknown): boolean =>
+    error instanceof Error && /dismiss|cancel/i.test(error.message)
+
+  const reportTransferError = (kind: 'import' | 'export', error: unknown): void => {
+    const detail = error instanceof Error ? error.message : String(error)
+    console.error(`[${kind}] ${detail}`)
+    toastOverlay.addToast(
+      new Adw.Toast({
+        title: t(kind === 'import' ? 'transfer.import.failed' : 'transfer.export.failed'),
+        timeout: 8,
+      }),
+    )
+  }
+
+  /**
+   * Create one session per file session. The cache is seeded through
+   * importIntoLibrary's hook, before the library announces the new id, so the
+   * list's first reaction already reads the imported solves.
+   */
+  const importSessions = (parsed: ReturnType<typeof parseCsTimerData>): void => {
+    const summary = importIntoLibrary(library, parsed.sessions, {
+      onSession: (entry, solves) => {
+        const session = new Session(solves)
+        const unsubscribe = session.subscribe(() =>
+          store.scheduleSave(entry.id, session.solves),
+        )
+        loadedSessions.set(entry.id, { session, unsubscribe })
+        store.scheduleSave(entry.id, solves)
+      },
+    })
+
+    for (const warning of parsed.warnings) console.error(`[import] ${warning}`)
+    const text = t('transfer.import.done', {
+      sessions: t('transfer.import.sessions', { count: summary.sessionCount }),
+      solves: t('transfer.import.solves', { count: summary.solveCount }),
+    })
+    const suffix =
+      parsed.warnings.length > 0
+        ? ` · ${t('transfer.import.warnings', { count: parsed.warnings.length })}`
+        : ''
+    toastOverlay.addToast(new Adw.Toast({ title: `${text}${suffix}`, timeout: 8 }))
+  }
+
+  /** Read the picked file and turn it into sessions; errors become one toast. */
+  const importFromPath = (path: string): void => {
+    void readTextFile(path)
+      .then((text) => {
+        try {
+          importSessions(parseCsTimerData(text))
+        } catch (error) {
+          reportTransferError('import', error)
+        }
+      })
+      .catch((error: unknown) => reportTransferError('import', error))
+  }
+
+  const chooseImportFile = (): void => {
+    const { filter, filters } = transferFilter()
+    const dialog = new Gtk.FileDialog({
+      title: t('transfer.import.title'),
+      acceptLabel: t('transfer.import.accept'),
+      filters,
+      defaultFilter: filter,
+    })
+    dialog.open(window, null, (_source, result) => {
+      let file
+      try {
+        file = dialog.openFinish(result)
+      } catch (error) {
+        if (!isDismissed(error)) reportTransferError('import', error)
+        return
+      }
+      const path = file.getPath()
+      if (path === null) {
+        reportTransferError('import', new Error(`not a local file: ${file.getUri()}`))
+        return
+      }
+      importFromPath(path)
+    })
+  }
+
+  const chooseExportFile = (): void => {
+    const { filter, filters } = transferFilter()
+    const dialog = new Gtk.FileDialog({
+      title: t('transfer.export.title'),
+      acceptLabel: t('transfer.export.accept'),
+      filters,
+      defaultFilter: filter,
+      initialName: `puzzle-timer-${new Date().toISOString().slice(0, 10)}.json`,
+    })
+    dialog.save(window, null, (_source, result) => {
+      let file
+      try {
+        file = dialog.saveFinish(result)
+      } catch (error) {
+        if (!isDismissed(error)) reportTransferError('export', error)
+        return
+      }
+      const path = file.getPath()
+      if (path === null) {
+        reportTransferError('export', new Error(`not a local file: ${file.getUri()}`))
+        return
+      }
+      const sessions: ExportSession[] = library.entries.map((entry) => {
+        const session: ExportSession = {
+          name: entry.name,
+          solves: sessionFor(entry.id).solves,
+        }
+        if (entry.scrambleType !== undefined) session.scrambleType = entry.scrambleType
+        return session
+      })
+      const text = formatCsTimerData(sessions)
+      void writeTextFile(path, text)
+        .then(() => {
+          toastOverlay.addToast(
+            new Adw.Toast({
+              title: t('transfer.export.done', {
+                name: file.getBasename() ?? path,
+              }),
+              timeout: 6,
+            }),
+          )
+        })
+        .catch((error: unknown) => reportTransferError('export', error))
+    })
+  }
+
+  const importAction = Gio.SimpleAction.new('importData', null)
+  importAction.on('activate', () => chooseImportFile())
+  app.addAction(importAction)
+  app.setAccelsForAction('app.importData', ['<Control>o'])
+
+  const exportAction = Gio.SimpleAction.new('exportData', null)
+  exportAction.on('activate', () => chooseExportFile())
+  app.addAction(exportAction)
+  app.setAccelsForAction('app.exportData', ['<Control><Shift>s'])
 
   // ---- editing a solve ----------------------------------------------------
   // Ctrl+1/2/3 = OK / +2 / DNF on the *newest* solve; repeating a penalty

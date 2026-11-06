@@ -38,6 +38,8 @@ export const en = {
   'menu.cancelInspection': 'Cancel the inspection (Esc)',
   'menu.showList': 'Show solve list',
   'menu.about': 'About {name}',
+  'menu.importData': 'Import from csTimer…',
+  'menu.exportData': 'Export to csTimer…',
 
   // ---- timer -------------------------------------------------------------
   'timer.hint.idle': 'Hold Space or touch to start',
@@ -63,6 +65,23 @@ export const en = {
   'scramble.scrambles': 'Number of scrambles',
   'scramble.cubes': 'Number of cubes',
   'scramble.failed': 'Scramble failed: {reason}',
+
+  // ---- csTimer transfer --------------------------------------------------
+  'transfer.import.title': 'Import from csTimer',
+  'transfer.import.accept': 'Import',
+  'transfer.export.title': 'Export to csTimer',
+  'transfer.filter': 'csTimer data',
+  'transfer.export.accept': 'Export',
+  'transfer.import.sessions': { one: '{count} session', other: '{count} sessions' },
+  'transfer.import.solves': { one: '{count} solve', other: '{count} solves' },
+  'transfer.import.done': 'Imported {sessions}, {solves}.',
+  'transfer.import.warnings': {
+    one: '{count} warning — see the log',
+    other: '{count} warnings — see the log',
+  },
+  'transfer.import.failed': 'Import failed',
+  'transfer.export.done': 'Exported to {name}',
+  'transfer.export.failed': 'Export failed',
 
   // ---- preferences -------------------------------------------------------
   'prefs.title': 'Preferences',
@@ -165,6 +184,7 @@ export const en = {
   'shortcuts.group.list': 'Solve list',
   'shortcuts.group.sessions': 'Sessions',
   'shortcuts.group.general': 'General',
+  'shortcuts.group.data': 'Data',
   'shortcuts.startStop': 'Start and stop the timer',
   'shortcuts.cancelInspection': 'Cancel the inspection countdown',
   'shortcuts.copyScramble': 'Copy the scramble',
@@ -184,6 +204,8 @@ export const en = {
   'shortcuts.preferences': 'Open preferences',
   'shortcuts.fullscreen': 'Toggle fullscreen',
   'shortcuts.quit': 'Quit',
+  'shortcuts.importData': 'Import from csTimer',
+  'shortcuts.exportData': 'Export to csTimer',
 
   // ---- toasts ------------------------------------------------------------
   'toast.solvesDeleted': { one: 'Solve deleted', other: '{count} solves deleted' },

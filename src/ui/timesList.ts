@@ -610,15 +610,15 @@ export function createTimesList(options: TimesListOptions) {
 
   // A session switch hands the list a different Session to read: re-point
   // the subscription first so the old one's changes stop arriving, then
-  // rebuild. Rename/create trigger an idempotent extra pass — two passes,
-  // not two code paths.
+  // rebuild. Other library events (create now, switch later — an import
+  // does that) leave this list's subject alone, and rebuilding a large
+  // session per event would freeze the window for seconds.
   options.library.subscribe(() => {
     const next = options.getSession()
-    if (next !== current) {
-      unsubscribe()
-      current = next
-      unsubscribe = current.subscribe(rebuild)
-    }
+    if (next === current) return
+    unsubscribe()
+    current = next
+    unsubscribe = current.subscribe(rebuild)
     rebuild()
   })
 

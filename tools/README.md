@@ -17,6 +17,8 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets, including the language ComboRow |
 | `i18n_probe.mjs` | Headless: the zh-CN catalog reaches real widgets — the timer hint, Preferences (title, page, hold-time and language rows) and the shortcuts dialog, read back by their Chinese labels |
 | `prescr_probe.mjs` | Headless: what csTimer's `preScr` global changes — one scramble drawn twice, writing both SVGs to `/tmp/opencode`, plus the text-vs-image checks behind the pre-scramble preference |
+| `file_dialog_probe.mjs` | Headless (X11): `Gtk.FileDialog`'s async `open`/`save` callbacks fire under node-gtk, and a cancellation comes back through `openFinish`/`saveFinish` instead of aborting — with the JSON filter attached |
+| `import_probe.mjs` | Headless: a csTimer file becomes sessions, solves, an index and session files through `src/platform/store.ts`, then exports and parses back |
 | `scramble_control_probe.mjs` | Headless: the header's type control (`Adw.SplitButton`) — both halves and their tooltips, the popover's length row per type and the fast-scramble switch, their callbacks, and the arrow alone going insensitive on a type with no length |
 | `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
 | `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the floor line of the layout walk) |

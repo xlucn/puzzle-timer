@@ -41,6 +41,8 @@ export const zhCN: Record<MessageKey, Message> = {
   'menu.cancelInspection': '中断观察（Esc）',
   'menu.showList': '显示成绩列表',
   'menu.about': '关于 {name}',
+  'menu.importData': '从 csTimer 导入…',
+  'menu.exportData': '导出到 csTimer…',
 
   // ---- timer -------------------------------------------------------------
   'timer.hint.idle': '按住空格或触摸屏幕开始',
@@ -66,6 +68,20 @@ export const zhCN: Record<MessageKey, Message> = {
   'scramble.scrambles': '打乱数量',
   'scramble.cubes': '魔方数量',
   'scramble.failed': '打乱失败：{reason}',
+
+  // ---- csTimer transfer --------------------------------------------------
+  'transfer.import.title': '从 csTimer 导入',
+  'transfer.import.accept': '导入',
+  'transfer.export.title': '导出到 csTimer',
+  'transfer.filter': 'csTimer 数据',
+  'transfer.export.accept': '导出',
+  'transfer.import.sessions': { other: '{count} 个会话' },
+  'transfer.import.solves': { other: '{count} 条成绩' },
+  'transfer.import.done': '已导入 {sessions}，共 {solves}。',
+  'transfer.import.warnings': { other: '{count} 条警告 — 详见日志' },
+  'transfer.import.failed': '导入失败',
+  'transfer.export.done': '已导出到 {name}',
+  'transfer.export.failed': '导出失败',
 
   // ---- preferences -------------------------------------------------------
   'prefs.title': '首选项',
@@ -167,6 +183,7 @@ export const zhCN: Record<MessageKey, Message> = {
   'shortcuts.group.list': '成绩列表',
   'shortcuts.group.sessions': '会话',
   'shortcuts.group.general': '通用',
+  'shortcuts.group.data': '数据',
   'shortcuts.startStop': '开始和停止计时器',
   'shortcuts.cancelInspection': '取消观察倒计时',
   'shortcuts.copyScramble': '复制打乱',
@@ -186,6 +203,8 @@ export const zhCN: Record<MessageKey, Message> = {
   'shortcuts.preferences': '打开首选项',
   'shortcuts.fullscreen': '切换全屏',
   'shortcuts.quit': '退出',
+  'shortcuts.importData': '从 csTimer 导入',
+  'shortcuts.exportData': '导出到 csTimer',
 
   // ---- toasts ------------------------------------------------------------
   'toast.solvesDeleted': { other: '已删除 {count} 条成绩' },

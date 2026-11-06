@@ -285,11 +285,11 @@ package scheduled as M16**. Stackmat is a **long-term** goal (PLAN.md), not
 current work.
 
 **Scheduled — not out of scope** (PLAN.md §1; follow the milestone blocks,
-don't redesign them): **M10** csTimer import/export → **M11** records &
-statistics → **M12** charts → **M16** AUR package (one blocker left: the repo
-must be public at tag time; PLAN.md §6 has the draft PKGBUILD). Numbers are
-stable identifiers, not queue positions: reorder the queue, never the
-numbers. M7, M15, M8 and M9 landed; their blocks stay in PLAN.md §6.
+don't redesign them): **M11** records & statistics → **M12** charts → **M16**
+AUR package (one blocker left: the repo must be public at tag time; PLAN.md
+§6 has the draft PKGBUILD). Numbers are stable identifiers, not queue
+positions: reorder the queue, never the numbers. M7, M15, M8, M9 and M10
+landed; their blocks stay in PLAN.md §6.
 
 Only **M15** may reopen packaging any further (Flatpak, deb, AppStream).
 

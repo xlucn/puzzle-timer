@@ -102,7 +102,10 @@ export function formatAverage(ms: number): string {
  * with `new Date(y, m, d, h, min)`, i.e. local time on purpose).
  */
 export function formatTimestamp(epochMs: number, now: number = Date.now()): string {
-  if (!Number.isFinite(epochMs)) return ''
+  // 0 is the import's "unknown" (a csTimer row without a date); the epoch is
+  // not a solve anyone recorded, so it reads as no timestamp rather than as
+  // 1970.
+  if (!Number.isFinite(epochMs) || epochMs <= 0) return ''
 
   const then = new Date(epochMs)
   const today = new Date(now)
@@ -133,7 +136,7 @@ const pad2 = (value: number): string => String(value).padStart(2, '0')
  * not a dialog whose whole point is the details.
  */
 export function formatFullTimestamp(epochMs: number): string {
-  if (!Number.isFinite(epochMs)) return ''
+  if (!Number.isFinite(epochMs) || epochMs <= 0) return ''
   const then = new Date(epochMs)
   const date = `${then.getFullYear()}-${pad2(then.getMonth() + 1)}-${pad2(then.getDate())}`
   const clock = `${pad2(then.getHours())}:${pad2(then.getMinutes())}:${pad2(then.getSeconds())}`

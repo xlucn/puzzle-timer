@@ -85,6 +85,34 @@ describe('SessionLibrary — create', () => {
     })
   })
 
+  it('runs the before-announce hook before any listener', () => {
+    const library = one()
+    const listener = vi.fn()
+    library.subscribe(listener)
+    let seen: string | null = null
+
+    library.create('Imported', (created) => {
+      expect(listener).not.toHaveBeenCalled()
+      expect(library.find(created.id)).toEqual(created)
+      seen = created.id
+    })
+
+    expect(seen).toBe('imported')
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it('can create without switching (an import switches once at the end)', () => {
+    const library = one()
+    const listener = vi.fn()
+    library.subscribe(listener)
+
+    const created = library.create('Side', undefined, false)
+
+    expect(library.activeId).toBe('default')
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener.mock.calls[0][0]).toEqual({ kind: 'created', entry: created })
+  })
+
   it('derives a file id from the name, folding accents', () => {
     const library = one()
     expect(library.create('Café practice')?.id).toBe('cafe-practice')

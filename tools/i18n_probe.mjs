@@ -98,12 +98,37 @@ app.on('activate', () => {
     }
 
     // ---- shortcuts -------------------------------------------------------
+    // The dialog renders its sections from a model when presented, so the
+    // labels exist only after `map`.
     const shortcuts = createShortcutsDialog()
-    check(shortcuts.title === '键盘快捷键', `shortcuts title is Chinese (${shortcuts.title})`)
+    let shortcutsDone = false
+    const checkShortcuts = () => {
+      if (shortcutsDone) return
+      shortcutsDone = true
+      const labels = shownLabels(shortcuts)
+      check(shortcuts.title === '键盘快捷键', `shortcuts title is Chinese (${shortcuts.title})`)
+      check(labels.includes('数据'), `the shortcuts dialog has the Data group (${labels.join(' | ')})`)
+      check(
+        labels.includes('从 csTimer 导入') && labels.includes('导出到 csTimer'),
+        'the import and export shortcuts are listed',
+      )
+      finish()
+    }
+    shortcuts.on('map', checkShortcuts)
+    GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 3000, () => {
+      checkShortcuts()
+      return false
+    })
+    shortcuts.present(window)
+  })
 
+  let finished = false
+  const finish = () => {
+    if (finished) return
+    finished = true
     log(failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`)
     app.quit()
-  })
+  }
 
   window.on('close-request', () => false)
   window.present()

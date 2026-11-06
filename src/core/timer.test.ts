@@ -115,6 +115,7 @@ describe('formatTimestamp', () => {
   it('clamps nonsense input to an empty stamp', () => {
     expect(formatTimestamp(Number.NaN)).toBe('')
     expect(formatTimestamp(Number.POSITIVE_INFINITY)).toBe('')
+    expect(formatTimestamp(0)).toBe('') // an imported row csTimer left undated
   })
 })
 
@@ -130,6 +131,7 @@ describe('formatFullTimestamp', () => {
   it('clamps nonsense input to an empty stamp', () => {
     expect(formatFullTimestamp(Number.NaN)).toBe('')
     expect(formatFullTimestamp(Number.POSITIVE_INFINITY)).toBe('')
+    expect(formatFullTimestamp(0)).toBe('')
   })
 })
 
