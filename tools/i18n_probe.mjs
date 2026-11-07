@@ -16,8 +16,10 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { setLocale } from '../src/core/i18n.js'
 import { DEFAULT_PREFERENCES } from '../src/core/preferences.js'
+import { Session } from '../src/core/session.js'
 import { createPreferences } from '../src/ui/preferences.js'
 import { createShortcutsDialog } from '../src/ui/shortcuts.js'
+import { createStatsPanel } from '../src/ui/statsPanel.js'
 import { createTimerView } from '../src/ui/timerLabel.js'
 
 setLocale('zh-CN')
@@ -73,6 +75,23 @@ app.on('activate', () => {
     shownLabels(timer.widget).includes('按住空格或触摸屏幕开始'),
     `the idle hint is Chinese (${shownLabels(timer.widget).join(' | ')})`,
   )
+
+  // ---- statistics tabs ---------------------------------------------------
+  // The tab strip is the one part of the dialog that exists before any page
+  // is visible, so it is a direct check that the new labels go through the
+  // catalog, not just through the compiler.
+  const statsDialog = createStatsPanel({
+    app,
+    window,
+    getSession: () => new Session(),
+  }).open()
+  const statsChild = statsDialog.getChild?.() ?? null
+  const statsLabels = shownLabels(statsChild)
+  check(
+    ['概览', '纪录', '活跃度'].every((label) => statsLabels.includes(label)),
+    `statistics tabs are Chinese (${statsLabels.filter((label) => ['概览', '纪录', '活跃度'].includes(label)).join(' | ')})`,
+  )
+  statsDialog.close()
 
   // ---- preferences -------------------------------------------------------
   const { open } = createPreferences({

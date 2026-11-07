@@ -17,6 +17,8 @@ import {
   pbTarget,
   sessionMean,
   sessionStats,
+  spread,
+  STAT_KINDS,
   windowAtEach,
   windowSpec,
 } from './stats.js'
@@ -319,5 +321,130 @@ describe('sessionStats', () => {
     expect(stats.mean).toEqual({ mean: (10_000 + 9_000 + 11_000 + 13_000) / 4, dnfCount: 1, count: 4 })
     expect(stats.best.ao5).not.toBeNull()
     expect(stats.target.single).toEqual({ kind: 'value', ms: 8_990 })
+  })
+
+  it('covers every window, including the long averages, and the spread', () => {
+    const solves: Solve[] = Array.from({ length: 1001 }, (_, i) => ({
+      id: i + 1,
+      timeMs: 10_000 + i * 10,
+      scramble: '',
+      scrambleType: '333',
+      createdAtMs: 0,
+    }))
+    const stats = sessionStats(solves)
+    expect(Object.keys(stats.current)).toEqual([...STAT_KINDS])
+    expect(stats.current.ao1000).toBe((10_020 + 19_990) / 2)
+    expect(stats.best.ao1000).not.toBeNull()
+    expect(stats.spread.best).toBe(10_000)
+    expect(stats.spread.worst).toBe(20_000)
+    expect(stats.spread.count).toBe(1001)
+    expect(stats.totalMs).toBe(solves.reduce((sum, solve) => sum + solve.timeMs, 0))
+  })
+})
+
+describe('the long windows', () => {
+  it('specs ao50/ao100/ao1000 with csTimer’s [1,1] trim', () => {
+    expect(windowSpec('ao50')).toEqual({ size: 50, trimL: 1, trimR: 1 })
+    expect(windowSpec('ao100')).toEqual({ size: 100, trimL: 1, trimR: 1 })
+    expect(windowSpec('ao1000')).toEqual({ size: 1000, trimL: 1, trimR: 1 })
+  })
+
+  it('keeps one DNF trimmable and lets two poison an ao50', () => {
+    const oneDnf = Array.from({ length: 50 }, (_, i) => 10_000 + i * 10)
+    oneDnf[7] = INF
+    const kept = [...oneDnf].sort((a, b) => a - b).slice(1, -1)
+    expect(currentWindow(oneDnf, 'ao50')).toBe(
+      kept.reduce((sum, value) => sum + value, 0) / kept.length,
+    )
+
+    const twoDnfs = [...oneDnf.slice(0, 49), INF]
+    expect(currentWindow(twoDnfs, 'ao50')).toBe(INF)
+  })
+
+  it('agrees with currentWindow on every prefix for the long windows', () => {
+    const times = Array.from({ length: 160 }, (_, i) =>
+      i % 17 === 5 ? INF : 9_000 + ((i * 137) % 4_000),
+    )
+    for (const kind of ['ao50', 'ao100'] as const) {
+      const perSolve = windowAtEach(times, kind)
+      times.forEach((_, index) => {
+        const prefix = currentWindow(times.slice(0, index + 1), kind)
+        if (Number.isNaN(prefix)) expect(perSolve[index]).toBeNaN()
+        else expect(perSolve[index]).toBe(prefix)
+      })
+    }
+  })
+
+  it('finds the same best as the plain meanWindow scan', () => {
+    // A deterministic pseudo-random session with occasional DNFs: enough to
+    // cross the incremental sorted window against the reference sort.
+    let seed = 12345
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31
+      return seed / 2 ** 31
+    }
+    const times = Array.from({ length: 260 }, () => {
+      const value = 8_000 + Math.floor(next() * 8_000)
+      return next() < 0.08 ? INF : Math.floor(value / 10) * 10
+    })
+    for (const kind of STAT_KINDS) {
+      const { size, trimL, trimR } = windowSpec(kind)
+      let reference: { value: number; endIndex: number } | null = null
+      for (let end = 0; end < times.length; end += 1) {
+        if (kind !== 'single' && end + 1 < size) continue
+        const value =
+          kind === 'single'
+            ? times[end]
+            : meanWindow(times.slice(end + 1 - size, end + 1), trimL, trimR)
+        if (reference === null || value < reference.value) reference = { value, endIndex: end }
+      }
+      expect(bestWindow(times, kind), kind).toEqual(reference)
+    }
+  })
+
+  it('renders a 1000-window run in a few milliseconds, not a sort per window', () => {
+    // Not a benchmark, just a guard against reintroducing the O(n·k log k)
+    // scan: 20 000 solves would take seconds with the old bestWindow and is
+    // well under the looser bound here with the incremental window.
+    const times = Array.from({ length: 20_000 }, (_, i) => 10_000 + ((i * 37) % 3_000))
+    const started = Date.now()
+    const best = bestWindow(times, 'ao1000')
+    expect(best).not.toBeNull()
+    expect(Date.now() - started).toBeLessThan(2_000)
+  })
+})
+
+describe('spread', () => {
+  it('uses finite times only and reports the population σ', () => {
+    const result = spread([10_000, 12_000, 14_000, INF])
+    expect(result).toEqual({
+      best: 10_000,
+      worst: 14_000,
+      range: 4_000,
+      // mean 12 000; deviations -2000, 0, 2000 → 8 000 000 / 3
+      sigma: Math.sqrt(8_000_000 / 3),
+      count: 3,
+    })
+  })
+
+  it('has no figures when every solve is a DNF', () => {
+    expect(spread([INF, INF])).toEqual({
+      best: null,
+      worst: null,
+      range: null,
+      sigma: NaN,
+      count: 0,
+    })
+    expect(spread([]).sigma).toBeNaN()
+  })
+
+  it('is zero-width when every finite time is the same', () => {
+    expect(spread([12_000, 12_000])).toEqual({
+      best: 12_000,
+      worst: 12_000,
+      range: 0,
+      sigma: 0,
+      count: 2,
+    })
   })
 })

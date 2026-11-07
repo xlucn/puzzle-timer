@@ -5,12 +5,14 @@
  *
  * The rules are ported from csTimer's GPL `timestat.js` (TimeStat) — the
  * *math*, not the DOM: DNF as ∞ so it sorts last and poisons an average only
- * when it survives trimming (WCA 9f8–9f9), trim [1,1] for ao5/ao12, no trim
+ * when it survives trimming (WCA 9f8–9f9), trim [1,1] for every aoN, no trim
  * for mo3 (any DNF → DNF, WCA 9f10), session mean over non-DNF solves only.
  * What csTimer does with a red-black tree over a sorted list, this module
- * does with plain array math: sessions hold thousands of solves, not
- * millions, and every call here is O(n) over the window or O(n) per window
- * scan — still microseconds.
+ * does with an incrementally maintained sorted window: adding and removing a
+ * solve are binary-search + splice, and the trimmed mean is read off the
+ * running sums in O(1). That keeps a 50 000-solve session with an ao1000 on
+ * screen in the tens of milliseconds instead of the repeated sorts an
+ * ao5/ao12-sized window could afford.
  *
  * Units: everything in milliseconds, *effective* milliseconds — the caller
  * maps solves through `effectiveMs(timeMs, penalty)` first (src/core/time.ts),
@@ -21,12 +23,12 @@ import type { Solve } from './session.js'
 import { effectiveMs } from './time.js'
 
 /** The averages we show. `single` is a "window" of size 1 for the dialog. */
-export type StatKind = 'single' | 'mo3' | 'ao5' | 'ao12'
+export type StatKind = 'single' | 'mo3' | 'ao5' | 'ao12' | 'ao50' | 'ao100' | 'ao1000'
 
 export interface WindowSpec {
   /** Solves in the window. */
   size: number
-  /** Best and worst dropped from each end (WCA 9f8: [1,1] for ao5/ao12). */
+  /** Best and worst dropped from each end (WCA 9f8: [1,1] for every aoN). */
   trimL: number
   trimR: number
 }
@@ -35,9 +37,25 @@ const SPECS: Record<StatKind, WindowSpec> = {
   single: { size: 1, trimL: 0, trimR: 0 },
   // mo3 is the plain mean of three: no trimming, so any DNF poisons it.
   mo3: { size: 3, trimL: 0, trimR: 0 },
+  // The larger averages are csTimer's: like ao5/ao12, one solve is dropped
+  // from each end rather than a percentage.
   ao5: { size: 5, trimL: 1, trimR: 1 },
   ao12: { size: 12, trimL: 1, trimR: 1 },
+  ao50: { size: 50, trimL: 1, trimR: 1 },
+  ao100: { size: 100, trimL: 1, trimR: 1 },
+  ao1000: { size: 1000, trimL: 1, trimR: 1 },
 }
+
+/** Every kind, shortest window first — the dialog's row order. */
+export const STAT_KINDS: readonly StatKind[] = [
+  'single',
+  'mo3',
+  'ao5',
+  'ao12',
+  'ao50',
+  'ao100',
+  'ao1000',
+]
 
 export function windowSpec(kind: StatKind): WindowSpec {
   return SPECS[kind]
@@ -89,6 +107,71 @@ export function currentWindow(times: readonly number[], kind: StatKind): number 
   return meanWindow(times.slice(times.length - size), trimL, trimR)
 }
 
+/** Index of the first element ≥ `value` (Infinity sorts last). */
+function lowerBound(values: readonly number[], value: number): number {
+  let low = 0
+  let high = values.length
+  while (low < high) {
+    const mid = (low + high) >>> 1
+    if (values[mid] < value) low = mid + 1
+    else high = mid
+  }
+  return low
+}
+
+/**
+ * A sliding window kept in ascending order, with its trimmed mean readable in
+ * O(1): `finiteSum` and `infinityCount` make the kept span's sum a couple of
+ * subtractions, because the trim count is tiny and fixed (1 for every aoN).
+ *
+ * DNFs are `Infinity` and therefore always occupy the end: if more of them
+ * survive than `trimR`, the window's mean is ∞ — exactly `meanWindow`'s rule.
+ */
+class SortedWindow {
+  private readonly values: number[] = []
+  private finiteSum = 0
+  private infinityCount = 0
+
+  constructor(
+    private readonly trimL: number,
+    private readonly trimR: number,
+  ) {}
+
+  get size(): number {
+    return this.values.length
+  }
+
+  add(value: number): void {
+    this.values.splice(lowerBound(this.values, value), 0, value)
+    if (Number.isFinite(value)) this.finiteSum += value
+    else this.infinityCount += 1
+  }
+
+  remove(value: number): void {
+    const index = lowerBound(this.values, value)
+    if (index >= this.values.length) return // callers remove what they added
+    this.values.splice(index, 1)
+    if (Number.isFinite(value)) this.finiteSum -= value
+    else this.infinityCount -= 1
+  }
+
+  mean(): number {
+    const kept = this.values.length - this.trimL - this.trimR
+    if (kept <= 0) return Number.NaN
+    if (this.infinityCount > this.trimR) return Number.POSITIVE_INFINITY
+    let sum = this.finiteSum
+    for (let i = 0; i < this.trimL; i += 1) {
+      const value = this.values[i]
+      if (Number.isFinite(value)) sum -= value
+    }
+    for (let i = this.values.length - this.trimR; i < this.values.length; i += 1) {
+      const value = this.values[i]
+      if (Number.isFinite(value)) sum -= value
+    }
+    return sum / kept
+  }
+}
+
 /**
  * The value of `kind` **as of each solve**: `out[i]` is the window *ending*
  * at `times[i]`, in session order (oldest → newest) — the number the solve
@@ -97,19 +180,24 @@ export function currentWindow(times: readonly number[], kind: StatKind): number 
  *
  * NaN until the window has filled, the same contract as `currentWindow`: the
  * caller decides what an incomplete window looks like (the list and the strip
- * both show an em dash), never a misleading partial average.
+ * both show an em dash), never a misleading partial average. `single` is the
+ * times themselves.
  *
  * `currentWindow(times, kind)` is the last element of this — kept separate
  * because the strip asks for that one number and should not pay for a session
- * scan to get it. This is O(n) windows of at most 12 numbers each, so a
- * rebuild of a few thousand solves stays in microseconds.
+ * scan to get it.
  */
 export function windowAtEach(times: readonly number[], kind: StatKind): number[] {
   const { size, trimL, trimR } = SPECS[kind]
-  const out: number[] = new Array(times.length)
+  if (kind === 'single') return [...times]
+  const out: number[] = new Array(times.length).fill(Number.NaN)
+  if (times.length < size) return out
+
+  const window = new SortedWindow(trimL, trimR)
   for (let end = 0; end < times.length; end += 1) {
-    out[end] =
-      end + 1 < size ? Number.NaN : meanWindow(times.slice(end + 1 - size, end + 1), trimL, trimR)
+    window.add(times[end])
+    if (end >= size) window.remove(times[end - size])
+    if (end + 1 >= size) out[end] = window.mean()
   }
   return out
 }
@@ -120,38 +208,24 @@ export function windowAtEach(times: readonly number[], kind: StatKind): number[]
  * a best average). DNF windows are ∞, so a finite window always wins; when
  * *every* window is a DNF the value is ∞ and the UI shows "DNF". Returns
  * null when no window has completed yet.
+ *
+ * A single's first solve is "the best so far" even when it is a DNF, which is
+ * why the endIndex guard is there rather than a plain comparison.
  */
 export function bestWindow(
   times: readonly number[],
   kind: StatKind,
 ): { value: number; endIndex: number } | null {
-  const { size, trimL, trimR } = SPECS[kind]
-  if (kind === 'single') {
-    let best = Number.POSITIVE_INFINITY
-    let endIndex = -1
-    times.forEach((value, index) => {
-      // The first solve is always "the best so far", even when it is a DNF
-      // (Infinity < Infinity is false, so the plain comparison needs the
-      // endIndex guard to admit an all-DNF session at all).
-      if (endIndex < 0 || value < best) {
-        best = value
-        endIndex = index
-      }
-    })
-    return endIndex < 0 ? null : { value: best, endIndex }
-  }
-  if (times.length < size) return null
-
   let best = Number.POSITIVE_INFINITY
   let endIndex = -1
-  for (let start = 0; start <= times.length - size; start++) {
-    const value = meanWindow(times.slice(start, start + size), trimL, trimR)
+  windowAtEach(times, kind).forEach((value, index) => {
+    if (Number.isNaN(value)) return
     if (endIndex < 0 || value < best) {
       best = value
-      endIndex = start + size - 1
+      endIndex = index
     }
-  }
-  return { value: best, endIndex }
+  })
+  return endIndex < 0 ? null : { value: best, endIndex }
 }
 
 /** Best single (finite) time, or null when there is no finite solve. */
@@ -187,6 +261,49 @@ export function sessionMean(times: readonly number[]): SessionMean {
     }
   }
   return { mean: count > 0 ? sum / count : Number.NaN, dnfCount, count }
+}
+
+/**
+ * Spread and consistency over the *finite* effective times — DNFs are
+ * excluded rather than counted as ∞, because one DNF would otherwise make
+ * every figure infinite and useless. `sigma` is the population standard
+ * deviation (÷ n, the form csTimer's σ display uses); it is NaN when nothing
+ * finite exists.
+ */
+export interface Spread {
+  /** Fastest finite effective time; null when every solve is a DNF. */
+  best: number | null
+  /** Slowest finite effective time; null likewise. */
+  worst: number | null
+  /** worst − best, for one number that says how wide the range is. */
+  range: number | null
+  /** Population standard deviation over the finite times; NaN if none. */
+  sigma: number
+  /** How many solves the four figures above were computed over. */
+  count: number
+}
+
+export function spread(times: readonly number[]): Spread {
+  let best = Number.POSITIVE_INFINITY
+  let worst = Number.NEGATIVE_INFINITY
+  let count = 0
+  let sum = 0
+  for (const value of times) {
+    if (!Number.isFinite(value)) continue
+    count += 1
+    sum += value
+    if (value < best) best = value
+    if (value > worst) worst = value
+  }
+  if (count === 0) {
+    return { best: null, worst: null, range: null, sigma: Number.NaN, count: 0 }
+  }
+  const mean = sum / count
+  let squares = 0
+  for (const value of times) {
+    if (Number.isFinite(value)) squares += (value - mean) ** 2
+  }
+  return { best, worst, range: worst - best, sigma: Math.sqrt(squares / count), count }
 }
 
 /**
@@ -276,19 +393,24 @@ export interface SessionStats {
   target: Record<StatKind, PbTarget>
   mean: SessionMean
   bestSingleMs: number | null
+  spread: Spread
+  /** Sum of the measured times of every solve, DNFs included. */
+  totalMs: number
 }
-
-const KINDS: StatKind[] = ['single', 'mo3', 'ao5', 'ao12']
 
 export function sessionStats(solves: readonly Solve[]): SessionStats {
   const times = effectiveTimes(solves)
   const current = {} as SessionStats['current']
   const best = {} as SessionStats['best']
   const target = {} as SessionStats['target']
-  for (const kind of KINDS) {
+  for (const kind of STAT_KINDS) {
     current[kind] = currentWindow(times, kind)
     best[kind] = bestWindow(times, kind)
     target[kind] = pbTarget(times, kind)
+  }
+  let totalMs = 0
+  for (const solve of solves) {
+    if (Number.isFinite(solve.timeMs)) totalMs += solve.timeMs
   }
   return {
     times,
@@ -297,5 +419,7 @@ export function sessionStats(solves: readonly Solve[]): SessionStats {
     target,
     mean: sessionMean(times),
     bestSingleMs: bestSingle(times),
+    spread: spread(times),
+    totalMs,
   }
 }

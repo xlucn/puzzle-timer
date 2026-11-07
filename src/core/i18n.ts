@@ -100,7 +100,7 @@ export function formatCount(value: number): string {
   return format.format(value)
 }
 
-/** Format a date for the places that have room (M11's PB history). */
+/** Format a date for the places that have room (the Records and Activity tabs). */
 export function formatDate(
   value: Date | number,
   options?: Intl.DateTimeFormatOptions,

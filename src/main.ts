@@ -1282,7 +1282,7 @@ app.on('activate', () => {
   app.setAccelsForAction('app.shortcuts', ['<Control>question'])
 
   // Registers its own action, like the session menu does.
-  createStatsPanel({ app, window, library, getSession: activeSession })
+  createStatsPanel({ app, window, getSession: activeSession })
   // Every menu action needs an accelerator so tests never need a synthetic
   // click (tools/README traps 4–5). Ctrl+T: Statistics (Ctrl+S is the
   // session menu).

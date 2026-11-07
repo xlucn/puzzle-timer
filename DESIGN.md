@@ -22,7 +22,9 @@ src/
 │   ├── timer.ts         state machine: idle → holding → ready → running → stopped
 │   │                    (+ inspection-ready → inspecting: 15 s → +2, 17 s → DNF)
 │   ├── time.ts          formatting, penalty math, DNF-as-∞, inspection clock
-│   ├── stats.ts         ao5/ao12/mo3 trimming, best single/avg, PB target
+│   ├── stats.ts         single/window averages, trimming, spread, PB target
+│   ├── records.ts       PB history per kind (strict improvements only)
+│   ├── activity.ts      local-day buckets, streaks, rolling counts
 │   ├── session.ts       Solve & Session models, CRUD, undo, penalties, comments
 │   ├── sessionLibrary.ts  session index rules: names, ids, active, scramble type
 │   ├── csTimerFormat.ts   csTimer data-file codec (parse + format, round-trip tested)

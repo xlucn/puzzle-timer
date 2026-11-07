@@ -24,9 +24,9 @@ list.
 **Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
 2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
 `0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8, M9 and
-M10 landed 2026-11-06**).** The queue is now **M11–M12, M16 and M17**; M17 is
-the phone-package slice M15 attached. M14 (touch) landed on 2026-10-23 and M7
-(size preferences) on 2026-10-28.
+M10 landed 2026-11-06**, and **M11 landed 2026-11-08**).** The queue is now
+**M12, M16 and M17**; M17 is the phone-package slice M15 attached. M14 (touch)
+landed on 2026-10-23 and M7 (size preferences) on 2026-10-28.
 Numbers are stable identifiers, not queue positions (§6). Two of the
 adjacencies are
 dependencies rather than preferences: i18n lands ahead of every string-heavy
@@ -77,10 +77,10 @@ point at:
   codec, both directions (was "dropped as not needed" on 2026-09-30;
   reinstated by decision 2026-10-05). Format evidence in §5, decisions 11–12
   in §4.
-- **M11 — records and statistics**: PB history (value, date, how long it
-  stood), σ / best / worst / range, ao50/ao100/ao1000, per-day activity
-  (solves/day, current + longest streak, best day). The Statistics dialog
-  grows tabs (`Adw.ViewStack`).
+- **M11 — records and statistics (landed 2026-11-08).** PB history (value,
+  date, how long it stood), σ / best / worst / range, ao50/ao100/ao1000,
+  per-day activity (solves/day, current + longest streak, best day), in a
+  three-tab Statistics dialog (`Adw.ViewStack`).
 - **M12 — charts** (time trend, distribution), moved out of the long-term
   list below by the same decision: `Gtk.DrawingArea` + Cairo line/path
   drawing; math ported from csTimer's `src/js/stats/trend.js` and
@@ -307,15 +307,17 @@ src/
     per file session (`SessionLibrary` already dedupes names).
 
 13. **Statistics growth — one incremental sorted window, not repeated sorts.**
-    `bestWindow()` currently sorts every window it inspects; adding ao1000
-    would mean ~40 M comparisons over a few thousand solves, and
+    `bestWindow()` used to sort every window it inspected; adding ao1000
+    would have meant ~40 M comparisons over a few thousand solves, and
     `sessionStats()` runs on dialog open, where a 0.5 s freeze is not
-    acceptable. M11 rewrites it as an **incrementally maintained sorted window**
-    (binary-search insert/remove; `meanWindow` stays the plain-array
-    reference implementation the tests speak to). Charts (M12) keep the split
-    the rest of the app uses — binning and series math in `core/`, drawing in
-    `ui/` — and no Cairo text (rule 6), so axis labels are `Gtk.Label`/Pango
-    overlays.
+    acceptable. M11 replaced it with an **incrementally maintained sorted
+    window**: binary-search insert/remove, and the trimmed mean read off
+    running sums in O(1) (`meanWindow` stays the plain-array reference the
+    tests speak to). Measured on 50 000 solves: `sessionStats()` 68 ms, all
+    seven PB histories 29 ms, activity 11 ms. Charts (M12) keep the split the
+    rest of the app uses — binning and series math in `core/`, drawing in
+    `ui/` — and no Cairo text (rule 6), so axis labels are
+    `Gtk.Label`/Pango overlays.
 
 14. **Size preferences scale the layout's own numbers, they never replace
     them.** Three new
@@ -553,10 +555,10 @@ Each milestone ends with a runnable app.
 Blocks are in **execution order, not numeric order**. Milestone numbers are
 stable identifiers from here on — they are about to appear in tag messages
 and changelog entries, so renumbering (done twice already) is no longer free.
-The queue is **M11–M12, M16 and M17**; M13 landed on 2026-10-22
-as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, **M15 on 2026-10-31** and
-**M8, M9 and M10 on 2026-11-06**, and the landed M0–M6 log closes the
-section. A number never moves: only the queue does.
+The queue is **M12, M16 and M17**; M13 landed on 2026-10-22
+as `v0.1.0`, M14 on 2026-10-23, M7 on 2026-10-28, **M15 on 2026-10-31**,
+**M8, M9 and M10 on 2026-11-06** and **M11 on 2026-11-08**, and the landed
+M0–M6 log closes the section. A number never moves: only the queue does.
 
 | # | Deliverable | Done when |
 |---|---|---|
@@ -571,7 +573,7 @@ section. A number never moves: only the queue does.
 | **M8** | Scramble type options: length/count, neutral orientation, pre-scramble, fast alias; case filter documented as blocked upstream | Pick `3x3 mbld`, set 3, get exactly three numbered scrambles — and the control resets on type change — **landed 2026-11-06: neutral dropped by measurement, case filter stays blocked** |
 | **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese — **landed 2026-11-06** |
 | **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out — **landed 2026-11-06** |
-| **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" |
+| **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" — **landed 2026-11-08** |
 | **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
@@ -1293,7 +1295,7 @@ covers the file → sessions → index → files → export path headlessly.
 **Checkpoint for the user:** import a csTimer file and watch the sessions
 appear; export it back and open the result in csTimer.
 
-### M11 — scheduled (records and statistics)
+### M11 — landed 2026-11-08 (records and statistics)
 
 - **`core/stats.ts`** — add `ao50`, `ao100`, `ao1000` to `SPECS` (the trim
   rules stay csTimer's `[1,1]`), spread (σ over finite effective times,
@@ -1311,6 +1313,22 @@ appear; export it back and open the result in csTimer.
   Summary (today's table), Records, Activity. Charts tab arrives with M12.
 - **`ui/statsStrip.ts`** and the list's ao5/ao12 columns are **unchanged** —
   the new windows are dialog-only.
+
+**Landed 2026-11-08.** `core/stats.ts` carries the three long windows and
+`spread()` (population σ, best/worst/range over finite times); `core/records.ts`
+is the strict-improvement history with `heldDays`/`heldSolves`; `core/activity.ts`
+buckets local days, fills the last 14, and derives both streaks, the rolling
+7/30-day counts and the best day. `ui/statsPanel.ts` puts them in three
+`Adw.ViewStack` tabs — Summary, Records, Activity — with the tab strip falling
+back to `NARROW` under the same 450 px breakpoint as the table. Choices worth
+keeping: statistics are **per session** (an "all 3x3" scope would need its own
+naming); σ is the population form; a current streak counts through *yesterday*
+(the day is not lost until it has fully passed); the day list shows the last 14
+calendar days so a gap in a streak is visible; an undated imported solve is
+counted separately instead of becoming 1970. `tools/stats_probe.mjs` checks the
+three tabs, the seven record expanders, the fourteen day bars and tab switching
+headlessly. The strip and the list's ao5/ao12 columns still know only their own
+two windows.
 
 **Checkpoint for the user:** the Records tab dates and "held for" figures
 against what you remember of your own PBs.
@@ -2104,19 +2122,19 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M11–M12, M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06** —
-  the scramble type control carries the length, the pre-scramble (a
-  preference through the module's `preScr` global) and the fast 4x4 switch,
-  the UI reads English or Chinese through typed catalogs, and a csTimer file
-  imports into sessions and exports back out. Next is M11 records &
-  statistics → M12 charts → M16 AUR package → M17 phone package. M13 is out
-  of the queue:
+- **M12, M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06, M11 on
+  2026-11-08** — the scramble type control carries the length, the
+  pre-scramble (a preference through the module's `preScr` global) and the
+  fast 4x4 switch, the UI reads English or Chinese through typed catalogs, a
+  csTimer file imports into sessions and exports back out, and the Statistics
+  dialog now has Summary / Records / Activity tabs. Next is M12 charts → M16
+  AUR package → M17 phone package. M13 is out of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
   (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M11–M12, M16 and M17 remain scheduled.
+  changelog entries. Nothing was dropped: M12, M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and
