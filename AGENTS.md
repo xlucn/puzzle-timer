@@ -66,6 +66,12 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   native GTK4, not a copy of the csTimer webpage: prefer
   `Adw.OverlaySplitView`, `Adw.Dialog`, `Adw.PreferencesDialog`,
   `Adw.ToastOverlay`, `Adw.StatusPage`.
+  A tabbed dialog follows libadwaita's documented pair: `Adw.ViewSwitcher`
+  in the header and an `Adw.ViewSwitcherBar` at the bottom inside an
+  `Adw.ToolbarView`; the narrow breakpoint hides the header switcher and
+  reveals the bar. Do not swap the switcher's policy instead. The documented
+  `title-widget = NULL` cannot be boxed by node-gtk (a null GValue throws
+  `Cannot convert value "null" to type GtkWidget`), so hide the switcher.
 - **Sizes are one continuous function of the window; only structure is
   tiered.** `layoutFor()` (`src/core/layout.ts`) derives the readout, scramble
   text, scramble slot and diagram box from width and height (`readoutPx()`,

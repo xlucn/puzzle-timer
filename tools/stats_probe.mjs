@@ -55,6 +55,12 @@ const findAll = (root, typeName) => {
   return out
 }
 
+const ancestorOf = (widget, typeName) => {
+  let node = widget?.getParent?.() ?? null
+  while (node !== null && node.constructor.name !== typeName) node = node.getParent?.() ?? null
+  return node
+}
+
 const app = new Adw.Application({
   applicationId: 'io.github.xlucn.PuzzleTimer.probe.stats',
   flags: Gio.ApplicationFlags.FLAGS_NONE,
@@ -90,12 +96,22 @@ app.on('activate', () => {
     const stack = stacks[0]
     check(stack?.getPages()?.getNItems() === 3, 'three stack pages')
 
-    const switchers = findAll(dialog, 'AdwViewSwitcher')
-    check(switchers.length === 1, 'one AdwViewSwitcher in the header')
-    check(
-      switchers[0]?.policy === Adw.ViewSwitcherPolicy.WIDE,
-      'the switcher starts wide',
+    // AdwViewSwitcherBar carries its own internal AdwViewSwitcher, so find
+    // the header one by its ancestor rather than by count.
+    const headerSwitcher = findAll(dialog, 'AdwViewSwitcher').find(
+      (widget) => ancestorOf(widget, 'AdwHeaderBar') !== null,
     )
+    const switcherBars = findAll(dialog, 'AdwViewSwitcherBar')
+    check(headerSwitcher !== undefined, 'one AdwViewSwitcher in the header')
+    check(switcherBars.length === 1, `one AdwViewSwitcherBar at the bottom (${switcherBars.length})`)
+    check(headerSwitcher?.visible === true, 'the header switcher starts visible')
+    check(switcherBars[0]?.reveal === false, 'the bottom bar starts hidden')
+    check(
+      headerSwitcher?.stack === stack && switcherBars[0]?.stack === stack,
+      'both switchers point at the same stack',
+    )
+    const headerBar = ancestorOf(headerSwitcher, 'AdwHeaderBar')
+    check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
     for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ']) {
@@ -145,12 +161,26 @@ app.on('activate', () => {
       'the summary counts the whole session',
     )
 
-    dialog.close()
-    GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
-      if (failures > 0) log(`${failures} FAILURE(S)`)
-      else log('ALL PASS')
-      log(`exit ${failures === 0 ? 0 : 1}`)
-      app.quit()
+    // Narrow the dialog and let the breakpoint run: the header switcher must
+    // give way to the bottom bar, the pattern AdwViewSwitcher documents.
+    dialog.contentWidth = 360
+    GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
+      check(headerSwitcher?.visible === false, 'narrowing hides the header switcher')
+      check(switcherBars[0]?.reveal === true, 'narrowing reveals the bottom bar')
+      dialog.contentWidth = 480
+      GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
+        check(headerSwitcher?.visible === true, 'widening restores the header switcher')
+        check(switcherBars[0]?.reveal === false, 'widening hides the bottom bar')
+        dialog.close()
+        GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+          if (failures > 0) log(`${failures} FAILURE(S)`)
+          else log('ALL PASS')
+          log(`exit ${failures === 0 ? 0 : 1}`)
+          app.quit()
+          return GLib.SOURCE_REMOVE
+        })
+        return GLib.SOURCE_REMOVE
+      })
       return GLib.SOURCE_REMOVE
     })
     return false

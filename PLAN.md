@@ -1319,8 +1319,12 @@ appear; export it back and open the result in csTimer.
 is the strict-improvement history with `heldDays`/`heldSolves`; `core/activity.ts`
 buckets local days, fills the last 14, and derives both streaks, the rolling
 7/30-day counts and the best day. `ui/statsPanel.ts` puts them in three
-`Adw.ViewStack` tabs — Summary, Records, Activity — with the tab strip falling
-back to `NARROW` under the same 450 px breakpoint as the table. Choices worth
+`Adw.ViewStack` tabs — Summary, Records, Activity — with the documented
+`Adw.ViewSwitcher` + `Adw.ViewSwitcherBar` pair, inside an `Adw.ToolbarView`
+so the bar hands its height back to the stack: below the same 450 px
+breakpoint as the table, the header switcher is hidden and the bar appears at
+the bottom (node-gtk cannot box the documented `title-widget = NULL`, so
+hiding it is the equivalent). Choices worth
 keeping: statistics are **per session** (an "all 3x3" scope would need its own
 naming); σ is the population form; a current streak counts through *yesterday*
 (the day is not lost until it has fully passed); the day list shows the last 14

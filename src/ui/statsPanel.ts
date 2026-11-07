@@ -426,14 +426,19 @@ export function createStatsPanel(options: StatsPanelOptions) {
     stack.addTitled(scroll(recordsPage(session)), 'records', t('stats.tab.records'))
     stack.addTitled(scroll(activityPage(session, now)), 'activity', t('stats.tab.activity'))
 
-    const switcher = new Adw.ViewSwitcher({
-      stack,
-      policy: Adw.ViewSwitcherPolicy.WIDE,
-    })
+    // The documented ViewSwitcher pairing: the tabs live in the header while
+    // there is room, and the breakpoint below swaps them for a bottom
+    // ViewSwitcherBar rather than squeezing the header strip. Both widgets
+    // point at the same stack, so switching either one moves the page.
+    const switcher = new Adw.ViewSwitcher({ stack })
+    const switcherBar = new Adw.ViewSwitcherBar({ stack, reveal: false })
 
-    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
-    box.append(new Adw.HeaderBar({ titleWidget: switcher, showTitle: true }))
-    box.append(stack)
+    // Adw.ToolbarView is the container the bottom bar is designed for: the
+    // ViewSwitcherBar's `reveal` hands its height back to the stack when the
+    // bar is hidden, instead of leaving a gap.
+    const toolbar = new Adw.ToolbarView({ content: stack })
+    toolbar.addTopBar(new Adw.HeaderBar({ titleWidget: switcher, showTitle: true }))
+    toolbar.addBottomBar(switcherBar)
 
     // Adaptive width: a fixed contentWidth, not followsContentSize — with
     // the latter the dialog width always *equals* the content, so a width
@@ -441,12 +446,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
     // would fire permanently). The gap between dialog (480) and content
     // natural (~365) is the "there is room" signal; the breakpoint reads the
     // content box and tightens spacing/margins below 450, which is what
-    // keeps the table inside a 360px window, and drops the tab strip to its
-    // narrow (menu-button) form. A breakpoint-bearing AdwDialog has no
-    // implicit minimum size (AdwDialog docs) — ask for one.
+    // keeps the table inside a 360px window, and moves the tab strip to the
+    // bottom bar. A breakpoint-bearing AdwDialog has no implicit minimum
+    // size (AdwDialog docs) — ask for one.
     const dialog = new Adw.Dialog({
       title: t('stats.title'),
-      child: box,
+      child: toolbar,
       contentWidth: 480,
       contentHeight: 560,
       widthRequest: 280,
@@ -461,13 +466,18 @@ export function createStatsPanel(options: StatsPanelOptions) {
     )
     // apply/unapply, not addSetter: node-gtk can't box the GValue (AGENTS).
     squeeze.on('apply', () => {
-      switcher.policy = Adw.ViewSwitcherPolicy.NARROW
+      // The documented setter is `title-widget = NULL`; node-gtk cannot box
+      // a null GValue, so hiding the switcher is the equivalent (the header
+      // then has no tab strip and the bottom bar takes over).
+      switcher.setVisible(false)
+      switcherBar.reveal = true
       summary.grid.columnSpacing = 12
       summary.body.marginStart = 12
       summary.body.marginEnd = 12
     })
     squeeze.on('unapply', () => {
-      switcher.policy = Adw.ViewSwitcherPolicy.WIDE
+      switcher.setVisible(true)
+      switcherBar.reveal = false
       summary.grid.columnSpacing = 28
       summary.body.marginStart = 24
       summary.body.marginEnd = 24
