@@ -105,6 +105,10 @@ app.on('activate', () => {
     check(headerSwitcher !== undefined, 'one AdwViewSwitcher in the header')
     check(switcherBars.length === 1, `one AdwViewSwitcherBar at the bottom (${switcherBars.length})`)
     check(headerSwitcher?.visible === true, 'the header switcher starts visible')
+    check(
+      headerSwitcher?.policy === Adw.ViewSwitcherPolicy.WIDE,
+      `the header switcher is wide (${headerSwitcher?.policy})`,
+    )
     check(switcherBars[0]?.reveal === false, 'the bottom bar starts hidden')
     check(
       headerSwitcher?.stack === stack && switcherBars[0]?.stack === stack,

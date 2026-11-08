@@ -430,7 +430,10 @@ export function createStatsPanel(options: StatsPanelOptions) {
     // there is room, and the breakpoint below swaps them for a bottom
     // ViewSwitcherBar rather than squeezing the header strip. Both widgets
     // point at the same stack, so switching either one moves the page.
-    const switcher = new Adw.ViewSwitcher({ stack })
+    const switcher = new Adw.ViewSwitcher({
+      stack,
+      policy: Adw.ViewSwitcherPolicy.WIDE,
+    })
     const switcherBar = new Adw.ViewSwitcherBar({ stack, reveal: false })
 
     // Adw.ToolbarView is the container the bottom bar is designed for: the
