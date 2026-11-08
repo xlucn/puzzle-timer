@@ -4,7 +4,7 @@
  * Checks structure, not pixels (AGENTS.md): the averages table grew the long
  * windows, the Records tab has one expander per kind with a history inside,
  * and the Activity tab has the figures plus a thirteen-week calendar heat map
- * with a Less/More legend. It also switches tabs through Adw.ViewStack by
+ * with a Less/More legend. Every tab carries a theme icon. It also switches tabs through Adw.ViewStack by
  * name, which is the plumbing a user's click goes through.
  *
  * Run:
@@ -96,6 +96,19 @@ app.on('activate', () => {
     check(stacks.length === 1, `one AdwViewStack (${stacks.length})`)
     const stack = stacks[0]
     check(stack?.getPages()?.getNItems() === 3, 'three stack pages')
+
+    const pages = stack.getPages()
+    const icons = []
+    for (let i = 0; i < pages.getNItems(); i += 1) icons.push(pages.getItem(i).iconName)
+    check(
+      icons.join(' ') === 'view-grid-symbolic starred-symbolic document-open-recent-symbolic',
+      `each tab carries its icon (${icons.join(' ')})`,
+    )
+    const theme = Gtk.IconTheme.getForDisplay(dialog.getDisplay())
+    check(
+      icons.every((name) => theme.hasIcon(name)),
+      `every tab icon resolves in the active theme (${theme.getThemeName()})`,
+    )
 
     // AdwViewSwitcherBar carries its own internal AdwViewSwitcher, so find
     // the header one by its ancestor rather than by count.

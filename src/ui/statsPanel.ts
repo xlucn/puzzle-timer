@@ -536,9 +536,24 @@ export function createStatsPanel(options: StatsPanelOptions) {
 
     const stack = new Adw.ViewStack()
     const summary = summaryPage(session, stats)
-    stack.addTitled(scroll(summary.body), 'summary', t('stats.tab.summary'))
-    stack.addTitled(scroll(recordsPage(session)), 'records', t('stats.tab.records'))
-    stack.addTitled(scroll(activityPage(session, now)), 'activity', t('stats.tab.activity'))
+    stack.addTitledWithIcon(
+      scroll(summary.body),
+      'summary',
+      t('stats.tab.summary'),
+      'view-grid-symbolic',
+    )
+    stack.addTitledWithIcon(
+      scroll(recordsPage(session)),
+      'records',
+      t('stats.tab.records'),
+      'starred-symbolic',
+    )
+    stack.addTitledWithIcon(
+      scroll(activityPage(session, now)),
+      'activity',
+      t('stats.tab.activity'),
+      'document-open-recent-symbolic',
+    )
 
     // The documented ViewSwitcher pairing: the tabs live in the header while
     // there is room, and the breakpoint below swaps them for a bottom

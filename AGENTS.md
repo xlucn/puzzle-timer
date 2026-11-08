@@ -156,6 +156,10 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   `<code>`; an unknown element aborts the whole dialog
   (`Unexpected element 'b'`), there is no bold, and text outside a paragraph
   or list item is dropped. Escape user data, or set `useMarkup: false`.
+- **A symbolic icon name must exist in the *active* theme, not just Adwaita.**
+  Breeze has no `x-office-calendar-symbolic`; `Gtk.IconTheme.hasIcon` (the
+  probe uses it) is the check. Common freedesktop names such as
+  `view-grid-symbolic` and `document-open-recent-symbolic` resolve in both.
 - **Accelerator key names are case-sensitive gdk_keyval names** — `'space'`,
   not `'Space'`. A typo fails silently: the chip renders empty in
   `Adw.ShortcutsDialog` and nothing says why. Check every new entry with
