@@ -13,6 +13,7 @@
 import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
+import Gtk from 'gi:Gtk-4.0'
 
 import { setLocale } from '../src/core/i18n.js'
 import { Session } from '../src/core/session.js'
@@ -125,7 +126,22 @@ app.on('activate', () => {
     const groups = findAll(dialog, 'AdwPreferencesGroup')
     const groupTitles = groups.map((group) => group.title)
     check(groupTitles.includes('Personal bests'), `records group is present (${groupTitles.join(' | ')})`)
-    check(groupTitles.includes('Recent days'), 'activity group is present')
+
+    // The Activity tab is one plain Gtk.ListBox now, not a PreferencesGroup.
+    const activityList = findAll(dialog, 'GtkListBox').find((list) => {
+      const first = list.getRowAtIndex(0)
+      return first?.constructor.name === 'AdwActionRow' && first?.title === 'Solves'
+    })
+    check(activityList !== undefined, 'the Activity tab is a Gtk.ListBox')
+    if (activityList !== undefined) {
+      let rows = 0
+      while (activityList.getRowAtIndex(rows) !== null) rows += 1
+      check(rows === 24, `it holds nine figures, the heading and fourteen days (${rows})`)
+      check(
+        activityList.selectionMode === Gtk.SelectionMode.NONE,
+        'the list is not selectable',
+      )
+    }
 
     const expanders = findAll(dialog, 'AdwExpanderRow')
     check(expanders.length === 7, `one ExpanderRow per record kind (${expanders.length})`)
@@ -161,7 +177,7 @@ app.on('activate', () => {
     }
 
     check(
-      text.includes('60 solves'),
+      text.some((label) => label.includes('60 solves')),
       'the summary counts the whole session',
     )
 

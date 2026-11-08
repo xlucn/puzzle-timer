@@ -196,6 +196,7 @@ export const zhCN: Record<MessageKey, Message> = {
   'stats.records.heldSameDay': '当天即被刷新',
   'stats.records.older': { other: '另有 {count} 次更早的刷新未显示' },
   'stats.records.heldSolves': { other: '保持 {count} 次成绩' },
+  'stats.activity.totalSolves': '成绩数',
   'stats.activity.today': '今天',
   'stats.activity.last7': '最近 7 天',
   'stats.activity.last30': '最近 30 天',

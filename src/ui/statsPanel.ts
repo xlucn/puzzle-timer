@@ -324,71 +324,83 @@ export function createStatsPanel(options: StatsPanelOptions) {
     const days = recentDays(stats, now, 14)
     const maxCount = Math.max(1, ...days.map((day) => day.count))
 
-    const grid = new Gtk.Grid({ columnSpacing: 28, rowSpacing: 8 })
-    const addRow = (row: number, label: string, value: string) => {
-      const { name, number } = figure(label, value)
-      grid.attach(name, 0, row, 1, 1)
-      grid.attach(number, 1, row, 1, 1)
+    // One list for the whole tab: the summary figures and the day rows are
+    // the same kind of data, so they share one Gtk.ListBox and its card
+    // (`boxed-list`, the class Adw.PreferencesGroup puts on its own list).
+    const list = new Gtk.ListBox({
+      selectionMode: Gtk.SelectionMode.NONE,
+      cssClasses: ['boxed-list'],
+    })
+
+    const addFigure = (label: string, value: string) => {
+      const row = new Adw.ActionRow({
+        title: label,
+        useMarkup: false,
+        activatable: false,
+      })
+      row.addSuffix(
+        new Gtk.Label({
+          label: value,
+          cssClasses: value === DASH ? ['dim-label'] : ['numeric'],
+        }),
+      )
+      list.append(row)
     }
 
-    const totalLabel =
-      stats.totalSolves === 0
-        ? t('stats.empty')
-        : t('stats.solves', { count: stats.totalSolves })
-    addRow(
-      0,
+    addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
+    addFigure(
       t('stats.activity.today'),
       `${t('stats.solves', { count: stats.today.count })} · ${formatTime(stats.today.totalMs)}`,
     )
-    addRow(
-      1,
+    addFigure(
       t('stats.activity.last7'),
       `${t('stats.solves', { count: stats.last7.solves })} · ${t('stats.activity.activeCount', { count: stats.last7.activeDays })}`,
     )
-    addRow(
-      2,
+    addFigure(
       t('stats.activity.last30'),
       `${t('stats.solves', { count: stats.last30.solves })} · ${t('stats.activity.activeCount', { count: stats.last30.activeDays })}`,
     )
-    addRow(
-      3,
+    addFigure(
       t('stats.activity.currentStreak'),
       t('stats.activity.days', { count: stats.currentStreak }),
     )
-    addRow(
-      4,
+    addFigure(
       t('stats.activity.longestStreak'),
       t('stats.activity.days', { count: stats.longestStreak }),
     )
-    addRow(5, t('stats.activity.activeDays'), formatCount(stats.activeDays))
-    addRow(6, t('stats.activity.perDay'), formatCount(Math.round(stats.perActiveDay * 10) / 10))
-    addRow(
-      7,
+    addFigure(t('stats.activity.activeDays'), formatCount(stats.activeDays))
+    addFigure(
+      t('stats.activity.perDay'),
+      formatCount(Math.round(stats.perActiveDay * 10) / 10),
+    )
+    addFigure(
       t('stats.activity.bestDay'),
       stats.bestDay === null
         ? DASH
         : `${t('stats.solves', { count: stats.bestDay.count })} · ${formatDate(stats.bestDay.startMs, DATE_OPTIONS)}`,
     )
     if (stats.undated > 0) {
-      addRow(8, t('stats.activity.undated'), formatCount(stats.undated))
+      addFigure(t('stats.activity.undated'), formatCount(stats.undated))
     }
-
-    const body = new Gtk.Box({
-      orientation: Gtk.Orientation.VERTICAL,
-      spacing: 18,
-      marginStart: 12,
-      marginEnd: 12,
-      marginBottom: 18,
-      marginTop: 12,
-    })
-    body.append(grid)
-    body.append(cell(totalLabel, ['caption', 'dim-label']))
 
     // A new session would otherwise show fourteen "No solves" rows. Once
     // there is any dated activity, the zero days become the gaps that make a
     // streak legible, so they are worth keeping.
     if (stats.days.length > 0) {
-      const group = new Adw.PreferencesGroup({ title: t('stats.activity.recent') })
+      const heading = new Gtk.ListBoxRow({ selectable: false, activatable: false })
+      heading.setChild(
+        new Gtk.Label({
+          label: t('stats.activity.recent'),
+          xalign: 0,
+          cssClasses: ['heading'],
+          marginStart: 12,
+          marginEnd: 12,
+          marginTop: 12,
+          marginBottom: 6,
+        }),
+      )
+      list.append(heading)
+
       for (const day of days) {
         const row = new Adw.ActionRow({
           title: formatDate(day.startMs, { weekday: 'short', month: 'short', day: 'numeric' }),
@@ -408,10 +420,19 @@ export function createStatsPanel(options: StatsPanelOptions) {
         })
         bar.setVisible(day.count > 0)
         row.addSuffix(bar)
-        group.add(row)
+        list.append(row)
       }
-      body.append(group)
     }
+
+    const body = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      spacing: 18,
+      marginStart: 12,
+      marginEnd: 12,
+      marginBottom: 18,
+      marginTop: 12,
+    })
+    body.append(list)
     return body
   }
 

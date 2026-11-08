@@ -201,6 +201,7 @@ export const en = {
     other: '{count} older improvements not shown',
   },
   'stats.records.heldSolves': { one: 'held {count} solve', other: 'held {count} solves' },
+  'stats.activity.totalSolves': 'Solves',
   'stats.activity.today': 'Today',
   'stats.activity.last7': 'Last 7 days',
   'stats.activity.last30': 'Last 30 days',
