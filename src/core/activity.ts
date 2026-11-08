@@ -152,18 +152,67 @@ export function activity(solves: readonly Solve[], now: number = Date.now()): Ac
   }
 }
 
+export interface HeatmapCell {
+  /** Local midnight of the day. */
+  startMs: number
+  key: string
+  count: number
+  /** 0 (empty) to 4 (the busiest day in this map). */
+  level: number
+  /** False for days after today in the current week. */
+  inRange: boolean
+}
+
+export interface Heatmap {
+  /** Oldest week first; each week is Monday..Sunday. */
+  weeks: HeatmapCell[][]
+  /** The largest daily count inside the map; 0 when there is no data. */
+  maxCount: number
+  /** Local midnight of the first cell, always a Monday. */
+  startMs: number
+}
+
 /**
- * The last `count` calendar days, oldest first, with empty days filled in —
- * what makes a gap in a streak visible. `now` must be the same instant passed
- * to `activity()`.
+ * A calendar heatmap for the last `weeks` weeks, aligned to Monday and ending
+ * with the current week. Days after today are `inRange: false` so the UI can
+ * leave them blank instead of drawing a misleading zero. `now` must be the
+ * same instant passed to `activity()`.
+ *
+ * The levels are scaled against the busiest day **inside** the map, so an
+ * ancient 500-solve day cannot flatten the recent colours.
  */
-export function recentDays(stats: Activity, now: number, count: number): DayBucket[] {
-  const byStart = new Map(stats.days.map((day) => [day.startMs, day]))
+export function heatmap(stats: Activity, now: number, weeks: number): Heatmap {
+  const columns = Math.max(1, Math.floor(weeks))
+  const counts = new Map(stats.days.map((day) => [day.startMs, day.count]))
+
   const todayStart = dayStart(now)
-  const out: DayBucket[] = []
-  for (let offset = count - 1; offset >= 0; offset -= 1) {
-    const startMs = shiftDays(todayStart, -offset)
-    out.push(byStart.get(startMs) ?? emptyDay(startMs))
+  // Date#getDay is Sunday-first; the grid is Monday-first.
+  const weekday = (new Date(todayStart).getDay() + 6) % 7
+  const firstMonday = shiftDays(todayStart, -(columns - 1) * 7 - weekday)
+
+  let maxCount = 0
+  for (let column = 0; column < columns; column += 1) {
+    for (let day = 0; day < 7; day += 1) {
+      const startMs = shiftDays(firstMonday, column * 7 + day)
+      if (startMs > todayStart) continue
+      maxCount = Math.max(maxCount, counts.get(startMs) ?? 0)
+    }
   }
-  return out
+
+  const result: HeatmapCell[][] = []
+  for (let column = 0; column < columns; column += 1) {
+    const week: HeatmapCell[] = []
+    for (let day = 0; day < 7; day += 1) {
+      const startMs = shiftDays(firstMonday, column * 7 + day)
+      const inRange = startMs <= todayStart
+      const count = counts.get(startMs) ?? 0
+      const level =
+        !inRange || count === 0 || maxCount === 0
+          ? 0
+          : Math.min(4, Math.max(1, Math.ceil((count / maxCount) * 4)))
+      week.push({ startMs, key: dayKey(startMs), count, level, inRange })
+    }
+    result.push(week)
+  }
+  return { weeks: result, maxCount, startMs: firstMonday }
 }

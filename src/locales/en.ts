@@ -217,6 +217,8 @@ export const en = {
   'stats.activity.bestDay': 'Best day',
   'stats.activity.undated': 'Solves without a date',
   'stats.activity.recent': 'Recent days',
+  'stats.activity.less': 'Less',
+  'stats.activity.more': 'More',
   'stats.activity.noSolves': 'No solves',
 
   // ---- keyboard shortcuts ------------------------------------------------

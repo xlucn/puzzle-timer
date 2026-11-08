@@ -3,7 +3,7 @@
  *
  * Three tabs over one session: Summary (the full averages table plus spread),
  * Records (PB history — when each best was set and how long it stood) and
- * Activity (local-day buckets, streaks, recent days).
+ * Activity (local-day buckets, streaks, a calendar heat map).
  *
  * Every number comes from src/core/stats.ts, records.ts and activity.ts, so
  * this view and the strip cannot disagree. The figures are computed when the
@@ -21,7 +21,7 @@ import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
 
-import { activity, recentDays } from '../core/activity.js'
+import { activity, heatmap } from '../core/activity.js'
 import { formatCount, formatDate, t } from '../core/i18n.js'
 import { heldDays, heldSolves, pbHistory, type PbRecord } from '../core/records.js'
 import type { Session } from '../core/session.js'
@@ -55,6 +55,20 @@ styles.add(`
     font-weight: 400;
     color: alpha(@window_fg_color, 0.4);
   }
+  /* Calendar heat map: empty days stay a faint card-coloured square, busy
+     days step through the accent colour. The legend reuses the same classes
+     so it cannot drift from the grid. */
+  .heatmap-cell {
+    min-width: 14px;
+    min-height: 14px;
+    border-radius: 3px;
+    background-color: alpha(@window_fg_color, 0.1);
+  }
+  .heatmap-cell.level-1 { background-color: alpha(@accent_bg_color, 0.35); }
+  .heatmap-cell.level-2 { background-color: alpha(@accent_bg_color, 0.55); }
+  .heatmap-cell.level-3 { background-color: alpha(@accent_bg_color, 0.75); }
+  .heatmap-cell.level-4 { background-color: @accent_bg_color; }
+  .heatmap-cell.future { background-color: transparent; }
 `)
 
 export interface StatsPanelOptions {
@@ -84,6 +98,9 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 }
 
 const DASH = '—'
+
+/** A quarter of weeks fits the dialog without horizontal scrolling. */
+const HEATMAP_WEEKS = 13
 
 /**
  * A history is a ListBox of rows, so it is built lazily on the first expand
@@ -321,8 +338,6 @@ export function createStatsPanel(options: StatsPanelOptions) {
   // ---- activity ----------------------------------------------------------
   const activityPage = (session: Session, now: number) => {
     const stats = activity(session.solves, now)
-    const days = recentDays(stats, now, 14)
-    const maxCount = Math.max(1, ...days.map((day) => day.count))
 
     // One list for the whole tab: the summary figures and the day rows are
     // the same kind of data, so they share one Gtk.ListBox and its card
@@ -383,9 +398,9 @@ export function createStatsPanel(options: StatsPanelOptions) {
       addFigure(t('stats.activity.undated'), formatCount(stats.undated))
     }
 
-    // A new session would otherwise show fourteen "No solves" rows. Once
-    // there is any dated activity, the zero days become the gaps that make a
-    // streak legible, so they are worth keeping.
+    // A new session would otherwise show a blank quarter. Once there is any
+    // dated activity, the empty days become the gaps that make a streak
+    // legible, so they are worth keeping.
     if (stats.days.length > 0) {
       const heading = new Gtk.ListBoxRow({ selectable: false, activatable: false })
       heading.setChild(
@@ -401,27 +416,105 @@ export function createStatsPanel(options: StatsPanelOptions) {
       )
       list.append(heading)
 
-      for (const day of days) {
-        const row = new Adw.ActionRow({
-          title: formatDate(day.startMs, { weekday: 'short', month: 'short', day: 'numeric' }),
-          subtitle:
-            day.count === 0
-              ? t('stats.activity.noSolves')
-              : `${t('stats.solves', { count: day.count })} · ${formatTime(day.totalMs)}`,
-          useMarkup: false,
-          activatable: false,
-        })
-        const bar = new Gtk.LevelBar({
-          minValue: 0,
-          maxValue: maxCount,
-          value: day.count,
-          widthRequest: 120,
-          valign: Gtk.Align.CENTER,
-        })
-        bar.setVisible(day.count > 0)
-        row.addSuffix(bar)
-        list.append(row)
+      const map = heatmap(stats, now, HEATMAP_WEEKS)
+      const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3 })
+      // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
+      // on the left and one cell per day.
+      let previousMonth = -1
+      for (let column = 0; column < map.weeks.length; column += 1) {
+        const monday = new Date(map.weeks[column][0].startMs)
+        if (monday.getMonth() !== previousMonth) {
+          previousMonth = monday.getMonth()
+          grid.attach(
+            new Gtk.Label({
+              label: formatDate(map.weeks[column][0].startMs, { month: 'short' }),
+              xalign: 0,
+              cssClasses: ['caption', 'dim-label'],
+            }),
+            column + 1,
+            0,
+            1,
+            1,
+          )
+        }
+        for (let day = 0; day < 7; day += 1) {
+          const cell = map.weeks[column][day]
+          const level = cell.inRange ? cell.level : 0
+          const box = new Gtk.Box({
+            widthRequest: 14,
+            heightRequest: 14,
+            cssClasses: ['heatmap-cell', `level-${level}`].concat(
+              cell.inRange ? [] : ['future'],
+            ),
+          })
+          // node-gtk cannot box an undefined property, so the tooltip is set
+          // only for the days that exist.
+          if (cell.inRange) {
+            const date = formatDate(cell.startMs, DATE_OPTIONS)
+            box.setTooltipText(
+              cell.count === 0
+                ? `${date} · ${t('stats.activity.noSolves')}`
+                : `${date} · ${t('stats.solves', { count: cell.count })}`,
+            )
+          }
+          grid.attach(box, column + 1, day + 1, 1, 1)
+        }
       }
+      for (const day of [0, 2, 4]) {
+        grid.attach(
+          new Gtk.Label({
+            label: formatDate(map.weeks[0][day].startMs, { weekday: 'short' }),
+            xalign: 1,
+            cssClasses: ['caption', 'dim-label'],
+            marginEnd: 3,
+          }),
+          0,
+          day + 1,
+          1,
+          1,
+        )
+      }
+
+      const legend = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 4,
+        halign: Gtk.Align.END,
+        marginTop: 8,
+      })
+      legend.append(
+        new Gtk.Label({
+          label: t('stats.activity.less'),
+          cssClasses: ['caption', 'dim-label'],
+        }),
+      )
+      for (let level = 0; level <= 4; level += 1) {
+        legend.append(
+          new Gtk.Box({
+            widthRequest: 11,
+            heightRequest: 11,
+            valign: Gtk.Align.CENTER,
+            cssClasses: ['heatmap-cell', `level-${level}`],
+          }),
+        )
+      }
+      legend.append(
+        new Gtk.Label({
+          label: t('stats.activity.more'),
+          cssClasses: ['caption', 'dim-label'],
+        }),
+      )
+
+      const heatRow = new Gtk.ListBoxRow({ selectable: false, activatable: false })
+      const heatBox = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
+        marginStart: 12,
+        marginEnd: 12,
+        marginBottom: 12,
+      })
+      heatBox.append(grid)
+      heatBox.append(legend)
+      heatRow.setChild(heatBox)
+      list.append(heatRow)
     }
 
     const body = new Gtk.Box({

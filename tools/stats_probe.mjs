@@ -3,9 +3,9 @@
  *
  * Checks structure, not pixels (AGENTS.md): the averages table grew the long
  * windows, the Records tab has one expander per kind with a history inside,
- * and the Activity tab has the summary grid plus fourteen day rows with level
- * bars. It also switches tabs through Adw.ViewStack by name, which is the
- * plumbing a user's click goes through.
+ * and the Activity tab has the figures plus a thirteen-week calendar heat map
+ * with a Less/More legend. It also switches tabs through Adw.ViewStack by
+ * name, which is the plumbing a user's click goes through.
  *
  * Run:
  *   GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/stats_probe.mjs
@@ -119,7 +119,7 @@ app.on('activate', () => {
     check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
-    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ']) {
+    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ', 'Less', 'More']) {
       check(text.includes(wanted), `label "${wanted}" is present`)
     }
 
@@ -136,7 +136,7 @@ app.on('activate', () => {
     if (activityList !== undefined) {
       let rows = 0
       while (activityList.getRowAtIndex(rows) !== null) rows += 1
-      check(rows === 24, `it holds nine figures, the heading and fourteen days (${rows})`)
+      check(rows === 11, `it holds nine figures, the heading and the heat map (${rows})`)
       check(
         activityList.selectionMode === Gtk.SelectionMode.NONE,
         'the list is not selectable',
@@ -163,12 +163,31 @@ app.on('activate', () => {
       check(after > before, `expanding builds its history rows (${before} → ${after})`)
     }
 
-    const bars = findAll(dialog, 'GtkLevelBar')
-    check(bars.length === 14, `fourteen day bars (${bars.length})`)
-    check(
-      bars.every((bar) => bar.maxValue >= bar.value && bar.value >= 0),
-      'every bar is within its range',
+    const heatCells = findAll(dialog, 'GtkBox').filter(
+      (box) => box.widthRequest === 14 && box.getCssClasses().includes('heatmap-cell'),
     )
+    check(heatCells.length === 91, `a 13-week heat map has 91 cells (${heatCells.length})`)
+    check(
+      heatCells.every((box) =>
+        box.getCssClasses().some((name) => /^level-[0-4]$/.test(name)),
+      ),
+      'every heat-map cell has a level class',
+    )
+    const future = heatCells.filter((box) => box.getCssClasses().includes('future'))
+    const dated = heatCells.filter((box) => !box.getCssClasses().includes('future'))
+    check(
+      dated.every((box) => typeof box.getTooltipText() === 'string' && box.getTooltipText().length > 0),
+      'every in-range cell has a dated tooltip',
+    )
+    check(
+      dated.some((box) => !box.getCssClasses().includes('level-0')),
+      'at least one cell is coloured',
+    )
+    check(future.length < 91 && future.every((box) => box.getCssClasses().includes('level-0')), 'future days stay blank')
+    const legendCells = findAll(dialog, 'GtkBox').filter(
+      (box) => box.widthRequest === 11 && box.getCssClasses().includes('heatmap-cell'),
+    )
+    check(legendCells.length === 5, `the legend has five swatches (${legendCells.length})`)
 
     // Tab switching by name is what a click on the switcher does.
     for (const name of ['records', 'activity', 'summary']) {

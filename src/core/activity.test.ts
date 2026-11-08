@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { activity, dayKey, dayStart, recentDays, shiftDays } from './activity.js'
+import { activity, dayKey, dayStart, heatmap, shiftDays } from './activity.js'
 import type { Solve } from './session.js'
 
 const local = (y: number, m: number, d: number, h = 12): number =>
@@ -132,12 +132,69 @@ describe('activity', () => {
 
   it('fills recent calendar days with zero rows', () => {
     const stats = activity([solve(1, local(2026, 10, 6))], NOW)
-    const days = recentDays(stats, NOW, 4)
-    expect(days.map((day) => [day.key, day.count])).toEqual([
+    const map = heatmap(stats, NOW, 1)
+    expect(map.weeks[0].map((cell) => [cell.key, cell.count])).toEqual([
+      ['2026-11-02', 0],
+      ['2026-11-03', 0],
+      ['2026-11-04', 0],
       ['2026-11-05', 0],
       ['2026-11-06', 1],
       ['2026-11-07', 0],
       ['2026-11-08', 0],
     ])
+  })
+})
+
+describe('heatmap', () => {
+  it('aligns the last weeks to Monday and ends with the current week', () => {
+    const map = heatmap(activity([], NOW), NOW, 3)
+    expect(map.weeks).toHaveLength(3)
+    expect(map.weeks.every((week) => week.length === 7)).toBe(true)
+    // 8 November 2026 is a Sunday: the current week starts on 2 November.
+    expect(map.startMs).toBe(local(2026, 9, 19, 0))
+    expect(map.weeks[0][0].key).toBe('2026-10-19')
+    expect(map.weeks[2][6].key).toBe('2026-11-08')
+    expect(map.weeks[2][6].inRange).toBe(true)
+    expect(map.weeks[2].every((cell) => cell.inRange)).toBe(true)
+  })
+
+  it('leaves the days after today out of range', () => {
+    const wednesday = local(2026, 10, 4, 12)
+    const map = heatmap(activity([], wednesday), wednesday, 2)
+    const week = map.weeks[1]
+    expect(week[2].key).toBe('2026-11-04')
+    expect(week[2].inRange).toBe(true)
+    expect(week[3].inRange).toBe(false)
+    expect(week[6].inRange).toBe(false)
+    expect(week.slice(3).every((cell) => cell.level === 0)).toBe(true)
+  })
+
+  it('scales levels against the busiest day inside the map only', () => {
+    let nextId = 1
+    const day = (count: number, m: number, d: number) =>
+      Array.from({ length: count }, (_, i) => solve(nextId++, local(2026, m, d)))
+    const stats = activity(
+      [
+        ...day(1, 10, 3),
+        ...day(2, 10, 4),
+        ...day(4, 10, 5),
+        ...day(100, 8, 1), // outside the two-week map
+      ],
+      NOW,
+    )
+    const map = heatmap(stats, NOW, 2)
+    const cell = (key: string) =>
+      map.weeks.flat().find((entry) => entry.key === key)!
+    expect(map.maxCount).toBe(4)
+    expect(cell('2026-11-03').level).toBe(1)
+    expect(cell('2026-11-04').level).toBe(2)
+    expect(cell('2026-11-05').level).toBe(4)
+    expect(cell('2026-11-06').level).toBe(0)
+  })
+
+  it('is empty when there are no dated solves', () => {
+    const map = heatmap(activity([solve(1, 0)], NOW), NOW, 2)
+    expect(map.maxCount).toBe(0)
+    expect(map.weeks.flat().every((cell) => cell.level === 0)).toBe(true)
   })
 })

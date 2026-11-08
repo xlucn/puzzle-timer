@@ -209,6 +209,8 @@ export const zhCN: Record<MessageKey, Message> = {
   'stats.activity.bestDay': '最佳一天',
   'stats.activity.undated': '没有日期的成绩',
   'stats.activity.recent': '最近几天',
+  'stats.activity.less': '少',
+  'stats.activity.more': '多',
   'stats.activity.noSolves': '没有成绩',
 
   // ---- keyboard shortcuts ------------------------------------------------
