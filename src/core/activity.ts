@@ -87,7 +87,7 @@ function rolling(days: readonly DayBucket[], todayStart: number, span: number) {
 }
 
 /**
- * Bucket `solves` into local days and derive the figures the Activity tab
+ * Bucket `solves` into local days and derive the figures the Summary tab
  * shows. `now` is injectable so "today", the streaks and the rolling windows
  * are testable without depending on the machine's clock.
  */

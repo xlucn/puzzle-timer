@@ -1310,7 +1310,9 @@ appear; export it back and open the result in csTimer.
   streak, best day, rolling counts. Day boundaries come from `Date` getters
   (local time, no `gi:`/Node needed).
 - **`ui/statsPanel.ts`** — `Adw.ViewStack` + `Adw.ViewSwitcher` tabs:
-  Summary (today's table), Records, Activity. Charts tab arrives with M12.
+  Summary (today's table), Records, Activity. Charts tab arrives with M12,
+  which later folds the overview figures into Summary and the heat map into
+  Charts, leaving three tabs.
 - **`ui/statsStrip.ts`** and the list's ao5/ao12 columns are **unchanged** —
   the new windows are dialog-only.
 
@@ -1329,11 +1331,11 @@ and the bar appears at the bottom (node-gtk cannot box the documented
 keeping: statistics are **per session** (an "all 3x3" scope would need its own
 naming); the summary is a `Gtk.ColumnView` (a `Gtk.StringList` of row labels,
 with each cell reading its value by position, so no custom GObject subtype);
-total time lives in the Activity figures; a current streak counts through
-*yesterday* (the day is not lost until it has fully passed); the Activity tab
-is two `Adw.PreferencesGroup` sections — Recent days (a thirteen-week calendar
-heat map, so a gap in a streak is visible) and Overview (the figures); the heat
-map is scaled against the busiest day *inside* its window and leaves future
+total time lives in the overview figures; a current streak counts through
+*yesterday* (the day is not lost until it has fully passed); the overview
+figures and the thirteen-week calendar heat map (so a gap in a streak is
+visible) started as two Activity sections and moved to Summary and Charts with
+M12; the heat map is scaled against the busiest day *inside* its window and leaves future
 days blank, and its cells grow as squares with the card width instead of
 widening the gaps; an undated imported solve is counted separately instead of
 becoming 1970. `tools/stats_probe.mjs` checks the three tabs, the summary
@@ -1358,14 +1360,18 @@ against what you remember of your own PBs.
   second), so the rail stays narrow and the plot takes the rest.
   `Gtk.DrawingArea.setDrawFunc` and `setSourceRgba`/`stroke`/`fill` were
   probed under node-gtk before use (rule 6).
-- **The tab** — Summary / Records / Activity / **Charts**, with two
-  `Adw.PreferencesGroup` sections: Time distribution and Time trend.
-- **`tools/stats_probe.mjs`** now checks four tabs, both canvas names, and
-  that both canvases get a real allocation after switching to Charts.
+- **The tabs** — Summary / Records / **Charts**. The Activity tab is gone:
+  Summary carries the overview figures below its table, and Charts carries
+  the Recent days heat map below its two `Adw.PreferencesGroup` sections
+  (Time distribution and Time trend).
+- **`tools/stats_probe.mjs`** now checks three tabs, the figures under
+  Summary, the heat map under Charts, both canvas names, and that both
+  canvases get a real allocation after switching to Charts.
 
 **Checkpoint for the user:** open Statistics → Charts on a session with
 solves; the bars should track the spread of times, and the gray/red/blue
-lines the singles, ao5 and ao12 over solve order.
+lines the singles, ao5 and ao12 over solve order. Scroll down for the heat
+map, now at the bottom of the same tab.
 
 ### M16 — scheduled (AUR package)
 
@@ -2149,7 +2155,7 @@ Evidence:
   pre-scramble (a preference through the module's `preScr` global) and the
   fast 4x4 switch, the UI reads English or Chinese through typed catalogs, a
   csTimer file imports into sessions and exports back out, and the Statistics
-  dialog now has Summary / Records / Activity / Charts tabs. Next is M16
+  dialog now has Summary / Records / Charts tabs. Next is M16
   AUR package → M17 phone package. M13 is out of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15

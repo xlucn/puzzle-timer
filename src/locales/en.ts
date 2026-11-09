@@ -186,7 +186,6 @@ export const en = {
   'stats.totalTime': 'Total time',
   'stats.tab.summary': 'Summary',
   'stats.tab.records': 'Records',
-  'stats.tab.activity': 'Activity',
   'stats.tab.charts': 'Charts',
   'stats.records.group': 'Personal bests',
   'stats.records.description':

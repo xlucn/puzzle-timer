@@ -2,10 +2,11 @@
  * stats_probe.mjs — the Statistics dialog builds and holds its three tabs.
  *
  * Checks structure, not pixels (AGENTS.md): the averages table grew the long
- * windows, the Records tab has one expander per kind with a history inside,
- * and the Activity tab has the figures plus a thirteen-week calendar heat map
- * with a Less/More legend. Every tab carries a theme icon. It also switches tabs through Adw.ViewStack by
- * name, which is the plumbing a user's click goes through.
+ * windows, Summary carries the overview figures, the Records tab has one
+ * expander per kind with a history inside, and Charts has both canvases plus
+ * a thirteen-week calendar heat map with its Less/More legend. Every tab
+ * carries a theme icon. It also switches tabs through Adw.ViewStack by name,
+ * which is the plumbing a user's click goes through.
  *
  * Run:
  *   GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/stats_probe.mjs
@@ -95,13 +96,13 @@ app.on('activate', () => {
     const stacks = findAll(dialog, 'AdwViewStack')
     check(stacks.length === 1, `one AdwViewStack (${stacks.length})`)
     const stack = stacks[0]
-    check(stack?.getPages()?.getNItems() === 4, 'four stack pages')
+    check(stack?.getPages()?.getNItems() === 3, 'three stack pages')
 
     const pages = stack.getPages()
     const icons = []
     for (let i = 0; i < pages.getNItems(); i += 1) icons.push(pages.getItem(i).iconName)
     check(
-      icons.join(' ') === 'view-grid-symbolic starred-symbolic document-open-recent-symbolic view-app-grid-symbolic',
+      icons.join(' ') === 'view-grid-symbolic starred-symbolic view-app-grid-symbolic',
       `each tab carries its icon (${icons.join(' ')})`,
     )
     const theme = Gtk.IconTheme.getForDisplay(dialog.getDisplay())
@@ -132,7 +133,7 @@ app.on('activate', () => {
     check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
-    for (const wanted of ['Summary', 'Records', 'Activity', 'Charts', 'Time distribution', 'Time trend', 'ao50', 'ao100', 'ao1000', 'Total time', 'Recent days', 'Overview', 'Less', 'More']) {
+    for (const wanted of ['Summary', 'Records', 'Charts', 'Time distribution', 'Time trend', 'ao50', 'ao100', 'ao1000', 'Total time', 'Recent days', 'Overview', 'Less', 'More']) {
       check(text.includes(wanted), `label "${wanted}" is present`)
     }
 
@@ -167,17 +168,27 @@ app.on('activate', () => {
     check(groupTitles.includes('Summary'), `summary group is present (${groupTitles.join(' | ')})`)
     check(groupTitles.includes('Personal bests'), `records group is present (${groupTitles.join(' | ')})`)
 
-    // The Activity tab is two Adw.PreferencesGroup sections: the heat map,
-    // then the figures.
-    const activitySections = groups.filter(
-      (group) => group.title === 'Recent days' || group.title === 'Overview',
-    )
-    check(activitySections.length === 2, `two Activity sections (${activitySections.length})`)
+    // The old Activity tab is split: its figures live under Summary, its
+    // heat map under Charts. No page is called Activity any more.
+    const pageChild = (name) => {
+      const list = stack.getPages()
+      for (let i = 0; i < list.getNItems(); i += 1) {
+        const page = list.getItem(i)
+        if (page.name === name) return page.getChild()
+      }
+      return null
+    }
+    const groupTitlesIn = (root) =>
+      findAll(root, 'AdwPreferencesGroup').map((group) => group.title)
     check(
-      activitySections[0]?.title === 'Recent days' &&
-        activitySections[1]?.title === 'Overview',
-      `Recent days leads the tab (${activitySections.map((group) => group.title).join(' | ')})`,
+      groupTitlesIn(pageChild('summary')).join('|') === 'Summary|Overview',
+      `Summary carries the overview figures (${groupTitlesIn(pageChild('summary')).join(' | ')})`,
     )
+    check(
+      groupTitlesIn(pageChild('charts')).join('|') === 'Time distribution|Time trend|Recent days',
+      `Charts carries the heat map (${groupTitlesIn(pageChild('charts')).join(' | ')})`,
+    )
+    check(pageChild('activity') === null, 'there is no Activity page any more')
 
     const activityList = findAll(dialog, 'GtkListBox').find((list) => {
       for (let i = 0; ; i += 1) {
@@ -203,7 +214,7 @@ app.on('activate', () => {
       const timeRow = activityList.getRowAtIndex(1)
       check(
         timeRow?.constructor.name === 'AdwActionRow' && timeRow?.title === 'Total time',
-        'total time moved to the Activity figures',
+        'total time sits in the Overview card',
       )
     }
 
@@ -292,7 +303,7 @@ app.on('activate', () => {
     )
 
     // Tab switching by name is what a click on the switcher does.
-    for (const name of ['records', 'activity', 'charts', 'summary']) {
+    for (const name of ['records', 'charts', 'summary']) {
       stack.setVisibleChildName(name)
       check(stack.visibleChildName === name, `switched to ${name}`)
     }
@@ -313,9 +324,9 @@ app.on('activate', () => {
         'narrowing shows the Statistics title in the header',
       )
       check(switcherBars[0]?.reveal === true, 'narrowing reveals the bottom bar')
-      // The Activity page is hidden while Summary is selected, so it has no
-      // allocation yet: show it, let GTK lay it out, then measure the cells.
-      stack.setVisibleChildName('activity')
+      // The Charts page is hidden while Summary is selected, so its heat
+      // map has no allocation yet: show it, lay it out, then measure.
+      stack.setVisibleChildName('charts')
       GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
         let sizes = [...new Set(heatCells.map((box) => `${box.getWidth()}x${box.getHeight()}`))]
         check(

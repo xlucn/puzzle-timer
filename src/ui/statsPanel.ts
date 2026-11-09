@@ -1,9 +1,10 @@
 /*
  * statsPanel.ts — the Statistics dialog behind the app menu.
  *
- * Three tabs over one session: Summary (the averages table),
- * Records (PB history — when each best was set and how long it stood) and
- * Activity (local-day buckets, streaks, a calendar heat map).
+ * Three tabs over one session: Summary (the averages table plus the overview
+ * figures), Records (PB history — when each best was set and how long it
+ * stood) and Charts (time distribution, time trend, and a calendar heat map
+ * of recent days).
  *
  * Every number comes from src/core/stats.ts, records.ts and activity.ts, so
  * this view and the strip cannot disagree. The figures are computed when the
@@ -156,7 +157,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
   }
 
   // ---- summary -----------------------------------------------------------
-  const summaryPage = (session: Session, stats: ReturnType<typeof sessionStats>) => {
+  const summaryPage = (
+    session: Session,
+    stats: ReturnType<typeof sessionStats>,
+    days: ReturnType<typeof activity>,
+  ) => {
     const total = session.size
     const last = session.solves[total - 1]
 
@@ -277,11 +282,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
 
     const body = new Gtk.Box({
       orientation: Gtk.Orientation.VERTICAL,
+      spacing: 18,
       marginStart: 24,
       marginEnd: 24,
       marginBottom: 18,
     })
     body.append(group)
+    body.append(overviewGroup(session, stats, days))
     return { body }
   }
 
@@ -382,7 +389,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
     return group
   }
 
-  const chartsPage = (stats: ReturnType<typeof sessionStats>) => {
+  const chartsPage = (
+    stats: ReturnType<typeof sessionStats>,
+    days: ReturnType<typeof activity>,
+    now: number,
+  ) => {
     const body = new Gtk.Box({
       orientation: Gtk.Orientation.VERTICAL,
       spacing: 18,
@@ -393,7 +404,15 @@ export function createStatsPanel(options: StatsPanelOptions) {
     })
     const distribution = histogram(stats.times)
     const trend = trendData(stats.times)
-    if (distribution === null || trend === null) {
+    if (distribution !== null) {
+      body.append(chartSection(t('stats.charts.distribution'), createHistogramChart(distribution)))
+    }
+    if (trend !== null) {
+      body.append(chartSection(t('stats.charts.trend'), createTrendChart(trend)))
+    }
+    const recent = heatmapSection(days, now)
+    if (recent !== null) body.append(recent)
+    if (distribution === null && trend === null && recent === null) {
       body.append(
         new Gtk.Label({
           label: t('stats.empty'),
@@ -401,27 +420,172 @@ export function createStatsPanel(options: StatsPanelOptions) {
           marginTop: 24,
         }),
       )
-      return body
     }
-    body.append(chartSection(t('stats.charts.distribution'), createHistogramChart(distribution)))
-    body.append(chartSection(t('stats.charts.trend'), createTrendChart(trend)))
     return body
   }
 
-  // ---- activity ----------------------------------------------------------
-  const activityPage = (
+  // ---- activity figures and heat map -------------------------------------
+  /** The calendar heat map, or null when no solve carries a date. */
+  const heatmapSection = (days: ReturnType<typeof activity>, now: number) => {
+    if (days.days.length === 0) return null
+
+    // An empty session has no quarter to show; once there is any dated
+    // activity, the empty days become the gaps that make a streak legible.
+    const map = heatmap(days, now, HEATMAP_WEEKS)
+    const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3, hexpand: true })
+    const cellBoxes: InstanceType<typeof Gtk.Box>[] = []
+    // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
+    // on the left and one cell per day. A month label spans every week of
+    // its month: a one-column label is wider than a 14 px cell and would
+    // stretch that column, which is exactly what made the cells uneven.
+    const monthStarts: number[] = []
+    let previousMonth = -1
+    for (let column = 0; column < map.weeks.length; column += 1) {
+      const month = new Date(map.weeks[column][0].startMs).getMonth()
+      if (column === 0 || month !== previousMonth) monthStarts.push(column)
+      previousMonth = month
+    }
+    for (const [index, start] of monthStarts.entries()) {
+      const end = monthStarts[index + 1] ?? map.weeks.length
+      const span = end - start
+      // A one-week tail cannot absorb the label without widening its cell.
+      if (span < 2) continue
+      grid.attach(
+        new Gtk.Label({
+          label: formatDate(map.weeks[start][0].startMs, { month: 'short' }),
+          xalign: 0,
+          cssClasses: ['caption', 'dim-label'],
+        }),
+        start + 1,
+        0,
+        span,
+        1,
+      )
+    }
+    for (let column = 0; column < map.weeks.length; column += 1) {
+      for (let day = 0; day < 7; day += 1) {
+        const cell = map.weeks[column][day]
+        const level = cell.inRange ? cell.level : 0
+        const box = new Gtk.Box({
+          cssClasses: ['heatmap-cell', `level-${level}`].concat(
+            cell.inRange ? [] : ['future'],
+          ),
+        })
+        cellBoxes.push(box)
+        // node-gtk cannot box an undefined property, so the tooltip is set
+        // only for the days that exist.
+        if (cell.inRange) {
+          const date = formatDate(cell.startMs, DATE_OPTIONS)
+          box.setTooltipText(
+            cell.count === 0
+              ? `${date} · ${t('stats.activity.noSolves')}`
+              : `${date} · ${t('stats.solves', { count: cell.count })}`,
+          )
+        }
+        grid.attach(box, column + 1, day + 1, 1, 1)
+      }
+    }
+    for (const day of [0, 2, 4]) {
+      grid.attach(
+        new Gtk.Label({
+          label: formatDate(map.weeks[0][day].startMs, { weekday: 'short' }),
+          xalign: 1,
+          cssClasses: ['caption', 'dim-label'],
+          marginEnd: 3,
+        }),
+        0,
+        day + 1,
+        1,
+        1,
+      )
+    }
+
+    // A day cell grows into the width it is given instead of leaving the
+    // extra space between columns. The size comes from the allocated grid:
+    // 13 week cells share the width left by the weekday rail and the 13
+    // column gaps. The surface layout signal re-runs it on every resize.
+    let cellSize = 0
+    const fitCells = () => {
+      const width = grid.getWidth()
+      if (width <= 0) return
+      const labelWidth = grid.getChildAt(0, 1)?.getWidth() ?? 30
+      const gaps = HEATMAP_WEEKS * 3
+      // The 4 px leaves room for the card's border/padding; without it the
+      // final column can tip the dialog's natural width past contentWidth.
+      const size = Math.max(
+        14,
+        Math.floor((width - labelWidth - gaps - 4) / HEATMAP_WEEKS),
+      )
+      if (size === cellSize) return
+      cellSize = size
+      for (const box of cellBoxes) box.setSizeRequest(size, size)
+    }
+    let listening = false
+    grid.on('map', () => {
+      if (!listening) {
+        const surface = grid.getNative()?.getSurface() ?? null
+        surface?.on('layout', fitCells)
+        listening = true
+      }
+      GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+        fitCells()
+        return GLib.SOURCE_REMOVE
+      })
+    })
+
+    const legend = new Gtk.Box({
+      orientation: Gtk.Orientation.HORIZONTAL,
+      spacing: 4,
+      halign: Gtk.Align.CENTER,
+      marginTop: 8,
+    })
+    legend.append(
+      new Gtk.Label({
+        label: t('stats.activity.less'),
+        cssClasses: ['caption', 'dim-label'],
+      }),
+    )
+    for (let level = 0; level <= 4; level += 1) {
+      legend.append(
+        new Gtk.Box({
+          widthRequest: 11,
+          heightRequest: 11,
+          valign: Gtk.Align.CENTER,
+          cssClasses: ['heatmap-cell', `level-${level}`],
+        }),
+      )
+    }
+    legend.append(
+      new Gtk.Label({
+        label: t('stats.activity.more'),
+        cssClasses: ['caption', 'dim-label'],
+      }),
+    )
+
+    const heatRow = new Gtk.ListBoxRow({ selectable: false, activatable: false })
+    const heatBox = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      hexpand: true,
+      marginStart: 12,
+      marginEnd: 12,
+      marginTop: 12,
+      marginBottom: 12,
+    })
+    heatBox.append(grid)
+    heatBox.append(legend)
+    heatRow.setChild(heatBox)
+    const recent = new Adw.PreferencesGroup({ title: t('stats.activity.recent') })
+    recent.add(heatRow)
+    return recent
+  }
+
+  /** The label/value overview rows, a card of their own on the Summary tab. */
+  const overviewGroup = (
     session: Session,
-    summary: ReturnType<typeof sessionStats>,
-    now: number,
+    stats: ReturnType<typeof sessionStats>,
+    days: ReturnType<typeof activity>,
   ) => {
-    const stats = activity(session.solves, now)
-
-    // Two sections: the map leads, the figures read as the detail below it.
-    // Adw.PreferencesGroup supplies both the section title and the boxed
-    // card, so neither is hand-built.
     const figures = new Adw.PreferencesGroup({ title: t('stats.activity.overview') })
-    let recent: InstanceType<typeof Adw.PreferencesGroup> | null = null
-
     const addFigure = (label: string, value: string) => {
       const row = new Adw.ActionRow({
         title: label,
@@ -437,217 +601,56 @@ export function createStatsPanel(options: StatsPanelOptions) {
       figures.add(row)
     }
 
-    // A new session would otherwise show a blank quarter. Once there is any
-    // dated activity, the empty days become the gaps that make a streak
-    // legible, so they are worth keeping.
-    if (stats.days.length > 0) {
-      const map = heatmap(stats, now, HEATMAP_WEEKS)
-      const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3, hexpand: true })
-      const cellBoxes: InstanceType<typeof Gtk.Box>[] = []
-      // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
-      // on the left and one cell per day. A month label spans every week of
-      // its month: a one-column label is wider than a 14 px cell and would
-      // stretch that column, which is exactly what made the cells uneven.
-      const monthStarts: number[] = []
-      let previousMonth = -1
-      for (let column = 0; column < map.weeks.length; column += 1) {
-        const month = new Date(map.weeks[column][0].startMs).getMonth()
-        if (column === 0 || month !== previousMonth) monthStarts.push(column)
-        previousMonth = month
-      }
-      for (const [index, start] of monthStarts.entries()) {
-        const end = monthStarts[index + 1] ?? map.weeks.length
-        const span = end - start
-        // A one-week tail cannot absorb the label without widening its cell.
-        if (span < 2) continue
-        grid.attach(
-          new Gtk.Label({
-            label: formatDate(map.weeks[start][0].startMs, { month: 'short' }),
-            xalign: 0,
-            cssClasses: ['caption', 'dim-label'],
-          }),
-          start + 1,
-          0,
-          span,
-          1,
-        )
-      }
-      for (let column = 0; column < map.weeks.length; column += 1) {
-        for (let day = 0; day < 7; day += 1) {
-          const cell = map.weeks[column][day]
-          const level = cell.inRange ? cell.level : 0
-          const box = new Gtk.Box({
-            cssClasses: ['heatmap-cell', `level-${level}`].concat(
-              cell.inRange ? [] : ['future'],
-            ),
-          })
-          cellBoxes.push(box)
-          // node-gtk cannot box an undefined property, so the tooltip is set
-          // only for the days that exist.
-          if (cell.inRange) {
-            const date = formatDate(cell.startMs, DATE_OPTIONS)
-            box.setTooltipText(
-              cell.count === 0
-                ? `${date} · ${t('stats.activity.noSolves')}`
-                : `${date} · ${t('stats.solves', { count: cell.count })}`,
-            )
-          }
-          grid.attach(box, column + 1, day + 1, 1, 1)
-        }
-      }
-      for (const day of [0, 2, 4]) {
-        grid.attach(
-          new Gtk.Label({
-            label: formatDate(map.weeks[0][day].startMs, { weekday: 'short' }),
-            xalign: 1,
-            cssClasses: ['caption', 'dim-label'],
-            marginEnd: 3,
-          }),
-          0,
-          day + 1,
-          1,
-          1,
-        )
-      }
-
-      // A day cell grows into the width it is given instead of leaving the
-      // extra space between columns. The size comes from the allocated grid:
-      // 13 week cells share the width left by the weekday rail and the 13
-      // column gaps. The surface layout signal re-runs it on every resize.
-      let cellSize = 0
-      const fitCells = () => {
-        const width = grid.getWidth()
-        if (width <= 0) return
-        const labelWidth = grid.getChildAt(0, 1)?.getWidth() ?? 30
-        const gaps = HEATMAP_WEEKS * 3
-        // The 4 px leaves room for the card's border/padding; without it the
-        // final column can tip the dialog's natural width past contentWidth.
-        const size = Math.max(
-          14,
-          Math.floor((width - labelWidth - gaps - 4) / HEATMAP_WEEKS),
-        )
-        if (size === cellSize) return
-        cellSize = size
-        for (const box of cellBoxes) box.setSizeRequest(size, size)
-      }
-      let listening = false
-      grid.on('map', () => {
-        if (!listening) {
-          const surface = grid.getNative()?.getSurface() ?? null
-          surface?.on('layout', fitCells)
-          listening = true
-        }
-        GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
-          fitCells()
-          return GLib.SOURCE_REMOVE
-        })
-      })
-
-      const legend = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 4,
-        halign: Gtk.Align.CENTER,
-        marginTop: 8,
-      })
-      legend.append(
-        new Gtk.Label({
-          label: t('stats.activity.less'),
-          cssClasses: ['caption', 'dim-label'],
-        }),
-      )
-      for (let level = 0; level <= 4; level += 1) {
-        legend.append(
-          new Gtk.Box({
-            widthRequest: 11,
-            heightRequest: 11,
-            valign: Gtk.Align.CENTER,
-            cssClasses: ['heatmap-cell', `level-${level}`],
-          }),
-        )
-      }
-      legend.append(
-        new Gtk.Label({
-          label: t('stats.activity.more'),
-          cssClasses: ['caption', 'dim-label'],
-        }),
-      )
-
-      const heatRow = new Gtk.ListBoxRow({ selectable: false, activatable: false })
-      const heatBox = new Gtk.Box({
-        orientation: Gtk.Orientation.VERTICAL,
-        hexpand: true,
-        marginStart: 12,
-        marginEnd: 12,
-        marginTop: 12,
-        marginBottom: 12,
-      })
-      heatBox.append(grid)
-      heatBox.append(legend)
-      heatRow.setChild(heatBox)
-      recent = new Adw.PreferencesGroup({ title: t('stats.activity.recent') })
-      recent.add(heatRow)
-    }
-
-    addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
+    addFigure(t('stats.activity.totalSolves'), formatCount(days.totalSolves))
     addFigure(
       t('stats.totalTime'),
-      session.size === 0 ? DASH : formatTime(summary.totalMs),
+      session.size === 0 ? DASH : formatTime(stats.totalMs),
     )
     addFigure(
       t('stats.activity.today'),
-      `${t('stats.solves', { count: stats.today.count })} · ${formatTime(stats.today.totalMs)}`,
+      `${t('stats.solves', { count: days.today.count })} · ${formatTime(days.today.totalMs)}`,
     )
     addFigure(
       t('stats.activity.last7'),
-      `${t('stats.solves', { count: stats.last7.solves })} · ${t('stats.activity.activeCount', { count: stats.last7.activeDays })}`,
+      `${t('stats.solves', { count: days.last7.solves })} · ${t('stats.activity.activeCount', { count: days.last7.activeDays })}`,
     )
     addFigure(
       t('stats.activity.last30'),
-      `${t('stats.solves', { count: stats.last30.solves })} · ${t('stats.activity.activeCount', { count: stats.last30.activeDays })}`,
+      `${t('stats.solves', { count: days.last30.solves })} · ${t('stats.activity.activeCount', { count: days.last30.activeDays })}`,
     )
     addFigure(
       t('stats.activity.currentStreak'),
-      t('stats.activity.days', { count: stats.currentStreak }),
+      t('stats.activity.days', { count: days.currentStreak }),
     )
     addFigure(
       t('stats.activity.longestStreak'),
-      t('stats.activity.days', { count: stats.longestStreak }),
+      t('stats.activity.days', { count: days.longestStreak }),
     )
-    addFigure(t('stats.activity.activeDays'), formatCount(stats.activeDays))
+    addFigure(t('stats.activity.activeDays'), formatCount(days.activeDays))
     addFigure(
       t('stats.activity.perDay'),
-      formatCount(Math.round(stats.perActiveDay * 10) / 10),
+      formatCount(Math.round(days.perActiveDay * 10) / 10),
     )
     addFigure(
       t('stats.activity.bestDay'),
-      stats.bestDay === null
+      days.bestDay === null
         ? DASH
-        : `${t('stats.solves', { count: stats.bestDay.count })} · ${formatDate(stats.bestDay.startMs, DATE_OPTIONS)}`,
+        : `${t('stats.solves', { count: days.bestDay.count })} · ${formatDate(days.bestDay.startMs, DATE_OPTIONS)}`,
     )
-    if (stats.undated > 0) {
-      addFigure(t('stats.activity.undated'), formatCount(stats.undated))
+    if (days.undated > 0) {
+      addFigure(t('stats.activity.undated'), formatCount(days.undated))
     }
-
-    const body = new Gtk.Box({
-      orientation: Gtk.Orientation.VERTICAL,
-      spacing: 18,
-      marginStart: 12,
-      marginEnd: 12,
-      marginBottom: 18,
-      marginTop: 12,
-    })
-    if (recent !== null) body.append(recent)
-    body.append(figures)
-    return body
+    return figures
   }
 
   const buildDialog = () => {
     const session = options.getSession()
     const now = Date.now()
     const stats = sessionStats(session.solves)
+    const days = activity(session.solves, now)
 
     const stack = new Adw.ViewStack()
-    const summary = summaryPage(session, stats)
+    const summary = summaryPage(session, stats, days)
     stack.addTitledWithIcon(
       scroll(summary.body),
       'summary',
@@ -661,13 +664,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       'starred-symbolic',
     )
     stack.addTitledWithIcon(
-      scroll(activityPage(session, stats, now)),
-      'activity',
-      t('stats.tab.activity'),
-      'document-open-recent-symbolic',
-    )
-    stack.addTitledWithIcon(
-      scroll(chartsPage(stats)),
+      scroll(chartsPage(stats, days, now)),
       'charts',
       t('stats.tab.charts'),
       'view-app-grid-symbolic',
