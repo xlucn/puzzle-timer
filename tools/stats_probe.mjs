@@ -164,6 +164,7 @@ app.on('activate', () => {
 
     const groups = findAll(dialog, 'AdwPreferencesGroup')
     const groupTitles = groups.map((group) => group.title)
+    check(groupTitles.includes('Summary'), `summary group is present (${groupTitles.join(' | ')})`)
     check(groupTitles.includes('Personal bests'), `records group is present (${groupTitles.join(' | ')})`)
 
     // The Activity tab is two Adw.PreferencesGroup sections: the heat map,
@@ -227,7 +228,9 @@ app.on('activate', () => {
     }
 
     const heatCells = findAll(dialog, 'GtkBox').filter(
-      (box) => box.widthRequest === 14 && box.getCssClasses().includes('heatmap-cell'),
+      (box) =>
+        box.getCssClasses().includes('heatmap-cell') &&
+        box.getParent()?.constructor.name === 'GtkGrid',
     )
     check(heatCells.length === 91, `a 13-week heat map has 91 cells (${heatCells.length})`)
     check(
@@ -273,11 +276,14 @@ app.on('activate', () => {
       // allocation yet: show it, let GTK lay it out, then measure the cells.
       stack.setVisibleChildName('activity')
       GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
-        const widths = [...new Set(heatCells.map((box) => box.getWidth()))]
+        let sizes = [...new Set(heatCells.map((box) => `${box.getWidth()}x${box.getHeight()}`))]
         check(
-          widths.length === 1 && widths[0] === 14,
-          `all heat-map cells share one width (${widths.join(', ')})`,
+          sizes.length === 1 &&
+            heatCells[0].getWidth() === heatCells[0].getHeight() &&
+            heatCells[0].getWidth() >= 14,
+          `every heat-map cell is one size and square (${sizes.join(', ')})`,
         )
+        const narrowCell = heatCells[0].getWidth()
         const grid = heatCells[0]?.getParent()
         const heatBox = grid?.getParent()
         check(grid?.getHexpand() === true, 'the heat map fills its card width')
@@ -293,6 +299,13 @@ app.on('activate', () => {
         GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
           check(headerSwitcher?.visible === true, 'widening restores the header switcher')
           check(switcherBars[0]?.reveal === false, 'widening hides the bottom bar')
+          sizes = [...new Set(heatCells.map((box) => `${box.getWidth()}x${box.getHeight()}`))]
+          check(
+            sizes.length === 1 &&
+              heatCells[0].getWidth() === heatCells[0].getHeight() &&
+              heatCells[0].getWidth() > narrowCell,
+            `widening grows the squares, not the gaps (${narrowCell} → ${heatCells[0].getWidth()})`,
+          )
           dialog.close()
           GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
             if (failures > 0) log(`${failures} FAILURE(S)`)

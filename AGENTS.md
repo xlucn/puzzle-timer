@@ -156,6 +156,11 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   `<code>`; an unknown element aborts the whole dialog
   (`Unexpected element 'b'`), there is no bold, and text outside a paragraph
   or list item is dropped. Escape user data, or set `useMarkup: false`.
+- **`Gtk.AspectFrame` does not square a `Gtk.Grid` cell.** The grid hands the
+  frame the row's natural height, so the frame keeps the child at its minimum
+  instead of widening it; measure the allocated width and set the cell's size
+  request, re-running the fit on the surface `layout` signal (the Activity
+  heat map does this).
 - **A symbolic icon name must exist in the *active* theme, not just Adwaita.**
   Breeze has no `x-office-calendar-symbolic`; `Gtk.IconTheme.hasIcon` (the
   probe uses it) is the check. Common freedesktop names such as

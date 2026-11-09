@@ -1334,7 +1334,8 @@ total time lives in the Activity figures; a current streak counts through
 is two `Adw.PreferencesGroup` sections — Recent days (a thirteen-week calendar
 heat map, so a gap in a streak is visible) and Overview (the figures); the heat
 map is scaled against the busiest day *inside* its window and leaves future
-days blank; an undated imported solve is counted separately instead of
+days blank, and its cells grow as squares with the card width instead of
+widening the gaps; an undated imported solve is counted separately instead of
 becoming 1970. `tools/stats_probe.mjs` checks the three tabs, the summary
 ColumnView, the seven record expanders, the 91-cell heat map and tab switching
 headlessly. The strip and the list's ao5/ao12 columns still know only their own

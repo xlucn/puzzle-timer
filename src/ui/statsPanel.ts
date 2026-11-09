@@ -17,6 +17,7 @@
  */
 import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
+import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
 
 import { styles } from 'node-gtk/styles'
@@ -247,21 +248,38 @@ export function createStatsPanel(options: StatsPanelOptions) {
     view.appendColumn(makeColumn(t('stats.best'), 1))
     view.appendColumn(makeColumn(t('stats.target'), 2))
 
-    const body = new Gtk.Box({
+    const table = new Gtk.Box({
       orientation: Gtk.Orientation.VERTICAL,
       spacing: 6,
-      marginStart: 24,
-      marginEnd: 24,
-      marginBottom: 18,
+      marginStart: 12,
+      marginEnd: 12,
+      marginTop: 12,
+      marginBottom: 12,
     })
-    body.append(view)
-    body.append(
+    table.append(view)
+    table.append(
       new Gtk.Label({
         label: caption,
         xalign: 0,
         cssClasses: ['caption', 'dim-label'],
       }),
     )
+
+    // The other tabs carry an Adw.PreferencesGroup title; the Summary table
+    // gets one for the same reason — the dialog header is the switcher in
+    // wide mode, so the page itself has to name its section.
+    const tableRow = new Gtk.ListBoxRow({ selectable: false, activatable: false })
+    tableRow.setChild(table)
+    const group = new Adw.PreferencesGroup({ title: t('stats.tab.summary') })
+    group.add(tableRow)
+
+    const body = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      marginStart: 24,
+      marginEnd: 24,
+      marginBottom: 18,
+    })
+    body.append(group)
     return { body }
   }
 
@@ -380,6 +398,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
     if (stats.days.length > 0) {
       const map = heatmap(stats, now, HEATMAP_WEEKS)
       const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3, hexpand: true })
+      const cellBoxes: InstanceType<typeof Gtk.Box>[] = []
       // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
       // on the left and one cell per day. A month label spans every week of
       // its month: a one-column label is wider than a 14 px cell and would
@@ -413,13 +432,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
           const cell = map.weeks[column][day]
           const level = cell.inRange ? cell.level : 0
           const box = new Gtk.Box({
-            widthRequest: 14,
-            heightRequest: 14,
-            halign: Gtk.Align.CENTER,
             cssClasses: ['heatmap-cell', `level-${level}`].concat(
               cell.inRange ? [] : ['future'],
             ),
           })
+          cellBoxes.push(box)
           // node-gtk cannot box an undefined property, so the tooltip is set
           // only for the days that exist.
           if (cell.inRange) {
@@ -432,12 +449,6 @@ export function createStatsPanel(options: StatsPanelOptions) {
           }
           grid.attach(box, column + 1, day + 1, 1, 1)
         }
-      }
-      // A zero-width expanding spacer in every week column makes the grid
-      // share the card's width between the columns; the cells themselves
-      // keep their 14 px size and centre inside the wider columns.
-      for (let column = 0; column < map.weeks.length; column += 1) {
-        grid.attach(new Gtk.Box({ hexpand: true }), column + 1, 8, 1, 1)
       }
       for (const day of [0, 2, 4]) {
         grid.attach(
@@ -453,6 +464,39 @@ export function createStatsPanel(options: StatsPanelOptions) {
           1,
         )
       }
+
+      // A day cell grows into the width it is given instead of leaving the
+      // extra space between columns. The size comes from the allocated grid:
+      // 13 week cells share the width left by the weekday rail and the 13
+      // column gaps. The surface layout signal re-runs it on every resize.
+      let cellSize = 0
+      const fitCells = () => {
+        const width = grid.getWidth()
+        if (width <= 0) return
+        const labelWidth = grid.getChildAt(0, 1)?.getWidth() ?? 30
+        const gaps = HEATMAP_WEEKS * 3
+        // The 4 px leaves room for the card's border/padding; without it the
+        // final column can tip the dialog's natural width past contentWidth.
+        const size = Math.max(
+          14,
+          Math.floor((width - labelWidth - gaps - 4) / HEATMAP_WEEKS),
+        )
+        if (size === cellSize) return
+        cellSize = size
+        for (const box of cellBoxes) box.setSizeRequest(size, size)
+      }
+      let listening = false
+      grid.on('map', () => {
+        if (!listening) {
+          const surface = grid.getNative()?.getSurface() ?? null
+          surface?.on('layout', fitCells)
+          listening = true
+        }
+        GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+          fitCells()
+          return GLib.SOURCE_REMOVE
+        })
+      })
 
       const legend = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,
