@@ -1,7 +1,7 @@
 /*
  * statsPanel.ts — the Statistics dialog behind the app menu.
  *
- * Three tabs over one session: Summary (the full averages table plus spread),
+ * Three tabs over one session: Summary (the averages table),
  * Records (PB history — when each best was set and how long it stood) and
  * Activity (local-day buckets, streaks, a calendar heat map).
  *
@@ -45,9 +45,9 @@ type Window = InstanceType<typeof Adw.ApplicationWindow>
 // exist in GTK4); tabular figures keep the value columns from jittering.
 styles.add(`
   /* Small text and dimming come from built-ins on the cells: caption (82%
-     size) and dim-label (55% dim) for the column heads, the mean caption and
-     the names; numeric (tabular figures) keeps the value columns from
-     jittering. Only the semibold stays a rule — no Adwaita class is 600. */
+     size) and dim-label (55% dim) for the mean caption; numeric (tabular
+     figures) keeps the value columns from jittering. Only the semibold stays
+     a rule — no Adwaita class is 600. */
   .stats-cell {
     font-weight: 600;
   }
@@ -125,20 +125,9 @@ export function createStatsPanel(options: StatsPanelOptions) {
     }
   }
 
-  /** One grid cell; `dim` is for every "not available yet" dash. */
-  const cell = (text: string, classes: string[]) =>
-    new Gtk.Label({ label: text, cssClasses: classes, xalign: 0 })
-
-  const valueCell = (text: string) =>
-    cell(text, text === DASH ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric'])
-
-  /** A value or "not available" pair used by both summary and activity. */
-  const figure = (label: string, value: string) => {
-    const name = cell(label, [])
-    const number = cell(value, value === DASH ? ['dim-label'] : ['numeric'])
-    number.xalign = 1
-    return { name, number }
-  }
+  /** Value cells: plain for labels, semibold tabular for numbers, dim for a dash. */
+  const valueClasses = (text: string) =>
+    text === '' ? [] : text === DASH ? ['stats-cell', 'incomplete'] : ['stats-cell', 'numeric']
 
   /** `Set 14 Mar 2025` / `Set at #143`, plus held duration or "current". */
   const recordStatus = (
@@ -166,25 +155,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
   // ---- summary -----------------------------------------------------------
   const summaryPage = (session: Session, stats: ReturnType<typeof sessionStats>) => {
     const total = session.size
-    const grid = new Gtk.Grid({ columnSpacing: 28, rowSpacing: 8 })
-    const attach = (column: number, row: number, widget: InstanceType<typeof Gtk.Widget>) => {
-      grid.attach(widget, column, row, 1, 1)
-    }
+    const last = session.solves[total - 1]
 
-    // Built-ins instead of rules: caption (82% + 400 weight) + dim-label
-    // (55%) is the platform's small secondary text.
-    attach(0, 0, cell('', ['caption', 'dim-label']))
-    attach(1, 0, cell(t('stats.current'), ['caption', 'dim-label']))
-    attach(2, 0, cell(t('stats.best'), ['caption', 'dim-label']))
-    attach(3, 0, cell(t('stats.target'), ['caption', 'dim-label']))
-
-    STAT_KINDS.forEach((kind, index) => {
-      const label = t(KIND_LABEL[kind])
-      const row = index + 1
-
+    const rows = STAT_KINDS.map((kind) => {
       // The newest single keeps its +2 suffix (formatSolve), unlike the
       // averages, which are penalised numbers without a notation of their own.
-      const last = session.solves[total - 1]
       const current =
         kind === 'single'
           ? last === undefined
@@ -197,13 +172,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const best = stats.best[kind] === null ? DASH : formatAverage(stats.best[kind]!.value)
       const target = targetText(stats.target[kind])
 
-      attach(0, row, cell(label, [])) // default size — the platform's plain row label
-      attach(1, row, valueCell(current))
-      attach(2, row, valueCell(best))
-      attach(3, row, valueCell(target))
+      return {
+        label: t(KIND_LABEL[kind]),
+        values: [current, best, target].map((text) => ({ text, classes: valueClasses(text) })),
+      }
     })
 
-    // ---- mean -------------------------------------------------------------
     const { mean, dnfCount, count } = stats.mean
     const meanValue = total === 0 ? DASH : formatAverage(mean)
     const caption =
@@ -213,46 +187,78 @@ export function createStatsPanel(options: StatsPanelOptions) {
           ? t('stats.solves', { count: total })
           : `${t('stats.counted', { count, total })} · ${t('stats.dnf', { count: dnfCount })}`
 
-    const meanRow = STAT_KINDS.length + 1
-    attach(0, meanRow, cell(t('stats.mean'), []))
-    attach(1, meanRow, valueCell(meanValue))
-    grid.attach(cell(caption, ['caption', 'dim-label']), 2, meanRow, 2, 1)
-
-    // ---- spread -----------------------------------------------------------
-    const spreadGrid = new Gtk.Grid({ columnSpacing: 28, rowSpacing: 8 })
-    const spreadRows: [string, string][] = [
-      [t('stats.best'), stats.spread.best === null ? DASH : formatAverage(stats.spread.best)],
-      [t('stats.worst'), stats.spread.worst === null ? DASH : formatAverage(stats.spread.worst)],
-      [t('stats.range'), stats.spread.range === null ? DASH : formatAverage(stats.spread.range)],
-      [
-        t('stats.sigma'),
-        Number.isNaN(stats.spread.sigma) ? DASH : formatAverage(stats.spread.sigma),
+    // The mean is not one of STAT_KINDS, but it still belongs in the table:
+    // one row with only its current value filled, followed by the count/DNF
+    // caption that would not fit a single cell.
+    rows.push({
+      label: t('stats.mean'),
+      values: [
+        { text: meanValue, classes: valueClasses(meanValue) },
+        { text: '', classes: [] },
+        { text: '', classes: [] },
       ],
-      [t('stats.totalTime'), total === 0 ? DASH : formatTime(stats.totalMs)],
-    ]
-    spreadRows.forEach(([label, value], index) => {
-      const { name, number } = figure(label, value)
-      spreadGrid.attach(name, 0, index, 1, 1)
-      spreadGrid.attach(number, 1, index, 1, 1)
     })
+
+    // A Gtk.StringList carries the row labels; each cell factory reads the
+    // real value from `rows` by the item's position, so no custom GObject
+    // subtype (and no unproven registerClass) is needed.
+    const model = Gtk.StringList.new(rows.map((row) => row.label))
+    const view = Gtk.ColumnView.new(Gtk.NoSelection.new(model))
+    view.setShowRowSeparators(true)
+    view.setVexpand(false)
+    view.setValign(Gtk.Align.START)
+
+    const makeColumn = (title: string, index: number) => {
+      const factory = Gtk.SignalListItemFactory.new()
+
+      factory.on('setup', (object) => {
+        const cell: any = object
+        cell.setChild(new Gtk.Label({ xalign: 0, hexpand: true }))
+      })
+
+      factory.on('bind', (object) => {
+        const cell: any = object
+        const label: any = cell.getChild()
+        if (label === null) return
+        const position = cell.getPosition()
+        if (position < 0 || position >= rows.length) return
+        const value =
+          index < 0 ? { text: rows[position].label, classes: [] } : rows[position].values[index]
+        label.setLabel(value.text)
+        label.setCssClasses(value.classes)
+      })
+
+      factory.on('teardown', (object) => {
+        const cell: any = object
+        cell.setChild(null)
+      })
+
+      const column = Gtk.ColumnViewColumn.new(title, factory)
+      column.setResizable(false)
+      return column
+    }
+
+    view.appendColumn(makeColumn('', -1))
+    view.appendColumn(makeColumn(t('stats.current'), 0))
+    view.appendColumn(makeColumn(t('stats.best'), 1))
+    view.appendColumn(makeColumn(t('stats.target'), 2))
 
     const body = new Gtk.Box({
       orientation: Gtk.Orientation.VERTICAL,
-      spacing: 18,
+      spacing: 6,
       marginStart: 24,
       marginEnd: 24,
       marginBottom: 18,
     })
-    body.append(grid)
-    const spreadLabel = new Gtk.Label({
-      label: t('stats.spread'),
-      cssClasses: ['caption', 'dim-label'],
-      xalign: 0,
-      marginTop: 6,
-    })
-    body.append(spreadLabel)
-    body.append(spreadGrid)
-    return { body, grid }
+    body.append(view)
+    body.append(
+      new Gtk.Label({
+        label: caption,
+        xalign: 0,
+        cssClasses: ['caption', 'dim-label'],
+      }),
+    )
+    return { body }
   }
 
   // ---- records -----------------------------------------------------------
@@ -336,7 +342,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
   }
 
   // ---- activity ----------------------------------------------------------
-  const activityPage = (session: Session, now: number) => {
+  const activityPage = (
+    session: Session,
+    summary: ReturnType<typeof sessionStats>,
+    now: number,
+  ) => {
     const stats = activity(session.solves, now)
 
     // Two sections: the map leads, the figures read as the detail below it.
@@ -479,6 +489,10 @@ export function createStatsPanel(options: StatsPanelOptions) {
 
     addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
     addFigure(
+      t('stats.totalTime'),
+      session.size === 0 ? DASH : formatTime(summary.totalMs),
+    )
+    addFigure(
       t('stats.activity.today'),
       `${t('stats.solves', { count: stats.today.count })} · ${formatTime(stats.today.totalMs)}`,
     )
@@ -546,7 +560,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       'starred-symbolic',
     )
     stack.addTitledWithIcon(
-      scroll(activityPage(session, now)),
+      scroll(activityPage(session, stats, now)),
       'activity',
       t('stats.tab.activity'),
       'document-open-recent-symbolic',
@@ -600,14 +614,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
       // then has no tab strip and the bottom bar takes over).
       switcher.setVisible(false)
       switcherBar.reveal = true
-      summary.grid.columnSpacing = 12
       summary.body.marginStart = 12
       summary.body.marginEnd = 12
     })
     squeeze.on('unapply', () => {
       switcher.setVisible(true)
       switcherBar.reveal = false
-      summary.grid.columnSpacing = 28
       summary.body.marginStart = 24
       summary.body.marginEnd = 24
     })

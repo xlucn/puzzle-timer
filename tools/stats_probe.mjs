@@ -132,8 +132,25 @@ app.on('activate', () => {
     check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
-    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ', 'Recent days', 'Overview', 'Less', 'More']) {
+    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Total time', 'Recent days', 'Overview', 'Less', 'More']) {
       check(text.includes(wanted), `label "${wanted}" is present`)
+    }
+
+    const tables = findAll(dialog, 'GtkColumnView')
+    check(tables.length === 1, `one summary ColumnView (${tables.length})`)
+    const table = tables[0]
+    if (table !== undefined) {
+      check(table.getColumns().getNItems() === 4, 'the summary has four columns')
+      const titles = []
+      for (let i = 0; i < table.getColumns().getNItems(); i += 1) {
+        titles.push(table.getColumns().getItem(i).title)
+      }
+      check(
+        titles.join('|') === '|Current|Best|Target',
+        `the column titles are Current, Best and Target (${titles.join('|')})`,
+      )
+      check(table.getModel()?.getNItems() === 8, 'the table has seven kinds plus the mean')
+      check(table.getShowRowSeparators() === true, 'the table shows row separators')
     }
 
     const groups = findAll(dialog, 'AdwPreferencesGroup')
@@ -163,7 +180,7 @@ app.on('activate', () => {
     if (activityList !== undefined) {
       let rows = 0
       while (activityList.getRowAtIndex(rows) !== null) rows += 1
-      check(rows === 9, `it holds the nine figures (${rows})`)
+      check(rows === 10, `it holds the ten figures (${rows})`)
       check(
         activityList.selectionMode === Gtk.SelectionMode.NONE,
         'the list is not selectable',
@@ -172,6 +189,11 @@ app.on('activate', () => {
       check(
         firstRow?.constructor.name === 'AdwActionRow' && firstRow?.title === 'Solves',
         'the figures start with the solve count',
+      )
+      const timeRow = activityList.getRowAtIndex(1)
+      check(
+        timeRow?.constructor.name === 'AdwActionRow' && timeRow?.title === 'Total time',
+        'total time moved to the Activity figures',
       )
     }
 
