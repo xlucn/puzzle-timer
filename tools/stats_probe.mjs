@@ -95,13 +95,13 @@ app.on('activate', () => {
     const stacks = findAll(dialog, 'AdwViewStack')
     check(stacks.length === 1, `one AdwViewStack (${stacks.length})`)
     const stack = stacks[0]
-    check(stack?.getPages()?.getNItems() === 3, 'three stack pages')
+    check(stack?.getPages()?.getNItems() === 4, 'four stack pages')
 
     const pages = stack.getPages()
     const icons = []
     for (let i = 0; i < pages.getNItems(); i += 1) icons.push(pages.getItem(i).iconName)
     check(
-      icons.join(' ') === 'view-grid-symbolic starred-symbolic document-open-recent-symbolic',
+      icons.join(' ') === 'view-grid-symbolic starred-symbolic document-open-recent-symbolic view-app-grid-symbolic',
       `each tab carries its icon (${icons.join(' ')})`,
     )
     const theme = Gtk.IconTheme.getForDisplay(dialog.getDisplay())
@@ -132,7 +132,7 @@ app.on('activate', () => {
     check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
-    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Total time', 'Recent days', 'Overview', 'Less', 'More']) {
+    for (const wanted of ['Summary', 'Records', 'Activity', 'Charts', 'Time distribution', 'Time trend', 'ao50', 'ao100', 'ao1000', 'Total time', 'Recent days', 'Overview', 'Less', 'More']) {
       check(text.includes(wanted), `label "${wanted}" is present`)
     }
 
@@ -255,8 +255,19 @@ app.on('activate', () => {
     )
     check(legendCells.length === 5, `the legend has five swatches (${legendCells.length})`)
 
+    const drawings = findAll(dialog, 'GtkDrawingArea')
+    check(drawings.length === 2, `two chart canvases (${drawings.length})`)
+    check(
+      drawings.map((area) => area.name).sort().join('|') === 'histogram-chart|trend-chart',
+      `the chart canvases are named (${drawings.map((area) => area.name).join(', ')})`,
+    )
+    check(
+      drawings.every((area) => area.heightRequest === 170),
+      'both charts reserve their drawing height',
+    )
+
     // Tab switching by name is what a click on the switcher does.
-    for (const name of ['records', 'activity', 'summary']) {
+    for (const name of ['records', 'activity', 'charts', 'summary']) {
       stack.setVisibleChildName(name)
       check(stack.visibleChildName === name, `switched to ${name}`)
     }
@@ -314,12 +325,20 @@ app.on('activate', () => {
               heatCells[0].getWidth() > narrowCell,
             `widening grows the squares, not the gaps (${narrowCell} → ${heatCells[0].getWidth()})`,
           )
-          dialog.close()
-          GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
-            if (failures > 0) log(`${failures} FAILURE(S)`)
-            else log('ALL PASS')
-            log(`exit ${failures === 0 ? 0 : 1}`)
-            app.quit()
+          stack.setVisibleChildName('charts')
+          GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
+            check(
+              drawings.every((area) => area.getWidth() > 0 && area.getHeight() > 0),
+              `both charts are laid out and draw (${drawings.map((area) => `${area.getWidth()}x${area.getHeight()}`).join(', ')})`,
+            )
+            dialog.close()
+            GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+              if (failures > 0) log(`${failures} FAILURE(S)`)
+              else log('ALL PASS')
+              log(`exit ${failures === 0 ? 0 : 1}`)
+              app.quit()
+              return GLib.SOURCE_REMOVE
+            })
             return GLib.SOURCE_REMOVE
           })
           return GLib.SOURCE_REMOVE

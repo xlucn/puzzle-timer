@@ -81,11 +81,11 @@ point at:
   date, how long it stood), σ / best / worst / range, ao50/ao100/ao1000,
   per-day activity (solves/day, current + longest streak, best day), in a
   three-tab Statistics dialog (`Adw.ViewStack`).
-- **M12 — charts** (time trend, distribution), moved out of the long-term
-  list below by the same decision: `Gtk.DrawingArea` + Cairo line/path
-  drawing; math ported from csTimer's `src/js/stats/trend.js` and
-  `src/js/stats/distribution.js` (GPL — port the math, not the DOM). Stats
-  already live in `core/`, so charts are rendering-only on top.
+- **M12 — charts (landed 2026-11-10).** Time distribution and trend, with
+  the math in `core/charts.ts` ported from csTimer's `src/js/stats/trend.js`
+  and `src/js/stats/distribution.js` (GPL — port the math, not the DOM), and
+  `Gtk.DrawingArea` + Cairo line/bar drawing in `ui/charts.ts`. Stats already
+  live in `core/`, so the charts are rendering-only on top.
 - **M16 — AUR package.** A PKGBUILD that precompiles with Arch's own
   `typescript` (in [extra]) and ships only `dist/` plus the two npm runtime
   dependencies: about **13 MiB installed against today's 39 MiB**
@@ -574,7 +574,7 @@ M0–M6 log closes the section. A number never moves: only the queue does.
 | **M9** | i18n: `core/i18n.ts` (`t()` + `Intl.PluralRules`), typed catalogs in `src/locales/`, `language` preference, sweep of every existing UI string | Switch to 中文, restart, and the UI reads Chinese — **landed 2026-11-06** |
 | **M10** | csTimer JSON import/export: pure `core/csTimerFormat.ts` codec, `Gtk.FileDialog` open/save, `app.importData`/`app.exportData` with `<Ctrl+O>` / `<Ctrl+Shift+S>` | A csTimer file imports into new sessions and exports back out — **landed 2026-11-06** |
 | **M11** | Records & statistics: PB history, σ/best/worst/range, ao50/ao100/ao1000, per-day activity, `Adw.ViewStack` tabs in the Statistics dialog, incremental sorted window | The Statistics dialog answers "when did I set that, and for how long?" — **landed 2026-11-08** |
-| **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session |
+| **M12** | Charts: distribution histogram + time trend, math in `core/`, `Gtk.DrawingArea` in `ui/` | Both charts render and track the session — **landed 2026-11-10** |
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" — **landed 2026-10-31: viable; M17 attached** |
@@ -1344,17 +1344,25 @@ two windows.
 **Checkpoint for the user:** the Records tab dates and "held for" figures
 against what you remember of your own PBs.
 
-### M12 — scheduled (charts)
+### M12 — landed 2026-11-10 (charts)
 
-- **Math in `core/`** — distribution bins and trend series, ported from
-  csTimer's `src/js/stats/distribution.js` and `src/js/stats/trend.js`
-  (GPL: port the math, attribute in the About dialog alongside the existing
-  stats attribution).
-- **Drawing in `ui/`** — `Gtk.DrawingArea` + a `draw`/`setDrawFunc` callback,
-  Cairo line and path drawing only. **No Cairo text** (rule 6): axis labels
-  are `Gtk.Label`/Pango overlays positioned by the widget layout.
-- **Probe first** — `setDrawFunc` and a Cairo path under node-gtk have never
-  been exercised here either.
+- **`core/charts.ts`** — `histogram()` counts finite times into csTimer's
+  automatic step ladder (about ten bins), and `trend()` returns single /
+  ao5 / ao12 points normalized to 0…1 plus the value-axis ticks. DNFs are
+  gaps in both.
+- **`ui/charts.ts`** — one `chartFrame()` keeps the y-label rail, grid lines
+  and plot padding aligned. Cairo draws rectangles and paths only; every
+  label is a `Gtk.Label`, including the three-cell x axis and the trend
+  legend. `Gtk.DrawingArea.setDrawFunc` and `setSourceRgba`/`stroke`/`fill`
+  were probed under node-gtk before use (rule 6).
+- **The tab** — Summary / Records / Activity / **Charts**, with two
+  `Adw.PreferencesGroup` sections: Time distribution and Time trend.
+- **`tools/stats_probe.mjs`** now checks four tabs, both canvas names, and
+  that both canvases get a real allocation after switching to Charts.
+
+**Checkpoint for the user:** open Statistics → Charts on a session with
+solves; the bars should track the spread of times, and the gray/red/blue
+lines the singles, ao5 and ao12 over solve order.
 
 ### M16 — scheduled (AUR package)
 
@@ -2133,19 +2141,19 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M12, M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06, M11 on
-  2026-11-08** — the scramble type control carries the length, the
+- **M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06, M11 on
+  2026-11-08, M12 on 2026-11-10** — the scramble type control carries the length, the
   pre-scramble (a preference through the module's `preScr` global) and the
   fast 4x4 switch, the UI reads English or Chinese through typed catalogs, a
   csTimer file imports into sessions and exports back out, and the Statistics
-  dialog now has Summary / Records / Activity tabs. Next is M12 charts → M16
+  dialog now has Summary / Records / Activity / Charts tabs. Next is M16
   AUR package → M17 phone package. M13 is out of the queue:
   it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
   joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
   (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6) — only the order
   moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M12, M16 and M17 remain scheduled.
+  changelog entries. Nothing was dropped: M16 and M17 remain scheduled.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and

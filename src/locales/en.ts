@@ -187,6 +187,7 @@ export const en = {
   'stats.tab.summary': 'Summary',
   'stats.tab.records': 'Records',
   'stats.tab.activity': 'Activity',
+  'stats.tab.charts': 'Charts',
   'stats.records.group': 'Personal bests',
   'stats.records.description':
     'Only improvements count. Each row shows when it was set and how long it stood.',
@@ -216,6 +217,8 @@ export const en = {
   'stats.activity.perDay': 'Solves per active day',
   'stats.activity.bestDay': 'Best day',
   'stats.activity.undated': 'Solves without a date',
+  'stats.charts.distribution': 'Time distribution',
+  'stats.charts.trend': 'Time trend',
   'stats.activity.overview': 'Overview',
   'stats.activity.recent': 'Recent days',
   'stats.activity.less': 'Less',

@@ -23,6 +23,7 @@ src/
 │   │                    (+ inspection-ready → inspecting: 15 s → +2, 17 s → DNF)
 │   ├── time.ts          formatting, penalty math, DNF-as-∞, inspection clock
 │   ├── stats.ts         single/window averages, trimming, spread, PB target
+│   ├── charts.ts        histogram bins and trend series for the charts
 │   ├── records.ts       PB history per kind (strict improvements only)
 │   ├── activity.ts      local-day buckets, streaks, rolling counts
 │   ├── session.ts       Solve & Session models, CRUD, undo, penalties, comments

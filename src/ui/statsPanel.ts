@@ -23,6 +23,7 @@ import Gtk from 'gi:Gtk-4.0'
 import { styles } from 'node-gtk/styles'
 
 import { activity, heatmap } from '../core/activity.js'
+import { histogram, trend as trendData } from '../core/charts.js'
 import { formatCount, formatDate, t } from '../core/i18n.js'
 import { heldDays, heldSolves, pbHistory, type PbRecord } from '../core/records.js'
 import type { Session } from '../core/session.js'
@@ -33,6 +34,7 @@ import {
   sessionStats,
 } from '../core/stats.js'
 import { formatAverage, formatSolve, formatTime } from '../core/time.js'
+import { createHistogramChart, createTrendChart } from './charts.js'
 import type { MessageKey } from '../locales/en.js'
 
 /*
@@ -363,6 +365,49 @@ export function createStatsPanel(options: StatsPanelOptions) {
     return body
   }
 
+  // ---- charts ------------------------------------------------------------
+  const chartSection = (title: string, chart: InstanceType<typeof Gtk.Widget>) => {
+    const row = new Gtk.ListBoxRow({ selectable: false, activatable: false })
+    const box = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      marginStart: 12,
+      marginEnd: 12,
+      marginTop: 12,
+      marginBottom: 12,
+    })
+    box.append(chart)
+    row.setChild(box)
+    const group = new Adw.PreferencesGroup({ title })
+    group.add(row)
+    return group
+  }
+
+  const chartsPage = (stats: ReturnType<typeof sessionStats>) => {
+    const body = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      spacing: 18,
+      marginStart: 12,
+      marginEnd: 12,
+      marginBottom: 18,
+      marginTop: 12,
+    })
+    const distribution = histogram(stats.times)
+    const trend = trendData(stats.times)
+    if (distribution === null || trend === null) {
+      body.append(
+        new Gtk.Label({
+          label: t('stats.empty'),
+          cssClasses: ['dim-label'],
+          marginTop: 24,
+        }),
+      )
+      return body
+    }
+    body.append(chartSection(t('stats.charts.distribution'), createHistogramChart(distribution)))
+    body.append(chartSection(t('stats.charts.trend'), createTrendChart(trend)))
+    return body
+  }
+
   // ---- activity ----------------------------------------------------------
   const activityPage = (
     session: Session,
@@ -620,6 +665,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
       'activity',
       t('stats.tab.activity'),
       'document-open-recent-symbolic',
+    )
+    stack.addTitledWithIcon(
+      scroll(chartsPage(stats)),
+      'charts',
+      t('stats.tab.charts'),
+      'view-app-grid-symbolic',
     )
 
     // The documented ViewSwitcher pairing: the tabs live in the header while
