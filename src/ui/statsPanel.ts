@@ -205,6 +205,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
     const model = Gtk.StringList.new(rows.map((row) => row.label))
     const view = Gtk.ColumnView.new(Gtk.NoSelection.new(model))
     view.setShowRowSeparators(true)
+    view.setHexpand(true)
     view.setVexpand(false)
     view.setValign(Gtk.Align.START)
 
@@ -235,6 +236,9 @@ export function createStatsPanel(options: StatsPanelOptions) {
 
       const column = Gtk.ColumnViewColumn.new(title, factory)
       column.setResizable(false)
+      // The kind column keeps its content width; the three value columns
+      // share the rest, so the table reaches both sides of the dialog.
+      column.setExpand(index >= 0)
       return column
     }
 
@@ -375,7 +379,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
     // legible, so they are worth keeping.
     if (stats.days.length > 0) {
       const map = heatmap(stats, now, HEATMAP_WEEKS)
-      const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3 })
+      const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3, hexpand: true })
       // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
       // on the left and one cell per day. A month label spans every week of
       // its month: a one-column label is wider than a 14 px cell and would
@@ -411,6 +415,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
           const box = new Gtk.Box({
             widthRequest: 14,
             heightRequest: 14,
+            halign: Gtk.Align.CENTER,
             cssClasses: ['heatmap-cell', `level-${level}`].concat(
               cell.inRange ? [] : ['future'],
             ),
@@ -427,6 +432,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
           }
           grid.attach(box, column + 1, day + 1, 1, 1)
         }
+      }
+      // A zero-width expanding spacer in every week column makes the grid
+      // share the card's width between the columns; the cells themselves
+      // keep their 14 px size and centre inside the wider columns.
+      for (let column = 0; column < map.weeks.length; column += 1) {
+        grid.attach(new Gtk.Box({ hexpand: true }), column + 1, 8, 1, 1)
       }
       for (const day of [0, 2, 4]) {
         grid.attach(
@@ -446,7 +457,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const legend = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,
         spacing: 4,
-        halign: Gtk.Align.END,
+        halign: Gtk.Align.CENTER,
         marginTop: 8,
       })
       legend.append(
@@ -475,6 +486,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const heatRow = new Gtk.ListBoxRow({ selectable: false, activatable: false })
       const heatBox = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
+        hexpand: true,
         marginStart: 12,
         marginEnd: 12,
         marginTop: 12,

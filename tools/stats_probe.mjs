@@ -151,6 +151,15 @@ app.on('activate', () => {
       )
       check(table.getModel()?.getNItems() === 8, 'the table has seven kinds plus the mean')
       check(table.getShowRowSeparators() === true, 'the table shows row separators')
+      check(table.getHexpand() === true, 'the table expands to both sides')
+      const expands = []
+      for (let i = 0; i < table.getColumns().getNItems(); i += 1) {
+        expands.push(table.getColumns().getItem(i).getExpand())
+      }
+      check(
+        expands.join('|') === 'false|true|true|true',
+        `the three value columns take the extra width (${expands.join('|')})`,
+      )
     }
 
     const groups = findAll(dialog, 'AdwPreferencesGroup')
@@ -268,6 +277,17 @@ app.on('activate', () => {
         check(
           widths.length === 1 && widths[0] === 14,
           `all heat-map cells share one width (${widths.join(', ')})`,
+        )
+        const grid = heatCells[0]?.getParent()
+        const heatBox = grid?.getParent()
+        check(grid?.getHexpand() === true, 'the heat map fills its card width')
+        check(
+          grid !== null && grid !== undefined && grid.getWidth() > 280,
+          `the grid spreads into the extra width (${grid?.getWidth()})`,
+        )
+        check(
+          heatBox?.getHalign() === Gtk.Align.FILL,
+          'the heat map box stretches from side to side',
         )
         dialog.contentWidth = 480
         GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
