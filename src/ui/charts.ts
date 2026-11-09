@@ -63,8 +63,29 @@ interface YTick {
 }
 
 /**
- * One chart: a fixed y-label rail on the left, a DrawingArea that takes the
- * remaining width, and a three-cell x-label row underneath.
+ * The trend's value labels: whole seconds when a grid step is a second or
+ * more, otherwise one decimal. Axis labels are guides, not results, so this
+ * drops centiseconds and shortens the rail without hiding the scale.
+ */
+function axisTimeLabel(ms: number, stepMs: number): string {
+  if (stepMs >= 1000) {
+    const total = Math.round(ms / 1000)
+    const minutes = Math.floor(total / 60)
+    const seconds = total % 60
+    return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : String(total)
+  }
+  const tenths = Math.round(ms / 100) / 10
+  const minutes = Math.floor(tenths / 60)
+  const seconds = tenths - minutes * 60
+  return minutes > 0
+    ? `${minutes}:${seconds.toFixed(1).padStart(4, '0')}`
+    : tenths.toFixed(1)
+}
+
+/**
+ * One chart: an optional y-label rail on the left, a DrawingArea that takes
+ * the remaining width, and a three-cell x-label row underneath. No ticks
+ * means no rail and no grid lines — the plot starts at the card's edge.
  */
 function chartFrame(
   name: string,
@@ -85,16 +106,18 @@ function chartFrame(
     const [, natural] = label.measure(Gtk.Orientation.HORIZONTAL, -1)
     return { tick, label, width: natural }
   })
-  const axisWidth = Math.ceil(Math.max(0, ...labels.map((entry) => entry.width))) + Y_AXIS_GAP
+  const axisWidth = labels.length === 0 ? 0 : Math.ceil(Math.max(0, ...labels.map((entry) => entry.width))) + Y_AXIS_GAP
 
-  const axis = new Gtk.Fixed({
+  const axis = labels.length === 0 ? null : new Gtk.Fixed({
     widthRequest: axisWidth,
     heightRequest: CHART_HEIGHT,
     valign: Gtk.Align.START,
   })
-  for (const { tick, label } of labels) {
-    label.widthRequest = axisWidth
-    axis.put(label, 0, Math.round(PADDING_TOP + (1 - tick.y) * plotHeight - LABEL_HEIGHT / 2))
+  if (axis !== null) {
+    for (const { tick, label } of labels) {
+      label.widthRequest = axisWidth
+      axis.put(label, 0, Math.round(PADDING_TOP + (1 - tick.y) * plotHeight - LABEL_HEIGHT / 2))
+    }
   }
 
   const area = new Gtk.DrawingArea({
@@ -124,17 +147,17 @@ function chartFrame(
   })
 
   const row = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 4 })
-  row.append(axis)
+  if (axis !== null) row.append(axis)
   row.append(area)
 
   // The x labels belong to the plot, not to the whole row: inset them past
-  // the y rail and the plot's own side padding so "first time" starts under
-  // the first bar/point.
+  // the y rail (when there is one) and the plot's own side padding so "first
+  // time" starts under the first bar/point.
   const xRow = new Gtk.Box({
     orientation: Gtk.Orientation.HORIZONTAL,
     name: 'chart-x-labels',
     hexpand: true,
-    marginStart: axisWidth + 4 + PADDING_SIDE,
+    marginStart: (axis === null ? 0 : axisWidth + 4) + PADDING_SIDE,
     marginEnd: PADDING_SIDE,
   })
   xLabels.forEach((text, index) => {
@@ -174,13 +197,13 @@ function legendItem(label: string, swatch: TrendKind): Widget {
   return item
 }
 
-/** Time-distribution bars, with count labels on the y axis. */
+/**
+ * Time-distribution bars. Heights are relative to the busiest bin, so the
+ * y axis carries no labels: the shape is the point, and dropping the rail
+ * gives the bars the full card width.
+ */
 export function createHistogramChart(histogram: Histogram): Widget {
   const maxCount = Math.max(...histogram.bins.map((bin) => bin.count), 1)
-  const countTicks = [...new Set([0, Math.round(maxCount / 2), maxCount])].map((value) => ({
-    label: formatCount(value),
-    y: value / maxCount,
-  }))
 
   const middle = histogram.bins[Math.floor((histogram.bins.length - 1) / 2)]
   const xLabels: [string, string, string] = [
@@ -189,7 +212,7 @@ export function createHistogramChart(histogram: Histogram): Widget {
     formatTime(histogram.bins[histogram.bins.length - 1].endMs),
   ]
 
-  return chartFrame('histogram-chart', countTicks, xLabels, (cr, plot) => {
+  return chartFrame('histogram-chart', [], xLabels, (cr, plot) => {
     const width = plot.right - plot.left
     const height = plot.bottom - plot.top
     const slot = width / histogram.bins.length
@@ -213,7 +236,7 @@ export function createHistogramChart(histogram: Histogram): Widget {
 /** Single/ao5/ao12 lines over solve order, with the value axis on the left. */
 export function createTrendChart(trend: Trend): Widget {
   const ticks: YTick[] = trend.ticks.map((tick) => ({
-    label: formatTime(tick.valueMs),
+    label: axisTimeLabel(tick.valueMs, trend.stepMs),
     y: tick.y,
   }))
   const xLabels: [string, string, string] =

@@ -267,19 +267,28 @@ app.on('activate', () => {
     )
     const xRows = findAll(dialog, 'GtkBox').filter((box) => box.name === 'chart-x-labels')
     check(xRows.length === 2, `both charts have x-axis label rows (${xRows.length})`)
-    // Each chart's rail is fitted to its own values, so the two charts need
-    // not share a width — but each label row must start at its own plot.
+    // The histogram has no value labels at all; the trend's rail is fitted to
+    // its compact labels. Each x row must still start at its own plot edge.
     const plotInsets = xRows.map((row) => {
       const chartRow = row.getParent()?.getFirstChild?.()
-      const rail = chartRow?.getFirstChild?.()
-      return { rail: rail?.widthRequest ?? -1, spacing: chartRow?.spacing ?? -1, inset: row.marginStart }
+      const first = chartRow?.getFirstChild?.()
+      const rail = first?.constructor?.name === 'GtkFixed' ? first.widthRequest : 0
+      return { rail, spacing: chartRow?.spacing ?? -1, inset: row.marginStart }
     })
+    const expectedInsets = plotInsets.map(
+      (entry) => (entry.rail > 0 ? entry.rail + entry.spacing : 0) + 6,
+    )
     check(
       plotInsets.length === 2 &&
-        plotInsets.every((entry) => entry.rail > 0 && entry.inset === entry.rail + entry.spacing + 6),
+        plotInsets.every((entry, index) => entry.inset === expectedInsets[index]),
       `each x-label row starts at its own plot (${plotInsets
-        .map((entry) => `${entry.rail}+${entry.spacing}+6=${entry.inset}`)
+        .map((entry, index) => `${entry.rail}+${entry.rail > 0 ? entry.spacing + '+' : ''}6=${expectedInsets[index]}`)
         .join(', ')})`,
+    )
+    check(plotInsets[0]?.rail === 0, 'the histogram leaves no room for value labels')
+    check(
+      plotInsets[1]?.rail > 0 && plotInsets[1].rail < 30,
+      `the trend's value labels are compact (${plotInsets[1]?.rail} px)`,
     )
 
     // Tab switching by name is what a click on the switcher does.
@@ -346,6 +355,13 @@ app.on('activate', () => {
             check(
               drawings.every((area) => area.getWidth() > 0 && area.getHeight() > 0),
               `both charts are laid out and draw (${drawings.map((area) => `${area.getWidth()}x${area.getHeight()}`).join(', ')})`,
+            )
+            const histogramArea = drawings.find((area) => area.name === 'histogram-chart')
+            const trendArea = drawings.find((area) => area.name === 'trend-chart')
+            check(
+              histogramArea.getWidth() ===
+                trendArea.getWidth() + plotInsets[1].rail + plotInsets[1].spacing,
+              `the histogram spends the saved rail on bars (${histogramArea.getWidth()} vs ${trendArea.getWidth()})`,
             )
             dialog.close()
             GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {

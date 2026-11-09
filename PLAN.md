@@ -1353,8 +1353,11 @@ against what you remember of your own PBs.
 - **`ui/charts.ts`** — one `chartFrame()` keeps the y-label rail, grid lines
   and plot padding aligned. Cairo draws rectangles and paths only; every
   label is a `Gtk.Label`, including the three-cell x axis and the trend
-  legend. `Gtk.DrawingArea.setDrawFunc` and `setSourceRgba`/`stroke`/`fill`
-  were probed under node-gtk before use (rule 6).
+  legend. The distribution has no value axis — heights are relative to the
+  busiest bin — and the trend labels whole seconds (one decimal below a
+  second), so the rail stays narrow and the plot takes the rest.
+  `Gtk.DrawingArea.setDrawFunc` and `setSourceRgba`/`stroke`/`fill` were
+  probed under node-gtk before use (rule 6).
 - **The tab** — Summary / Records / Activity / **Charts**, with two
   `Adw.PreferencesGroup` sections: Time distribution and Time trend.
 - **`tools/stats_probe.mjs`** now checks four tabs, both canvas names, and
