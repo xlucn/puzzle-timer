@@ -219,16 +219,27 @@ app.on('activate', () => {
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
       check(headerSwitcher?.visible === false, 'narrowing hides the header switcher')
       check(switcherBars[0]?.reveal === true, 'narrowing reveals the bottom bar')
-      dialog.contentWidth = 480
-      GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
-        check(headerSwitcher?.visible === true, 'widening restores the header switcher')
-        check(switcherBars[0]?.reveal === false, 'widening hides the bottom bar')
-        dialog.close()
-        GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
-          if (failures > 0) log(`${failures} FAILURE(S)`)
-          else log('ALL PASS')
-          log(`exit ${failures === 0 ? 0 : 1}`)
-          app.quit()
+      // The Activity page is hidden while Summary is selected, so it has no
+      // allocation yet: show it, let GTK lay it out, then measure the cells.
+      stack.setVisibleChildName('activity')
+      GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
+        const widths = [...new Set(heatCells.map((box) => box.getWidth()))]
+        check(
+          widths.length === 1 && widths[0] === 14,
+          `all heat-map cells share one width (${widths.join(', ')})`,
+        )
+        dialog.contentWidth = 480
+        GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
+          check(headerSwitcher?.visible === true, 'widening restores the header switcher')
+          check(switcherBars[0]?.reveal === false, 'widening hides the bottom bar')
+          dialog.close()
+          GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+            if (failures > 0) log(`${failures} FAILURE(S)`)
+            else log('ALL PASS')
+            log(`exit ${failures === 0 ? 0 : 1}`)
+            app.quit()
+            return GLib.SOURCE_REMOVE
+          })
           return GLib.SOURCE_REMOVE
         })
         return GLib.SOURCE_REMOVE

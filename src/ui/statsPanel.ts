@@ -419,24 +419,34 @@ export function createStatsPanel(options: StatsPanelOptions) {
       const map = heatmap(stats, now, HEATMAP_WEEKS)
       const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3 })
       // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
-      // on the left and one cell per day.
+      // on the left and one cell per day. A month label spans every week of
+      // its month: a one-column label is wider than a 14 px cell and would
+      // stretch that column, which is exactly what made the cells uneven.
+      const monthStarts: number[] = []
       let previousMonth = -1
       for (let column = 0; column < map.weeks.length; column += 1) {
-        const monday = new Date(map.weeks[column][0].startMs)
-        if (monday.getMonth() !== previousMonth) {
-          previousMonth = monday.getMonth()
-          grid.attach(
-            new Gtk.Label({
-              label: formatDate(map.weeks[column][0].startMs, { month: 'short' }),
-              xalign: 0,
-              cssClasses: ['caption', 'dim-label'],
-            }),
-            column + 1,
-            0,
-            1,
-            1,
-          )
-        }
+        const month = new Date(map.weeks[column][0].startMs).getMonth()
+        if (column === 0 || month !== previousMonth) monthStarts.push(column)
+        previousMonth = month
+      }
+      for (const [index, start] of monthStarts.entries()) {
+        const end = monthStarts[index + 1] ?? map.weeks.length
+        const span = end - start
+        // A one-week tail cannot absorb the label without widening its cell.
+        if (span < 2) continue
+        grid.attach(
+          new Gtk.Label({
+            label: formatDate(map.weeks[start][0].startMs, { month: 'short' }),
+            xalign: 0,
+            cssClasses: ['caption', 'dim-label'],
+          }),
+          start + 1,
+          0,
+          span,
+          1,
+        )
+      }
+      for (let column = 0; column < map.weeks.length; column += 1) {
         for (let day = 0; day < 7; day += 1) {
           const cell = map.weeks[column][day]
           const level = cell.inRange ? cell.level : 0
