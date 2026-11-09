@@ -267,9 +267,19 @@ app.on('activate', () => {
     )
     const xRows = findAll(dialog, 'GtkBox').filter((box) => box.name === 'chart-x-labels')
     check(xRows.length === 2, `both charts have x-axis label rows (${xRows.length})`)
+    // Each chart's rail is fitted to its own values, so the two charts need
+    // not share a width — but each label row must start at its own plot.
+    const plotInsets = xRows.map((row) => {
+      const chartRow = row.getParent()?.getFirstChild?.()
+      const rail = chartRow?.getFirstChild?.()
+      return { rail: rail?.widthRequest ?? -1, spacing: chartRow?.spacing ?? -1, inset: row.marginStart }
+    })
     check(
-      xRows.length === 2 && xRows.every((row) => row.marginStart === xRows[0].marginStart),
-      'the x labels share one plot inset',
+      plotInsets.length === 2 &&
+        plotInsets.every((entry) => entry.rail > 0 && entry.inset === entry.rail + entry.spacing + 6),
+      `each x-label row starts at its own plot (${plotInsets
+        .map((entry) => `${entry.rail}+${entry.spacing}+6=${entry.inset}`)
+        .join(', ')})`,
     )
 
     // Tab switching by name is what a click on the switcher does.

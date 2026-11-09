@@ -20,8 +20,9 @@ const CHART_HEIGHT = 170
 const PADDING_TOP = 8
 const PADDING_BOTTOM = 8
 const PADDING_SIDE = 6
-const Y_AXIS_WIDTH = 54
 const LABEL_HEIGHT = 14
+/** Breathing room after the widest value label. */
+const Y_AXIS_GAP = 3
 
 /** The line colours; the swatches use the matching CSS classes below. */
 const SINGLE: [number, number, number, number] = [0.55, 0.55, 0.55, 0.9]
@@ -71,19 +72,28 @@ function chartFrame(
   xLabels: [string, string, string],
   draw: (cr: any, plot: Plot) => void,
 ): Widget {
-  const axis = new Gtk.Fixed({
-    widthRequest: Y_AXIS_WIDTH,
-    heightRequest: CHART_HEIGHT,
-    valign: Gtk.Align.START,
-  })
   const plotHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM
-  for (const tick of ticks) {
+  // The rail is only as wide as the widest value it holds: counts stay
+  // narrow, times get the room their digits need. Measure before building
+  // the row, because the x labels are inset by the same width.
+  const labels = ticks.map((tick) => {
     const label = new Gtk.Label({
       label: tick.label,
       xalign: 1,
-      widthRequest: Y_AXIS_WIDTH,
       cssClasses: ['caption', 'dim-label'],
     })
+    const [, natural] = label.measure(Gtk.Orientation.HORIZONTAL, -1)
+    return { tick, label, width: natural }
+  })
+  const axisWidth = Math.ceil(Math.max(0, ...labels.map((entry) => entry.width))) + Y_AXIS_GAP
+
+  const axis = new Gtk.Fixed({
+    widthRequest: axisWidth,
+    heightRequest: CHART_HEIGHT,
+    valign: Gtk.Align.START,
+  })
+  for (const { tick, label } of labels) {
+    label.widthRequest = axisWidth
     axis.put(label, 0, Math.round(PADDING_TOP + (1 - tick.y) * plotHeight - LABEL_HEIGHT / 2))
   }
 
@@ -124,7 +134,7 @@ function chartFrame(
     orientation: Gtk.Orientation.HORIZONTAL,
     name: 'chart-x-labels',
     hexpand: true,
-    marginStart: Y_AXIS_WIDTH + 4 + PADDING_SIDE,
+    marginStart: axisWidth + 4 + PADDING_SIDE,
     marginEnd: PADDING_SIDE,
   })
   xLabels.forEach((text, index) => {
