@@ -117,7 +117,16 @@ function chartFrame(
   row.append(axis)
   row.append(area)
 
-  const xRow = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL })
+  // The x labels belong to the plot, not to the whole row: inset them past
+  // the y rail and the plot's own side padding so "first time" starts under
+  // the first bar/point.
+  const xRow = new Gtk.Box({
+    orientation: Gtk.Orientation.HORIZONTAL,
+    name: 'chart-x-labels',
+    hexpand: true,
+    marginStart: Y_AXIS_WIDTH + 4 + PADDING_SIDE,
+    marginEnd: PADDING_SIDE,
+  })
   xLabels.forEach((text, index) => {
     xRow.append(
       new Gtk.Label({

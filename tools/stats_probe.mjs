@@ -265,6 +265,12 @@ app.on('activate', () => {
       drawings.every((area) => area.heightRequest === 170),
       'both charts reserve their drawing height',
     )
+    const xRows = findAll(dialog, 'GtkBox').filter((box) => box.name === 'chart-x-labels')
+    check(xRows.length === 2, `both charts have x-axis label rows (${xRows.length})`)
+    check(
+      xRows.length === 2 && xRows.every((row) => row.marginStart === xRows[0].marginStart),
+      'the x labels share one plot inset',
+    )
 
     // Tab switching by name is what a click on the switcher does.
     for (const name of ['records', 'activity', 'charts', 'summary']) {
