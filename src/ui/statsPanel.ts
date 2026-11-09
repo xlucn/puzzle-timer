@@ -1,10 +1,10 @@
 /*
  * statsPanel.ts — the Statistics dialog behind the app menu.
  *
- * Three tabs over one session: Summary (the averages table plus the overview
- * figures), Records (PB history — when each best was set and how long it
- * stood) and Charts (time distribution, time trend, and a calendar heat map
- * of recent days).
+ * Two tabs over one session: Summary (the averages table, the overview
+ * figures and the PB history — when each best was set and how long it stood)
+ * and Charts (time distribution, time trend, and a calendar heat map of
+ * recent days).
  *
  * Every number comes from src/core/stats.ts, records.ts and activity.ts, so
  * this view and the strip cannot disagree. The figures are computed when the
@@ -289,11 +289,12 @@ export function createStatsPanel(options: StatsPanelOptions) {
     })
     body.append(group)
     body.append(overviewGroup(session, stats, days))
+    body.append(recordsGroup(session))
     return { body }
   }
 
   // ---- records -----------------------------------------------------------
-  const recordsPage = (session: Session) => {
+  const recordsGroup = (session: Session) => {
     const total = session.size
     const group = new Adw.PreferencesGroup({
       title: t('stats.records.group'),
@@ -360,16 +361,7 @@ export function createStatsPanel(options: StatsPanelOptions) {
       group.add(row)
     }
 
-    const body = new Gtk.Box({
-      orientation: Gtk.Orientation.VERTICAL,
-      spacing: 18,
-      marginStart: 12,
-      marginEnd: 12,
-      marginBottom: 18,
-      marginTop: 12,
-    })
-    body.append(group)
-    return body
+    return group
   }
 
   // ---- charts ------------------------------------------------------------
@@ -656,12 +648,6 @@ export function createStatsPanel(options: StatsPanelOptions) {
       'summary',
       t('stats.tab.summary'),
       'view-grid-symbolic',
-    )
-    stack.addTitledWithIcon(
-      scroll(recordsPage(session)),
-      'records',
-      t('stats.tab.records'),
-      'starred-symbolic',
     )
     stack.addTitledWithIcon(
       scroll(chartsPage(stats, days, now)),

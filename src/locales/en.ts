@@ -185,7 +185,6 @@ export const en = {
   'stats.sigma': 'σ',
   'stats.totalTime': 'Total time',
   'stats.tab.summary': 'Summary',
-  'stats.tab.records': 'Records',
   'stats.tab.charts': 'Charts',
   'stats.records.group': 'Personal bests',
   'stats.records.description':

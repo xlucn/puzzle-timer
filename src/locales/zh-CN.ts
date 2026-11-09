@@ -184,7 +184,6 @@ export const zhCN: Record<MessageKey, Message> = {
   'stats.sigma': 'σ',
   'stats.totalTime': '总用时',
   'stats.tab.summary': '概览',
-  'stats.tab.records': '纪录',
   'stats.tab.charts': '图表',
   'stats.records.group': '个人最佳',
   'stats.records.description': '只有刷新纪录才会计入。每行显示创造时间和保持时长。',
