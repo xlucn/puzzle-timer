@@ -140,6 +140,11 @@ export const zhCN: Record<MessageKey, Message> = {
   'session.error.name': '会话需要一个名称。',
   'session.error.long': '名称最多 {count} 个字符。',
   'session.error.taken': '已存在同名会话。',
+  'session.manager.title': '会话',
+  'session.manager.tooltip': '管理会话',
+  'session.manager.current': '当前会话',
+  'session.manager.rename': '重命名会话',
+  'session.manager.delete': '删除会话',
 
   // ---- solve list --------------------------------------------------------
   'list.time': '时间',
@@ -234,6 +239,7 @@ export const zhCN: Record<MessageKey, Message> = {
   'shortcuts.dnf': '将最新成绩标记为 DNF',
   'shortcuts.editSolve': '编辑所选（或最新）成绩',
   'shortcuts.sessionMenu': '打开会话菜单',
+  'shortcuts.sessionManager': '会话管理器',
   'shortcuts.newSession': '新建会话',
   'shortcuts.renameSession': '重命名当前会话',
   'shortcuts.deleteSession': '删除当前会话',

@@ -82,6 +82,8 @@ export interface TimesListOptions {
   sessionControl: Widget
   /** New-session button, packed at the header's start. */
   newSessionControl: Widget
+  /** Session manager, packed at the header's end: the way to see them all. */
+  sessionManagerControl: Widget
   /** Toplevel the comment dialog is presented on. */
   window: Window
 }
@@ -200,10 +202,12 @@ export function createTimesList(options: TimesListOptions) {
   // first HeaderBar in the toplevel. With the app menu in the content header
   // too, the title slot is free for the session switch — the list's own
   // subject — and no row is spent saying which session it is. New session
-  // sits at the start, so the header is [+ ] [ session ▾ ].
+  // sits at the start and the manager at the end, so the header is
+  // [+ ] [ session ▾ ] [☰].
   const header = new Adw.HeaderBar({ showTitle: true })
   header.titleWidget = options.sessionControl
   header.packStart(options.newSessionControl)
+  header.packEnd(options.sessionManagerControl)
 
   // ---- footer: the actions available on the selected row -----------------
   // Gtk.ActionBar, `revealed` collapsing it to nothing: the bar costs list

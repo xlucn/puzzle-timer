@@ -141,6 +141,11 @@ export const en = {
   'session.error.name': 'A session needs a name.',
   'session.error.long': 'Names are up to {count} characters.',
   'session.error.taken': 'A session with that name already exists.',
+  'session.manager.title': 'Sessions',
+  'session.manager.tooltip': 'Manage sessions',
+  'session.manager.current': 'Current session',
+  'session.manager.rename': 'Rename session',
+  'session.manager.delete': 'Delete session',
 
   // ---- solve list --------------------------------------------------------
   'list.time': 'Time',
@@ -242,6 +247,7 @@ export const en = {
   'shortcuts.dnf': 'Mark the newest solve DNF',
   'shortcuts.editSolve': 'Edit the selected (or newest) solve',
   'shortcuts.sessionMenu': 'Open the session menu',
+  'shortcuts.sessionManager': 'Session manager',
   'shortcuts.newSession': 'New session',
   'shortcuts.renameSession': 'Rename the active session',
   'shortcuts.deleteSession': 'Delete the active session',

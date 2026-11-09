@@ -58,6 +58,7 @@ app.on('activate', () => {
     onDelete: () => {},
     sessionControl: new Gtk.MenuButton({ label: 'Session' }),
     newSessionControl: new Gtk.Button({ iconName: 'list-add-symbolic' }),
+    sessionManagerControl: new Gtk.Button({ iconName: 'view-list-symbolic' }),
     window,
   })
 

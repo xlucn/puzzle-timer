@@ -6,7 +6,7 @@
  * window is narrow enough for it to be a drawer), copy the scramble
  * (Ctrl+C), Delete and the penalty/comment keys
  * on the solve list (Ctrl+1/2/3, Ctrl+E), the session accelerators
- * (Ctrl+S / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T),
+ * (Ctrl+S / Ctrl+M / Ctrl+N / F2 / Ctrl+Delete), Statistics (Ctrl+T),
  * Preferences / Fullscreen / Quit (Ctrl+, / F11 / Ctrl+Q), and this dialog
  * itself (Ctrl+?).
  * It opens from the header's app menu ("Keyboard Shortcuts") or that
@@ -81,6 +81,7 @@ export function createShortcutsDialog(): ShortcutsDialog {
   ])
   section(t('shortcuts.group.sessions'), [
     [t('shortcuts.sessionMenu'), '<Ctrl>S'],
+    [t('shortcuts.sessionManager'), '<Ctrl>M'],
     [t('shortcuts.newSession'), '<Ctrl>N'],
     [t('shortcuts.renameSession'), 'F2'],
     [t('shortcuts.deleteSession'), '<Ctrl>Delete'],

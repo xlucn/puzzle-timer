@@ -88,8 +88,8 @@ app.on('activate', () => {
   const statsChild = statsDialog.getChild?.() ?? null
   const statsLabels = shownLabels(statsChild)
   check(
-    ['概览', '纪录', '活跃度'].every((label) => statsLabels.includes(label)),
-    `statistics tabs are Chinese (${statsLabels.filter((label) => ['概览', '纪录', '活跃度'].includes(label)).join(' | ')})`,
+    ['概览', '图表'].every((label) => statsLabels.includes(label)),
+    `statistics tabs are Chinese (${statsLabels.filter((label) => ['概览', '图表'].includes(label)).join(' | ')})`,
   )
   statsDialog.close()
 

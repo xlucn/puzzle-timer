@@ -12,6 +12,7 @@ these cover the part Vitest cannot, which is the GTK layer.
 | `keyprobe.mjs` | Minimal node-gtk app that logs raw key events (for plumbing bugs) |
 | `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (the sidebar plumbing) |
 | `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
+| `session_probe.mjs` | Headless: the session manager — the sidebar header's button and its action/accelerator, the dialog's rows with solve counts and types, the active check, rename/delete buttons, switching by activating a row, and Delete going insensitive at the last session |
 | `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
 | `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, both structural bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its widest step is 900 px, so a `1280x800` screen is enough |
 | `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets, including the language ComboRow |

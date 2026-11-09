@@ -59,6 +59,7 @@ import { createScramblePanel } from './ui/scramblePanel.js'
 import { createScrambleTypeControl } from './ui/scrambleTypeControl.js'
 import { createScrambleTypePicker } from './ui/scrambleTypePicker.js'
 import { createScrambleTypeTitle } from './ui/scrambleTypeTitle.js'
+import { createSessionManager } from './ui/sessionManager.js'
 import { createSessionMenu } from './ui/sessionMenu.js'
 import { createShortcutsDialog } from './ui/shortcuts.js'
 import { createStatsPanel } from './ui/statsPanel.js'
@@ -301,6 +302,14 @@ app.on('activate', () => {
     ensureVisible: () => sidebarToggle.setActive(true),
     canOpen: () => !timerFocus,
   })
+  // The manager shares the solve-count reader above: the same cache, so
+  // opening it does not load any session twice.
+  const sessionManager = createSessionManager({
+    library,
+    app,
+    window,
+    getSolveCount: (id) => sessionFor(id).size,
+  })
 
   // The app's one menu, in the content header — app-wide actions belong to
   // the window, and this one stays reachable while the sidebar is closed.
@@ -339,6 +348,7 @@ app.on('activate', () => {
     onDelete: removeSolves,
     sessionControl: sessionMenu.widget,
     newSessionControl: sessionMenu.newButton,
+    sessionManagerControl: sessionManager.widget,
     window,
   })
 

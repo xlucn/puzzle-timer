@@ -20,7 +20,8 @@ import Gtk from 'gi:Gtk-4.0'
 import Pango from 'gi:Pango-1.0'
 
 import { t } from '../core/i18n.js'
-import { MAX_NAME_LENGTH, SessionLibrary, type NameError } from '../core/sessionLibrary.js'
+import { SessionLibrary } from '../core/sessionLibrary.js'
+import { createSessionDialogs } from './sessionDialogs.js'
 
 export interface SessionMenuOptions {
   /** The session list this control reads and mutates. */
@@ -58,72 +59,11 @@ const SIDEBAR_NAME_CHARS = 20
 export function createSessionMenu(options: SessionMenuOptions) {
   const { library, app, window } = options
 
-  // ---- name dialog: used by both New and Rename --------------------------
-  const messageFor = (error: NameError): string => {
-    switch (error) {
-      case 'empty':
-        return t('session.error.name')
-      case 'long':
-        return t('session.error.long', { count: MAX_NAME_LENGTH })
-      case 'duplicate':
-        return t('session.error.taken')
-    }
-  }
-
-  const promptForName = (settings: {
-    heading: string
-    acceptLabel: string
-    /** Shown under the entry until it is replaced by a validation message. */
-    body: string
-    initial: string
-    /** The session whose name may be kept as-is (rename), or null (new). */
-    exceptId: string | null
-    onSubmit: (name: string) => void
-  }) => {
-    const entry = new Gtk.Entry({
-      text: settings.initial,
-      placeholderText: t('session.name'),
-      // Enter submits: activates the dialog's default response instead of
-      // needing a trip to the buttons.
-      activatesDefault: true,
-      maxLength: MAX_NAME_LENGTH,
-    })
-
-    const dialog = new Adw.AlertDialog({
-      heading: settings.heading,
-      extraChild: entry,
-    })
-    dialog.addResponse('cancel', t('common.cancel'))
-    dialog.addResponse('accept', settings.acceptLabel)
-    dialog.setResponseAppearance('accept', Adw.ResponseAppearance.SUGGESTED)
-    dialog.setDefaultResponse('accept')
-    dialog.setCloseResponse('cancel')
-
-    // The library is the only judge of what a name may be, so the dialog's
-    // own sensitivity can never disagree with what create()/rename() accept.
-    const sync = () => {
-      const error = library.nameError(entry.getText(), settings.exceptId)
-      dialog.setResponseEnabled('accept', error === null)
-      dialog.body = error === null ? settings.body : messageFor(error)
-    }
-    entry.on('changed', sync)
-    sync()
-
-    dialog.on('response', (response) => {
-      if (response === 'accept') settings.onSubmit(entry.getText())
-    })
-    dialog.present(window)
-    // AdwAlertDialog's default response button claims focus on map, so the
-    // caret would land on the accept button instead of in the entry. Take
-    // focus back after GTK's own focus pass (map + a timer beat present()),
-    // with the current name selected so typing replaces it.
-    const claim = () => {
-      entry.grabFocus()
-      if (settings.initial.length > 0) entry.selectRegion(0, -1)
-    }
-    dialog.on('map', () => setTimeout(claim, 0))
-    setTimeout(claim, 0)
-  }
+  const dialogs = createSessionDialogs({
+    library,
+    window,
+    getSolveCount: options.getSolveCount,
+  })
 
   // ---- the button --------------------------------------------------------
   // The current session's name *is* the label: an icon would say "a menu is
@@ -165,14 +105,7 @@ export function createSessionMenu(options: SessionMenuOptions) {
   const newAction = Gio.SimpleAction.new('sessionNew', null)
   newAction.on('activate', () => {
     button.popdown() // close the menu before a dialog takes focus
-    promptForName({
-      heading: t('session.new'),
-      acceptLabel: t('common.create'),
-      body: t('session.new.description'),
-      initial: '',
-      exceptId: null,
-      onSubmit: (name) => library.create(name),
-    })
+    dialogs.promptNew()
   })
   app.addAction(newAction)
 
@@ -189,41 +122,14 @@ export function createSessionMenu(options: SessionMenuOptions) {
   const renameAction = Gio.SimpleAction.new('sessionRename', null)
   renameAction.on('activate', () => {
     button.popdown()
-    const active = library.active
-    promptForName({
-      heading: t('session.rename'),
-      acceptLabel: t('common.rename'),
-      body: '',
-      initial: active.name,
-      exceptId: active.id,
-      onSubmit: (name) => library.rename(active.id, name),
-    })
+    dialogs.promptRename(library.activeId)
   })
   app.addAction(renameAction)
 
   const deleteAction = Gio.SimpleAction.new('sessionDelete', null)
   deleteAction.on('activate', () => {
     button.popdown()
-    const active = library.active
-    const count = options.getSolveCount(active.id)
-    const dialog = new Adw.AlertDialog({
-      heading: t('session.delete.title', { name: active.name }),
-      body:
-        count === 0
-          ? t('session.delete.empty')
-          : t('session.delete.body', { count }),
-    })
-    dialog.addResponse('cancel', t('common.cancel'))
-    dialog.addResponse('delete', t('common.delete'))
-    dialog.setResponseAppearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
-    // Escape and Enter land on Cancel: deleting a session is guarded, never
-    // the default.
-    dialog.setDefaultResponse('cancel')
-    dialog.setCloseResponse('cancel')
-    dialog.on('response', (response) => {
-      if (response === 'delete') library.remove(active.id)
-    })
-    dialog.present(window)
+    dialogs.confirmDelete(library.activeId)
   })
   app.addAction(deleteAction)
 

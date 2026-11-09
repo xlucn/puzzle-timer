@@ -250,6 +250,8 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   real Preferences dialog headless; expect `ALL PASS`. `node-gtk/register` is
   mandatory: bare `--import tsx` dies with `ERR_UNSUPPORTED_ESM_URL_SCHEME` on
   `gi:`.
+- `… tools/session_probe.mjs` — the session manager dialog and its sidebar
+  button; expect `ALL PASS`.
 - `… tools/breakpoint_probe.mjs` — adaptive plumbing on a nested display; its
   bands come from `core/layout.ts` and its widest step is 900 px, so
   `1280x800` is enough.

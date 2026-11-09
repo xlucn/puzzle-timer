@@ -1693,6 +1693,17 @@ Accelerators (real menu accelerators, GtkMenuButton draws them beside their
 items): `<Ctrl+S>` session menu, `<Ctrl+N>` new, `F2` rename,
 `<Ctrl>Delete` delete — plain Delete stays the solve list's key.
 
+**Session manager (2026-11-10).** `src/ui/sessionManager.ts` puts a
+`view-list-symbolic` button at the sidebar header's end and adds
+`app.sessionManager` (`<Ctrl+M>`): an `Adw.Dialog` listing every session with
+its solve count and scramble type, a check on the active one, and per-row
+rename/delete. Activating a row switches; the dialog stays open and re-renders
+on library changes, coalesced through an idle so a row is never rebuilt inside
+its own click handler. The name and delete dialogs moved to
+`src/ui/sessionDialogs.ts`, so the menu and the manager share one validation
+path and one destructive confirmation. `tools/session_probe.mjs` checks the
+button, action, accelerator, rows, switching and the last-session delete guard.
+
 Evidence:
 
 - **96 Vitest tests green** (M2's 58 + 22 sessionLibrary + 16 store);
