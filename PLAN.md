@@ -1327,10 +1327,11 @@ the bottom (node-gtk cannot box the documented `title-widget = NULL`, so
 hiding it is the equivalent). Choices worth
 keeping: statistics are **per session** (an "all 3x3" scope would need its own
 naming); σ is the population form; a current streak counts through *yesterday*
-(the day is not lost until it has fully passed); the whole Activity tab is one
-`Gtk.ListBox` (the summary figures and a thirteen-week calendar heat map, so a
-gap in a streak is visible); the heat map is scaled against the busiest day
-*inside* its window and leaves future days blank; an undated imported solve is
+(the day is not lost until it has fully passed); the Activity tab is two
+`Adw.PreferencesGroup` sections — Recent days (a thirteen-week calendar heat
+map, so a gap in a streak is visible) and Overview (the figures); the heat map
+is scaled against the busiest day *inside* its window and leaves future days
+blank; an undated imported solve is
 counted separately instead of becoming 1970. `tools/stats_probe.mjs` checks the
 three tabs, the seven record expanders, the 91-cell heat map and tab switching
 headlessly. The strip and the list's ao5/ao12 columns still know only their own

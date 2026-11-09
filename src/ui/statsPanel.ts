@@ -339,14 +339,11 @@ export function createStatsPanel(options: StatsPanelOptions) {
   const activityPage = (session: Session, now: number) => {
     const stats = activity(session.solves, now)
 
-    // One list for the whole tab: the heat map and the summary figures are
-    // the same kind of data, so they share one Gtk.ListBox and its card
-    // (`boxed-list`, the class Adw.PreferencesGroup puts on its own list).
-    // The map leads the tab; the figures read as the detail below it.
-    const list = new Gtk.ListBox({
-      selectionMode: Gtk.SelectionMode.NONE,
-      cssClasses: ['boxed-list'],
-    })
+    // Two sections: the map leads, the figures read as the detail below it.
+    // Adw.PreferencesGroup supplies both the section title and the boxed
+    // card, so neither is hand-built.
+    const figures = new Adw.PreferencesGroup({ title: t('stats.activity.overview') })
+    let recent: InstanceType<typeof Adw.PreferencesGroup> | null = null
 
     const addFigure = (label: string, value: string) => {
       const row = new Adw.ActionRow({
@@ -360,27 +357,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
           cssClasses: value === DASH ? ['dim-label'] : ['numeric'],
         }),
       )
-      list.append(row)
+      figures.add(row)
     }
 
     // A new session would otherwise show a blank quarter. Once there is any
     // dated activity, the empty days become the gaps that make a streak
     // legible, so they are worth keeping.
     if (stats.days.length > 0) {
-      const heading = new Gtk.ListBoxRow({ selectable: false, activatable: false })
-      heading.setChild(
-        new Gtk.Label({
-          label: t('stats.activity.recent'),
-          xalign: 0,
-          cssClasses: ['heading'],
-          marginStart: 12,
-          marginEnd: 12,
-          marginTop: 12,
-          marginBottom: 6,
-        }),
-      )
-      list.append(heading)
-
       const map = heatmap(stats, now, HEATMAP_WEEKS)
       const grid = new Gtk.Grid({ columnSpacing: 3, rowSpacing: 3 })
       // Row 0 carries month names, rows 1..7 the Monday-first weekday labels
@@ -484,12 +467,14 @@ export function createStatsPanel(options: StatsPanelOptions) {
         orientation: Gtk.Orientation.VERTICAL,
         marginStart: 12,
         marginEnd: 12,
+        marginTop: 12,
         marginBottom: 12,
       })
       heatBox.append(grid)
       heatBox.append(legend)
       heatRow.setChild(heatBox)
-      list.append(heatRow)
+      recent = new Adw.PreferencesGroup({ title: t('stats.activity.recent') })
+      recent.add(heatRow)
     }
 
     addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
@@ -536,7 +521,8 @@ export function createStatsPanel(options: StatsPanelOptions) {
       marginBottom: 18,
       marginTop: 12,
     })
-    body.append(list)
+    if (recent !== null) body.append(recent)
+    body.append(figures)
     return body
   }
 

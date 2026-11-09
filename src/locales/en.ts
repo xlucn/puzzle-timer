@@ -216,6 +216,7 @@ export const en = {
   'stats.activity.perDay': 'Solves per active day',
   'stats.activity.bestDay': 'Best day',
   'stats.activity.undated': 'Solves without a date',
+  'stats.activity.overview': 'Overview',
   'stats.activity.recent': 'Recent days',
   'stats.activity.less': 'Less',
   'stats.activity.more': 'More',

@@ -132,7 +132,7 @@ app.on('activate', () => {
     check(headerBar?.getTitleWidget?.() === headerSwitcher, 'the header owns the switcher at first')
 
     const text = labels(dialog)
-    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ', 'Less', 'More']) {
+    for (const wanted of ['Summary', 'Records', 'Activity', 'ao50', 'ao100', 'ao1000', 'Spread', 'Total time', 'Worst', 'Range', 'σ', 'Recent days', 'Overview', 'Less', 'More']) {
       check(text.includes(wanted), `label "${wanted}" is present`)
     }
 
@@ -140,7 +140,18 @@ app.on('activate', () => {
     const groupTitles = groups.map((group) => group.title)
     check(groupTitles.includes('Personal bests'), `records group is present (${groupTitles.join(' | ')})`)
 
-    // The Activity tab is one plain Gtk.ListBox now, not a PreferencesGroup.
+    // The Activity tab is two Adw.PreferencesGroup sections: the heat map,
+    // then the figures.
+    const activitySections = groups.filter(
+      (group) => group.title === 'Recent days' || group.title === 'Overview',
+    )
+    check(activitySections.length === 2, `two Activity sections (${activitySections.length})`)
+    check(
+      activitySections[0]?.title === 'Recent days' &&
+        activitySections[1]?.title === 'Overview',
+      `Recent days leads the tab (${activitySections.map((group) => group.title).join(' | ')})`,
+    )
+
     const activityList = findAll(dialog, 'GtkListBox').find((list) => {
       for (let i = 0; ; i += 1) {
         const row = list.getRowAtIndex(i)
@@ -148,24 +159,19 @@ app.on('activate', () => {
         if (row.constructor.name === 'AdwActionRow' && row.title === 'Solves') return true
       }
     })
-    check(activityList !== undefined, 'the Activity tab is a Gtk.ListBox')
+    check(activityList !== undefined, 'the overview figures are a Gtk.ListBox')
     if (activityList !== undefined) {
       let rows = 0
       while (activityList.getRowAtIndex(rows) !== null) rows += 1
-      check(rows === 11, `it holds the heading, the heat map and nine figures (${rows})`)
+      check(rows === 9, `it holds the nine figures (${rows})`)
       check(
         activityList.selectionMode === Gtk.SelectionMode.NONE,
         'the list is not selectable',
       )
-      const headingRow = activityList.getRowAtIndex(0)
-      const figureRow = activityList.getRowAtIndex(2)
+      const firstRow = activityList.getRowAtIndex(0)
       check(
-        labels(headingRow).includes('Recent days'),
-        'the heat map heading leads the tab',
-      )
-      check(
-        figureRow?.constructor.name === 'AdwActionRow' && figureRow?.title === 'Solves',
-        'the figures follow the map',
+        firstRow?.constructor.name === 'AdwActionRow' && firstRow?.title === 'Solves',
+        'the figures start with the solve count',
       )
     }
 

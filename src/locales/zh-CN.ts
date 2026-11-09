@@ -208,6 +208,7 @@ export const zhCN: Record<MessageKey, Message> = {
   'stats.activity.perDay': '活跃日平均次数',
   'stats.activity.bestDay': '最佳一天',
   'stats.activity.undated': '没有日期的成绩',
+  'stats.activity.overview': '概览',
   'stats.activity.recent': '最近几天',
   'stats.activity.less': '少',
   'stats.activity.more': '多',
