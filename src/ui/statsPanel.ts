@@ -632,11 +632,16 @@ export function createStatsPanel(options: StatsPanelOptions) {
     })
     const switcherBar = new Adw.ViewSwitcherBar({ stack, reveal: false })
 
+    // The narrow header swaps the tab strip for the dialog's own title, so
+    // it is not an empty bar above the bottom switcher.
+    const narrowTitle = new Adw.WindowTitle({ title: t('stats.title') })
+    const header = new Adw.HeaderBar({ titleWidget: switcher, showTitle: true })
+
     // Adw.ToolbarView is the container the bottom bar is designed for: the
     // ViewSwitcherBar's `reveal` hands its height back to the stack when the
     // bar is hidden, instead of leaving a gap.
     const toolbar = new Adw.ToolbarView({ content: stack })
-    toolbar.addTopBar(new Adw.HeaderBar({ titleWidget: switcher, showTitle: true }))
+    toolbar.addTopBar(header)
     toolbar.addBottomBar(switcherBar)
 
     // Adaptive width: a fixed contentWidth, not followsContentSize — with
@@ -666,15 +671,14 @@ export function createStatsPanel(options: StatsPanelOptions) {
     // apply/unapply, not addSetter: node-gtk can't box the GValue (AGENTS).
     squeeze.on('apply', () => {
       // The documented setter is `title-widget = NULL`; node-gtk cannot box
-      // a null GValue, so hiding the switcher is the equivalent (the header
-      // then has no tab strip and the bottom bar takes over).
-      switcher.setVisible(false)
+      // a null GValue, so swap in a real title widget instead.
+      header.titleWidget = narrowTitle
       switcherBar.reveal = true
       summary.body.marginStart = 12
       summary.body.marginEnd = 12
     })
     squeeze.on('unapply', () => {
-      switcher.setVisible(true)
+      header.titleWidget = switcher
       switcherBar.reveal = false
       summary.body.marginStart = 24
       summary.body.marginEnd = 24

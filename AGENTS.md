@@ -68,10 +68,11 @@ recipes) · **[RUST-PORT.md](./RUST-PORT.md)** (research only, not scheduled).
   `Adw.ToastOverlay`, `Adw.StatusPage`.
   A tabbed dialog follows libadwaita's documented pair: `Adw.ViewSwitcher`
   in the header and an `Adw.ViewSwitcherBar` at the bottom inside an
-  `Adw.ToolbarView`; the narrow breakpoint hides the header switcher and
-  reveals the bar. Do not swap the switcher's policy instead. The documented
+  `Adw.ToolbarView`; the narrow breakpoint swaps the header's title widget to
+  an `Adw.WindowTitle` and reveals the bar. Do not swap the switcher's policy
+  instead, and do not leave the header empty: the documented
   `title-widget = NULL` cannot be boxed by node-gtk (a null GValue throws
-  `Cannot convert value "null" to type GtkWidget`), so hide the switcher.
+  `Cannot convert value "null" to type GtkWidget`), so use the title widget.
 - **Sizes are one continuous function of the window; only structure is
   tiered.** `layoutFor()` (`src/core/layout.ts`) derives the readout, scramble
   text, scramble slot and diagram box from width and height (`readoutPx()`,

@@ -1323,9 +1323,9 @@ buckets local days, fills the last 14, and derives both streaks, the rolling
 `Adw.ViewStack` tabs — Summary, Records, Activity — with the documented
 `Adw.ViewSwitcher` + `Adw.ViewSwitcherBar` pair, inside an `Adw.ToolbarView`
 so the bar hands its height back to the stack: below the same 450 px
-breakpoint as the table, the header switcher is hidden and the bar appears at
-the bottom (node-gtk cannot box the documented `title-widget = NULL`, so
-hiding it is the equivalent). Choices worth
+breakpoint as the table, the header swaps the switcher for an `Adw.WindowTitle`
+and the bar appears at the bottom (node-gtk cannot box the documented
+`title-widget = NULL`, so a real title widget takes its place). Choices worth
 keeping: statistics are **per session** (an "all 3x3" scope would need its own
 naming); the summary is a `Gtk.ColumnView` (a `Gtk.StringList` of row labels,
 with each cell reading its value by position, so no custom GObject subtype);

@@ -270,7 +270,12 @@ app.on('activate', () => {
     // give way to the bottom bar, the pattern AdwViewSwitcher documents.
     dialog.contentWidth = 360
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
-      check(headerSwitcher?.visible === false, 'narrowing hides the header switcher')
+      const narrowTitle = findAll(dialog, 'AdwWindowTitle')[0]
+      check(narrowTitle?.title === 'Statistics', 'the narrow header has a title')
+      check(
+        headerBar?.getTitleWidget?.() === narrowTitle,
+        'narrowing shows the Statistics title in the header',
+      )
       check(switcherBars[0]?.reveal === true, 'narrowing reveals the bottom bar')
       // The Activity page is hidden while Summary is selected, so it has no
       // allocation yet: show it, let GTK lay it out, then measure the cells.
@@ -297,7 +302,10 @@ app.on('activate', () => {
         )
         dialog.contentWidth = 480
         GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 500, () => {
-          check(headerSwitcher?.visible === true, 'widening restores the header switcher')
+          check(
+            headerBar?.getTitleWidget?.() === headerSwitcher,
+            'widening restores the switcher in the header',
+          )
           check(switcherBars[0]?.reveal === false, 'widening hides the bottom bar')
           sizes = [...new Set(heatCells.map((box) => `${box.getWidth()}x${box.getHeight()}`))]
           check(
