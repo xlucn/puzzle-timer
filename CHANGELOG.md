@@ -11,9 +11,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - A dropdown arrow on the scramble type button to change options related to the current scramble type if available.
 - A pre-scramble setting that turns the scramble diagram to a chosen orientation.
-- A fast 4x4 option that trades the WCA random-state scramble for instant random moves.
+- A fast 4x4 option that use random moves for faster scramble generation instead of random-state.
 - Language options, currently English and Simplified Chinese.
-- Import from and export to csTimer data files.
+- Import from and export to data files, aiming to be compatible with csTimer.
 - Statistics improvements: averages, PB, activities and streaks.
 
 ## [0.2.1] — 2026-11-03

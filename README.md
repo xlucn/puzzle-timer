@@ -56,7 +56,7 @@ Here is what is done by me, at the current stage:
 - **Sessions**: create/rename/switch/delete, per-session scramble type.
 - **Statistics**: averages, personal-bests, activities, etc.
 - **Records**: `+2`/`DNF`, comments, scramble.
-- **Migration**: import from and export to csTimer's data files.
+- **Migration**: import from and export to data files, mostly compatible with csTimer.
 
 ## Install
 
