@@ -339,9 +339,10 @@ export function createStatsPanel(options: StatsPanelOptions) {
   const activityPage = (session: Session, now: number) => {
     const stats = activity(session.solves, now)
 
-    // One list for the whole tab: the summary figures and the day rows are
+    // One list for the whole tab: the heat map and the summary figures are
     // the same kind of data, so they share one Gtk.ListBox and its card
     // (`boxed-list`, the class Adw.PreferencesGroup puts on its own list).
+    // The map leads the tab; the figures read as the detail below it.
     const list = new Gtk.ListBox({
       selectionMode: Gtk.SelectionMode.NONE,
       cssClasses: ['boxed-list'],
@@ -360,42 +361,6 @@ export function createStatsPanel(options: StatsPanelOptions) {
         }),
       )
       list.append(row)
-    }
-
-    addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
-    addFigure(
-      t('stats.activity.today'),
-      `${t('stats.solves', { count: stats.today.count })} · ${formatTime(stats.today.totalMs)}`,
-    )
-    addFigure(
-      t('stats.activity.last7'),
-      `${t('stats.solves', { count: stats.last7.solves })} · ${t('stats.activity.activeCount', { count: stats.last7.activeDays })}`,
-    )
-    addFigure(
-      t('stats.activity.last30'),
-      `${t('stats.solves', { count: stats.last30.solves })} · ${t('stats.activity.activeCount', { count: stats.last30.activeDays })}`,
-    )
-    addFigure(
-      t('stats.activity.currentStreak'),
-      t('stats.activity.days', { count: stats.currentStreak }),
-    )
-    addFigure(
-      t('stats.activity.longestStreak'),
-      t('stats.activity.days', { count: stats.longestStreak }),
-    )
-    addFigure(t('stats.activity.activeDays'), formatCount(stats.activeDays))
-    addFigure(
-      t('stats.activity.perDay'),
-      formatCount(Math.round(stats.perActiveDay * 10) / 10),
-    )
-    addFigure(
-      t('stats.activity.bestDay'),
-      stats.bestDay === null
-        ? DASH
-        : `${t('stats.solves', { count: stats.bestDay.count })} · ${formatDate(stats.bestDay.startMs, DATE_OPTIONS)}`,
-    )
-    if (stats.undated > 0) {
-      addFigure(t('stats.activity.undated'), formatCount(stats.undated))
     }
 
     // A new session would otherwise show a blank quarter. Once there is any
@@ -525,6 +490,42 @@ export function createStatsPanel(options: StatsPanelOptions) {
       heatBox.append(legend)
       heatRow.setChild(heatBox)
       list.append(heatRow)
+    }
+
+    addFigure(t('stats.activity.totalSolves'), formatCount(stats.totalSolves))
+    addFigure(
+      t('stats.activity.today'),
+      `${t('stats.solves', { count: stats.today.count })} · ${formatTime(stats.today.totalMs)}`,
+    )
+    addFigure(
+      t('stats.activity.last7'),
+      `${t('stats.solves', { count: stats.last7.solves })} · ${t('stats.activity.activeCount', { count: stats.last7.activeDays })}`,
+    )
+    addFigure(
+      t('stats.activity.last30'),
+      `${t('stats.solves', { count: stats.last30.solves })} · ${t('stats.activity.activeCount', { count: stats.last30.activeDays })}`,
+    )
+    addFigure(
+      t('stats.activity.currentStreak'),
+      t('stats.activity.days', { count: stats.currentStreak }),
+    )
+    addFigure(
+      t('stats.activity.longestStreak'),
+      t('stats.activity.days', { count: stats.longestStreak }),
+    )
+    addFigure(t('stats.activity.activeDays'), formatCount(stats.activeDays))
+    addFigure(
+      t('stats.activity.perDay'),
+      formatCount(Math.round(stats.perActiveDay * 10) / 10),
+    )
+    addFigure(
+      t('stats.activity.bestDay'),
+      stats.bestDay === null
+        ? DASH
+        : `${t('stats.solves', { count: stats.bestDay.count })} · ${formatDate(stats.bestDay.startMs, DATE_OPTIONS)}`,
+    )
+    if (stats.undated > 0) {
+      addFigure(t('stats.activity.undated'), formatCount(stats.undated))
     }
 
     const body = new Gtk.Box({

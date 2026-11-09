@@ -142,17 +142,30 @@ app.on('activate', () => {
 
     // The Activity tab is one plain Gtk.ListBox now, not a PreferencesGroup.
     const activityList = findAll(dialog, 'GtkListBox').find((list) => {
-      const first = list.getRowAtIndex(0)
-      return first?.constructor.name === 'AdwActionRow' && first?.title === 'Solves'
+      for (let i = 0; ; i += 1) {
+        const row = list.getRowAtIndex(i)
+        if (row === null) return false
+        if (row.constructor.name === 'AdwActionRow' && row.title === 'Solves') return true
+      }
     })
     check(activityList !== undefined, 'the Activity tab is a Gtk.ListBox')
     if (activityList !== undefined) {
       let rows = 0
       while (activityList.getRowAtIndex(rows) !== null) rows += 1
-      check(rows === 11, `it holds nine figures, the heading and the heat map (${rows})`)
+      check(rows === 11, `it holds the heading, the heat map and nine figures (${rows})`)
       check(
         activityList.selectionMode === Gtk.SelectionMode.NONE,
         'the list is not selectable',
+      )
+      const headingRow = activityList.getRowAtIndex(0)
+      const figureRow = activityList.getRowAtIndex(2)
+      check(
+        labels(headingRow).includes('Recent days'),
+        'the heat map heading leads the tab',
+      )
+      check(
+        figureRow?.constructor.name === 'AdwActionRow' && figureRow?.title === 'Solves',
+        'the figures follow the map',
       )
     }
 
