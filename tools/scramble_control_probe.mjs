@@ -89,7 +89,7 @@ app.on('activate', () => {
   const checkStructure = () => {
     check(
       split.constructor.name === 'AdwSplitButton' &&
-        split.iconName === 'view-list-symbolic' &&
+        split.iconName === 'view-grid-symbolic' &&
         split.cssClasses.includes('flat'),
       `control is a flat AdwSplitButton with the type icon (${split.iconName}, classes ${split.cssClasses.join(',') || 'none'})`,
     )

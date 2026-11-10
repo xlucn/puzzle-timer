@@ -43,7 +43,9 @@ export function createScrambleTypeControl(options: ScrambleTypeControlOptions) {
   const widget = new Adw.SplitButton({
     // Icon-only, so the tooltip is the only thing that names the action —
     // without it the half would be indistinguishable from refresh/copy.
-    iconName: 'view-list-symbolic',
+    // A two-pane grid, not the session manager's list: this half opens the
+    // category/type picker, whose dialog is exactly those two panes.
+    iconName: 'view-grid-symbolic',
     tooltipText: t('scramble.chooseType'),
     dropdownTooltip: t('scramble.options'),
     popover: scrambleOptions.popover,
