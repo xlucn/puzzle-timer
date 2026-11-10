@@ -313,28 +313,31 @@ app.on('activate', () => {
 
   // The app's one menu, in the content header — app-wide actions belong to
   // the window, and this one stays reachable while the sidebar is closed.
-  // Three sections (Statistics, Data, application-level actions); a section
-  // boundary is what draws the separator.
+  // Four sections (Statistics, Data, application actions, then window
+  // actions); a section boundary is what draws the separator, so Fullscreen
+  // and Quit sit apart at the end.
   const statisticsSection = new Gio.Menu()
   statisticsSection.append(t('menu.statistics'), 'app.statistics')
   const dataSection = new Gio.Menu()
   dataSection.append(t('menu.importData'), 'app.importData')
   dataSection.append(t('menu.exportData'), 'app.exportData')
   const applicationSection = new Gio.Menu()
-  // The label is the only state indicator: a checkable item would make GTK
-  // reserve a check column on every row of the menu.
-  applicationSection.append(
-    window.isFullscreen() ? t('menu.exitFullscreen') : t('menu.fullscreen'),
-    'app.fullscreen',
-  )
   applicationSection.append(t('menu.preferences'), 'app.preferences')
   applicationSection.append(t('menu.shortcuts'), 'app.shortcuts')
   applicationSection.append(t('menu.about', { name: appName }), 'app.about')
-  applicationSection.append(t('menu.quit'), 'app.quit')
+  const windowSection = new Gio.Menu()
+  // The label is the only state indicator: a checkable item would make GTK
+  // reserve a check column on every row of the menu.
+  windowSection.append(
+    window.isFullscreen() ? t('menu.exitFullscreen') : t('menu.fullscreen'),
+    'app.fullscreen',
+  )
+  windowSection.append(t('menu.quit'), 'app.quit')
   const appMenuModel = new Gio.Menu()
   appMenuModel.appendSection(null, statisticsSection)
   appMenuModel.appendSection(null, dataSection)
   appMenuModel.appendSection(null, applicationSection)
+  appMenuModel.appendSection(null, windowSection)
   const appMenuButton = new Gtk.MenuButton({
     iconName: 'open-menu-symbolic',
     menuModel: appMenuModel,
@@ -1229,8 +1232,8 @@ app.on('activate', () => {
   // label carries the state instead, rebuilt from the window so a compositor
   // shortcut changes it too.
   const setFullscreenLabel = (): void => {
-    applicationSection.remove(0)
-    applicationSection.insert(
+    windowSection.remove(0)
+    windowSection.insert(
       0,
       window.isFullscreen() ? t('menu.exitFullscreen') : t('menu.fullscreen'),
       'app.fullscreen',
