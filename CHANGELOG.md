@@ -7,6 +7,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-10
+
+This release adds scramble options, a language choice, data import and export, charts, and a session manager.
+
 ### Added
 
 - A dropdown arrow on the scramble type button to change options related to the current scramble type if available.
@@ -14,6 +18,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A pre-scramble setting that turns the scramble diagram to a chosen orientation.
 - Language options, currently English and Simplified Chinese.
 - Import from and export to data files, aiming to be compatible with csTimer.
+- A session manager to rename, delete and reorder sessions, opened from the sidebar header.
 - Statistics improvements: averages, PB, activities, streaks, charts and histograms.
 
 ## [0.2.1] — 2026-11-03
@@ -173,7 +178,8 @@ As of this release, the app is much more polished and usable.
 - GTK 4 + libadwaita through node-gtk, written in TypeScript.
 - Hold Space and release to start, press to stop. Microsecond precision.
 
-[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/xlucn/puzzle-timer/tree/v0.3.0
 [0.2.1]: https://github.com/xlucn/puzzle-timer/tree/v0.2.1
 [0.2.0]: https://github.com/xlucn/puzzle-timer/tree/v0.2.0
 [0.1.0]: https://github.com/xlucn/puzzle-timer/tree/v0.1.0
