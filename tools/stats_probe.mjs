@@ -15,6 +15,7 @@ import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
 import Gtk from 'gi:Gtk-4.0'
+import { fileURLToPath } from 'node:url'
 
 import { setLocale } from '../src/core/i18n.js'
 import { Session } from '../src/core/session.js'
@@ -71,6 +72,10 @@ const app = new Adw.Application({
 app.on('activate', () => {
   const window = new Adw.ApplicationWindow({ application: app })
   window.setDefaultSize(900, 540)
+  // The app's icon theme path, as main.ts adds it: the tab icons live there.
+  Gtk.IconTheme.getForDisplay(window.getDisplay()).addSearchPath(
+    fileURLToPath(new URL('../data/icons', import.meta.url)),
+  )
 
   // A small but non-trivial session: three local days, mixed times, a DNF,
   // and enough solves for an ao50 to exist.
@@ -102,7 +107,7 @@ app.on('activate', () => {
     const icons = []
     for (let i = 0; i < pages.getNItems(); i += 1) icons.push(pages.getItem(i).iconName)
     check(
-      icons.join(' ') === 'view-grid-symbolic view-app-grid-symbolic',
+      icons.join(' ') === 'view-list-ordered-symbolic decrease-symbolic',
       `each tab carries its icon (${icons.join(' ')})`,
     )
     const theme = Gtk.IconTheme.getForDisplay(dialog.getDisplay())

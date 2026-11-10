@@ -647,13 +647,13 @@ export function createStatsPanel(options: StatsPanelOptions) {
       scroll(summary.body),
       'summary',
       t('stats.tab.summary'),
-      'view-grid-symbolic',
+      'view-list-ordered-symbolic',
     )
     stack.addTitledWithIcon(
       scroll(chartsPage(stats, days, now)),
       'charts',
       t('stats.tab.charts'),
-      'view-app-grid-symbolic',
+      'decrease-symbolic',
     )
 
     // The documented ViewSwitcher pairing: the tabs live in the header while
