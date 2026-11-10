@@ -151,6 +151,31 @@ export function createPreferences(options: PreferencesPanelOptions) {
       title: t('prefs.appearance.title'),
       iconName: 'preferences-desktop-appearance-symbolic',
     })
+
+    // ---- group: language --------------------------------------------------
+    // The change is persisted like any other, but catalogs are read while
+    // widgets are built: only a restart re-labels the window (main.ts toasts
+    // that reminder). It leads the page rather than getting one of its own:
+    // language is the setting people look for first.
+    const languageGroup = new Adw.PreferencesGroup({
+      title: t('prefs.language.group'),
+      description: t('prefs.language.restart'),
+    })
+    const languageRow = new Adw.ComboRow({
+      title: t('prefs.language.row'),
+      model: Gtk.StringList.new(LANGUAGE_CHOICES.map((choice) => t(choice.key))),
+    })
+    languageRow.selected = Math.max(
+      0,
+      LANGUAGE_CHOICES.findIndex((choice) => choice.id === prefs.language),
+    )
+    languageRow.on('notify::selected', () => {
+      const choice = LANGUAGE_CHOICES[languageRow.selected]
+      if (choice !== undefined) options.set({ language: choice.id })
+    })
+    languageGroup.add(languageRow)
+    appearancePage.add(languageGroup)
+
     const appearanceGroup = new Adw.PreferencesGroup({ title: t('prefs.scheme.group') })
 
     const schemeRow = new Adw.ComboRow({
@@ -238,29 +263,6 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     appearancePage.add(sizesGroup)
 
-    // ---- group: language --------------------------------------------------
-    // The change is persisted like any other, but catalogs are read while
-    // widgets are built: only a restart re-labels the window (main.ts toasts
-    // that reminder). Offering it here, not on its own page, keeps the
-    // Appearance page's "how it looks" grouping intact.
-    const languageGroup = new Adw.PreferencesGroup({
-      title: t('prefs.language.group'),
-      description: t('prefs.language.restart'),
-    })
-    const languageRow = new Adw.ComboRow({
-      title: t('prefs.language.row'),
-      model: Gtk.StringList.new(LANGUAGE_CHOICES.map((choice) => t(choice.key))),
-    })
-    languageRow.selected = Math.max(
-      0,
-      LANGUAGE_CHOICES.findIndex((choice) => choice.id === prefs.language),
-    )
-    languageRow.on('notify::selected', () => {
-      const choice = LANGUAGE_CHOICES[languageRow.selected]
-      if (choice !== undefined) options.set({ language: choice.id })
-    })
-    languageGroup.add(languageRow)
-    appearancePage.add(languageGroup)
 
     dialog.add(appearancePage)
 

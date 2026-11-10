@@ -45,6 +45,17 @@ const app = new Adw.Application({
  * Depth-first walk for the row whose title matches. `typeName` disambiguates
  * when a page carries the same title as one of its rows (the Timer page).
  */
+const findAll = (root, typeName, out = []) => {
+  if (root === null) return out
+  if (root.constructor.name === typeName) out.push(root)
+  let child = root.getFirstChild?.() ?? null
+  while (child !== null) {
+    findAll(child, typeName, out)
+    child = child.getNextSibling?.()
+  }
+  return out
+}
+
 const findRow = (root, title, typeName = null) => {
   if (root === null) return null
   const typeOk = typeName === null || root.constructor.name === typeName
@@ -171,6 +182,12 @@ app.on('activate', () => {
         'the language row labels its choices',
       )
       language.selected = 2 // 中文
+      const appearancePage = ancestorOf(language, 'AdwPreferencesPage')
+      const titles = findAll(appearancePage, 'AdwPreferencesGroup').map((group) => group.title)
+      check(
+        titles[0] === 'Language',
+        `Language leads the Appearance page (${titles.join(' → ')})`,
+      )
     }
 
     // Scramble page: the pre-scramble text — csTimer's global for the diagram.
