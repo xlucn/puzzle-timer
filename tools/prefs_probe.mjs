@@ -13,7 +13,8 @@
  *      Gtk.StringList with no Gtk.Expression (the expression was dropped
  *      2026-10-06 — this is what says a future libadwaita still does it);
  *   6. the Language ComboRow reports `zh-CN` as a patch (the catalog itself is
- *      switched only on the next launch).
+ *      switched only on the next launch), and the restart reminder appears as
+ *      a toast inside the dialog rather than behind it.
  *
  * Run:
  *   GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/prefs_probe.mjs
@@ -172,7 +173,7 @@ app.on('activate', () => {
     }
 
     // Appearance → Language: a ComboRow over the catalogs. It persists like
-    // any other setting; main.ts owns the restart reminder.
+    // any other setting; the dialog owns the restart reminder.
     const language = findRow(dialog, 'Language', 'AdwComboRow')
     check(language !== null, 'found the Language ComboRow')
     if (language !== null) {
@@ -230,7 +231,16 @@ app.on('activate', () => {
     }
 
     // Let the notify emissions settle, then read back the merged state.
-    GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 100, () => {      check(
+    GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 100, () => {
+      // The language reminder is a toast on the dialog, where the user is
+      // looking — never one on the window it covers.
+      const toasts = findAll(dialog, 'AdwToastWidget')
+      check(toasts.length === 1, `the language change shows one toast (${toasts.length})`)
+      check(
+        toasts.length === 1 && shownLabels(toasts[0]).includes('Restart to apply the language'),
+        `the toast repeats the restart reminder (${toasts.length === 1 ? shownLabels(toasts[0]).join(' | ') : 'no toast'})`,
+      )
+      check(
         patches.some((p) => p.holdThresholdMs === 550),
         `SpinRow in seconds reported 550 ms (${JSON.stringify(patches)})`,
       )

@@ -154,9 +154,10 @@ export function createPreferences(options: PreferencesPanelOptions) {
 
     // ---- group: language --------------------------------------------------
     // The change is persisted like any other, but catalogs are read while
-    // widgets are built: only a restart re-labels the window (main.ts toasts
-    // that reminder). It leads the page rather than getting one of its own:
-    // language is the setting people look for first.
+    // widgets are built: only a restart re-labels the window. The reminder is
+    // a toast on *this* dialog — a toast behind it would be unseen. It leads
+    // the page rather than getting one of its own: language is the setting
+    // people look for first.
     const languageGroup = new Adw.PreferencesGroup({
       title: t('prefs.language.group'),
       description: t('prefs.language.restart'),
@@ -169,9 +170,15 @@ export function createPreferences(options: PreferencesPanelOptions) {
       0,
       LANGUAGE_CHOICES.findIndex((choice) => choice.id === prefs.language),
     )
+    // The dialog outlives several changes, so the last reported value is kept
+    // here, not read back from `prefs` (which only the next open refreshes).
+    let language = prefs.language
     languageRow.on('notify::selected', () => {
       const choice = LANGUAGE_CHOICES[languageRow.selected]
-      if (choice !== undefined) options.set({ language: choice.id })
+      if (choice === undefined || choice.id === language) return
+      language = choice.id
+      options.set({ language })
+      dialog.addToast(new Adw.Toast({ title: t('prefs.language.restart') }))
     })
     languageGroup.add(languageRow)
     appearancePage.add(languageGroup)

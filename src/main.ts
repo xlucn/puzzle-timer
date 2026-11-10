@@ -1331,11 +1331,8 @@ app.on('activate', () => {
     // A new pre-scramble changes the diagram of the scramble on screen, and of
     // the one kept warm behind it.
     if ('preScramble' in patch) feed.refresh()
-    // Catalogs are read while widgets are built; this dialog was labelled
-    // under the old locale, so the new one lands on the next launch.
-    if ('language' in patch) {
-      toastOverlay.addToast(new Adw.Toast({ title: t('prefs.language.restart') }))
-    }
+    // A new language only lands on the next launch: catalogs are read while
+    // widgets are built. The preferences dialog carries that reminder itself.
   }
 
   // Built fresh on open, one patch per row change, routed through
