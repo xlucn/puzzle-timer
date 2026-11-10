@@ -27,7 +27,7 @@ src/
 │   ├── records.ts       PB history per kind (strict improvements only)
 │   ├── activity.ts      local-day buckets, streaks, rolling counts
 │   ├── session.ts       Solve & Session models, CRUD, undo, penalties, comments
-│   ├── sessionLibrary.ts  session index rules: names, ids, active, scramble type
+│   ├── sessionLibrary.ts  session index rules: names, ids, order, active, scramble type
 │   ├── csTimerFormat.ts   csTimer data-file codec (parse + format, round-trip tested)
 │   ├── sessionImport.ts   parsed file sessions → library entries and seeded Session objects
 │   ├── scrambleTypes.ts   206-type catalogue + group/section structure (data-driven)

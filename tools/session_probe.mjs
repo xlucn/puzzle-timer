@@ -14,7 +14,9 @@
 import Adw from 'gi:Adw-1'
 import Gio from 'gi:Gio-2.0'
 import GLib from 'gi:GLib-2.0'
+import GObject from 'gi:GObject-2.0'
 import Gtk from 'gi:Gtk-4.0'
+import { fileURLToPath } from 'node:url'
 
 import { setLocale, t } from '../src/core/i18n.js'
 import { scrambleTypeLabel } from '../src/core/scrambleTypes.js'
@@ -56,6 +58,23 @@ const ancestorOf = (widget, typeName) => {
   return node
 }
 
+const controllersOf = (widget) => {
+  const out = []
+  const model = widget.observeControllers()
+  for (let i = 0; i < model.getNItems(); i += 1) out.push(model.getItem(i))
+  return out
+}
+
+const dragValue = (id) => {
+  const value = new GObject.Value()
+  value.init(GObject.typeFromName('gchararray'))
+  value.setString(id)
+  return value
+}
+
+const reorderHandle = (row) =>
+  findAll(row, 'GtkBox').find((box) => box.tooltipText === t('session.manager.reorder'))
+
 const solve = (id, timeMs) => ({
   id,
   timeMs,
@@ -85,6 +104,10 @@ const app = new Adw.Application({
 
 app.on('activate', () => {
   const window = new Adw.ApplicationWindow({ application: app, title: 'SessionProbe' })
+  // The app's icon theme path, as main.ts adds it: the row handle lives there.
+  Gtk.IconTheme.getForDisplay(window.getDisplay()).addSearchPath(
+    fileURLToPath(new URL('../data/icons', import.meta.url)),
+  )
   const manager = createSessionManager({
     library,
     app,
@@ -131,6 +154,7 @@ app.on('activate', () => {
       'object-select-symbolic',
       'document-edit-symbolic',
       'user-trash-symbolic',
+      'session-drag-handle-symbolic',
     ]) {
       check(theme.hasIcon(name), `${name} resolves in the active theme (${theme.getThemeName()})`)
     }
@@ -197,22 +221,56 @@ app.on('activate', () => {
     GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
       check(checks().join('|') === '0', `the check follows the switch (${checks().join(', ')})`)
 
-      // Two deletions leave one session and must disable its Delete.
-      library.remove('meeting')
-      library.remove('default')
+      // Every row carries a drag source on its handle and a drop target.
+      const handle = reorderHandle(rows()[0])
+      const source = handle === undefined ? null : controllersOf(handle).find((c) => c.constructor.name === 'GtkDragSource')
+      const target = controllersOf(rows()[0]).find((c) => c.constructor.name === 'GtkDropTarget')
+      check(source !== undefined && source !== null, 'each row has a drag handle')
+      check(target !== undefined, 'each row accepts a dropped session')
+      const provider = source?.emit('prepare', 0, 0)
+      check(
+        provider !== undefined && provider !== null,
+        `the drag carries a payload (${provider?.constructor?.name})`,
+      )
+
+      // Drop Meet weekly on the first row's top half: it lands before it.
+      const dropped = target?.emit('drop', dragValue('meeting'), 5, 5)
+      check(dropped === true, 'the drop is accepted')
+      check(
+        library.entries.map((entry) => entry.id).join('|') === 'meeting|default|practice',
+        `the library reorders (${library.entries.map((entry) => entry.id).join(', ')})`,
+      )
       GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
-        check(rows().length === 1, `the list shrinks after deletions (${rows().length})`)
-        const lastDelete = findAll(rows()[0], 'GtkButton').at(-1)
         check(
-          lastDelete?.tooltipText === t('session.manager.delete') && lastDelete.sensitive === false,
-          'the last session cannot be deleted',
+          titles().join('|') === 'Meet weekly|Default|Practice',
+          `the rows follow the new order (${titles().join(' | ')})`,
         )
-        dialog.close()
-        GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
-          if (failures > 0) log(`${failures} FAILURE(S)`)
-          else log('ALL PASS')
-          log(`exit ${failures === 0 ? 0 : 1}`)
-          app.quit()
+        // Bottom half means after the target, so this one goes to the end.
+        const lastTarget = controllersOf(rows()[2]).find((c) => c.constructor.name === 'GtkDropTarget')
+        lastTarget?.emit('drop', dragValue('meeting'), 5, 999)
+        check(
+          library.entries.map((entry) => entry.id).join('|') === 'default|practice|meeting',
+          `dropping on the bottom half appends (${library.entries.map((entry) => entry.id).join(', ')})`,
+        )
+
+        // Two deletions leave one session and must disable its Delete.
+        library.remove('meeting')
+        library.remove('default')
+        GLib.timeoutAdd(GLib.PRIORITY_DEFAULT, 300, () => {
+          check(rows().length === 1, `the list shrinks after deletions (${rows().length})`)
+          const lastDelete = findAll(rows()[0], 'GtkButton').at(-1)
+          check(
+            lastDelete?.tooltipText === t('session.manager.delete') && lastDelete.sensitive === false,
+            'the last session cannot be deleted',
+          )
+          dialog.close()
+          GLib.idleAdd(GLib.PRIORITY_DEFAULT, () => {
+            if (failures > 0) log(`${failures} FAILURE(S)`)
+            else log('ALL PASS')
+            log(`exit ${failures === 0 ? 0 : 1}`)
+            app.quit()
+            return GLib.SOURCE_REMOVE
+          })
           return GLib.SOURCE_REMOVE
         })
         return GLib.SOURCE_REMOVE

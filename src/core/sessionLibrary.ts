@@ -47,6 +47,8 @@ export type LibraryChange =
   | { kind: 'switched'; id: string; previousId: string }
   /** The session's scramble type changed (the index save persists it). */
   | { kind: 'retyped'; entry: SessionEntry }
+  /** The entries were reordered; the index save persists the new order. */
+  | { kind: 'reordered' }
 
 /** Why a display name cannot be used (`exceptId` aside). */
 export type NameError = 'empty' | 'long' | 'duplicate'
@@ -93,7 +95,7 @@ export class SessionLibrary {
         : this.items[0].id
   }
 
-  /** The sessions, in menu order (creation order). Never empty. */
+  /** The sessions, in menu order (creation order, then the manager's reorder). Never empty. */
   get entries(): readonly SessionEntry[] {
     return this.items
   }
@@ -197,6 +199,24 @@ export class SessionLibrary {
     const entry = { ...this.items[index], name }
     this.items[index] = entry
     this.emit({ kind: 'renamed', entry })
+    return true
+  }
+
+  /**
+   * Move `id` to `toIndex` in the menu order. The index is clamped to the
+   * list's bounds; moving a session to where it already is returns false and
+   * emits nothing. The active session stays active — reordering is display
+   * order, not a switch.
+   */
+  move(id: string, toIndex: number): boolean {
+    const from = this.items.findIndex((entry) => entry.id === id)
+    if (from < 0) return false
+    const to = Math.max(0, Math.min(this.items.length - 1, toIndex))
+    if (to === from) return false
+
+    const [entry] = this.items.splice(from, 1)
+    this.items.splice(to, 0, entry)
+    this.emit({ kind: 'reordered' })
     return true
   }
 

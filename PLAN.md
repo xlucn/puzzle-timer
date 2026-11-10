@@ -1697,12 +1697,17 @@ items): `<Ctrl+S>` session menu, `<Ctrl+N>` new, `F2` rename,
 `view-list-symbolic` button at the sidebar header's end and adds
 `app.sessionManager` (`<Ctrl+M>`): an `Adw.Dialog` listing every session with
 its solve count and scramble type, a check on the active one, and per-row
-rename/delete. Activating a row switches; the dialog stays open and re-renders
-on library changes, coalesced through an idle so a row is never rebuilt inside
-its own click handler. The name and delete dialogs moved to
+rename/delete. Each row's six-dot handle is a `Gtk.DragSource`; the row is a
+`Gtk.DropTarget`, top half inserts before and bottom half after, and
+`SessionLibrary.move()` owns the reorder (clamped, active unchanged, one
+`reordered` event). The index already saves the entries in order, so a drag
+survives a restart. Activating a row switches; the dialog stays open and
+re-renders on library changes, coalesced through an idle so a row is never
+rebuilt inside its own click handler. The name and delete dialogs moved to
 `src/ui/sessionDialogs.ts`, so the menu and the manager share one validation
 path and one destructive confirmation. `tools/session_probe.mjs` checks the
-button, action, accelerator, rows, switching and the last-session delete guard.
+button, action, accelerator, rows, switching, drag payload/drop reordering
+and the last-session delete guard.
 
 Evidence:
 

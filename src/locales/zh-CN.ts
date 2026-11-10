@@ -145,6 +145,7 @@ export const zhCN: Record<MessageKey, Message> = {
   'session.manager.current': '当前会话',
   'session.manager.rename': '重命名会话',
   'session.manager.delete': '删除会话',
+  'session.manager.reorder': '拖动以排序',
 
   // ---- solve list --------------------------------------------------------
   'list.time': '时间',

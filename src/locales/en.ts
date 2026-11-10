@@ -146,6 +146,7 @@ export const en = {
   'session.manager.current': 'Current session',
   'session.manager.rename': 'Rename session',
   'session.manager.delete': 'Delete session',
+  'session.manager.reorder': 'Drag to reorder',
 
   // ---- solve list --------------------------------------------------------
   'list.time': 'Time',

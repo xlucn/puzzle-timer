@@ -277,3 +277,51 @@ describe('SessionLibrary — switchTo', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 })
+
+describe('SessionLibrary — move', () => {
+  const three = () =>
+    new SessionLibrary([entry('a', 'A'), entry('b', 'B'), entry('c', 'C')], 'b')
+
+  it('moves a session to the front, the end and the middle', () => {
+    const library = three()
+    expect(library.move('c', 0)).toBe(true)
+    expect(library.entries.map((item) => item.id)).toEqual(['c', 'a', 'b'])
+    expect(library.move('c', 2)).toBe(true)
+    expect(library.entries.map((item) => item.id)).toEqual(['a', 'b', 'c'])
+    expect(library.move('c', 1)).toBe(true)
+    expect(library.entries.map((item) => item.id)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('keeps the active session active and announces the reorder once', () => {
+    const library = three()
+    const listener = vi.fn()
+    library.subscribe(listener)
+
+    library.move('a', 2)
+
+    expect(library.activeId).toBe('b')
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({ kind: 'reordered' })
+  })
+
+  it('clamps the destination to the list bounds', () => {
+    const library = three()
+    expect(library.move('a', 99)).toBe(true)
+    expect(library.entries.map((item) => item.id)).toEqual(['b', 'c', 'a'])
+    expect(library.move('a', -5)).toBe(true)
+    expect(library.entries.map((item) => item.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('does nothing for an unknown id, the same index or a one-entry list', () => {
+    const library = three()
+    const listener = vi.fn()
+    library.subscribe(listener)
+
+    expect(library.move('nope', 0)).toBe(false)
+    expect(library.move('b', 1)).toBe(false)
+    expect(listener).not.toHaveBeenCalled()
+
+    const single = one()
+    expect(single.move('default', 0)).toBe(false)
+  })
+})
