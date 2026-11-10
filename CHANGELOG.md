@@ -10,11 +10,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - A dropdown arrow on the scramble type button to change options related to the current scramble type if available.
-- A pre-scramble setting that turns the scramble diagram to a chosen orientation.
 - A fast 4x4 option that use random moves for faster scramble generation instead of random-state.
+- A pre-scramble setting that turns the scramble diagram to a chosen orientation.
 - Language options, currently English and Simplified Chinese.
 - Import from and export to data files, aiming to be compatible with csTimer.
-- Statistics improvements: averages, PB, activities and streaks.
+- Statistics improvements: averages, PB, activities, streaks, charts and histograms.
 
 ## [0.2.1] — 2026-11-03
 
