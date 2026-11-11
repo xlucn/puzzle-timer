@@ -1,11 +1,11 @@
-# dependencies (also holds the generated .node-gtk-types/ TypeScript types,
-# which are regenerated on install — never commit them)
-node_modules/
+# Rust build output
+/target/
 
-# build output
-dist/
+# Leftovers from the v0.3.0 node-gtk tree (see branch `legacy`)
+/node_modules/
+/dist/
 
-# rust-embed probe harness (tools/rust-embed) — 2 GB of V8/QJS artifacts,
+# rust-embed research harness (tools/rust-embed) — 2 GB of V8/QJS artifacts,
 # all regenerable with `cargo build --release`
 tools/rust-embed/target/
 

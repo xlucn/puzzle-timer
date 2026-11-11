@@ -1,0 +1,30 @@
+[package]
+name = "puzzle-timer"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+description = "A native GTK4/libadwaita speedcubing timer — WCA scrambles for 206 puzzles, sessions and statistics, in the spirit of csTimer."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/xlucn/puzzle-timer"
+homepage = "https://github.com/xlucn/puzzle-timer#readme"
+
+[lib]
+name = "puzzle_timer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "puzzle-timer"
+path = "src/main.rs"
+
+[[bin]]
+name = "scramble_sweep"
+path = "src/bin/scramble_sweep.rs"
+
+# JSC is the default engine: the executable links the system library and stays
+# small. A V8 backend (the `v8` crate) is the alternative; see src/scramble/.
+[dependencies]
+gtk4 = { version = "0.11", features = ["v4_24"] }
+libadwaita = { version = "0.9", features = ["v1_9"] }
+glib = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -2,7 +2,8 @@
 // the engine sweeps, so any RNG-alignment difference shows up as a diff.
 const fs = require('fs');
 const path = require('path');
-const cstimer = require('cstimer_module');
+// The bundle is vendored for the Rust port; no node_modules required.
+const cstimer = require(path.join(__dirname, '../../vendor/cstimer_module.js'));
 
 // Same lang injection the app does (src/scramble/cstimerLang.ts) — without it
 // 333noob throws and the shared RNG stream diverges for every later type.
