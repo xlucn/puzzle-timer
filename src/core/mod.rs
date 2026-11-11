@@ -1,2 +1,16 @@
+pub mod activity;
+pub mod calendar;
+pub mod charts;
+pub mod cs_timer_format;
+pub mod i18n;
+pub mod layout;
+pub mod preferences;
+pub mod records;
+pub mod scramble_feed;
+pub mod scramble_types;
+pub mod session;
+pub mod session_import;
+pub mod session_library;
+pub mod stats;
 pub mod time;
 pub mod timer;

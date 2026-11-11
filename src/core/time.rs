@@ -9,7 +9,8 @@
 pub const PLUS2_MS: f64 = 2000.0;
 
 /// A WCA penalty on a solve. `None` means the solve is OK.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Penalty {
     Plus2,
     Dnf,

@@ -5,6 +5,7 @@
 //! only place that touches GTK.
 
 pub mod core;
+pub mod locales;
 pub mod platform;
 pub mod scramble;
 pub mod ui;

@@ -1,0 +1,353 @@
+//! English catalog: the source of truth for every user-visible string.
+//!
+//! Keys are dotted by area (`menu.*`, `prefs.*`, `stats.*`). A value is either
+//! plain text or a plural (`one`/`other`) resolved from the caller's `count`
+//! param ([`crate::core::i18n`]). Placeholders are `{name}` and are filled by
+//! `t(key, params)`.
+//!
+//! Everything here is written for the user; timestamps stay numeric and are
+//! built in `src/core/time.rs`, not translated. The 206 scramble type names
+//! stay English on purpose; the 44 category names are translated below.
+
+use crate::core::i18n::{Message, MessageKey};
+
+/// The English value for `key`.
+pub fn message(key: MessageKey) -> Message {
+    match key {
+        MessageKey::AppName => Message::Text("Puzzle Timer"),
+        MessageKey::AppAboutComments => Message::Text(
+            "A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\nScrambles are provided by the cstimer_module package, part of the csTimer project (GPL-3.0).\nWritten with the assistance of AI/LLM tools.",
+        ),
+        MessageKey::AppAboutBuiltWith => Message::Text("Built with"),
+        MessageKey::CommonCancel => Message::Text("Cancel"),
+        MessageKey::CommonCreate => Message::Text("Create"),
+        MessageKey::CommonDelete => Message::Text("Delete"),
+        MessageKey::CommonRename => Message::Text("Rename"),
+        MessageKey::CommonSave => Message::Text("Save"),
+        MessageKey::CommonUndo => Message::Text("Undo"),
+        MessageKey::MenuMain => Message::Text("Main menu"),
+        MessageKey::MenuStatistics => Message::Text("Statistics"),
+        MessageKey::MenuFullscreen => Message::Text("Fullscreen"),
+        MessageKey::MenuExitFullscreen => Message::Text("Exit Fullscreen"),
+        MessageKey::MenuPreferences => Message::Text("Preferences"),
+        MessageKey::MenuShortcuts => Message::Text("Keyboard Shortcuts"),
+        MessageKey::MenuQuit => Message::Text("Quit"),
+        MessageKey::MenuCancelInspection => Message::Text("Cancel the inspection (Esc)"),
+        MessageKey::MenuShowList => Message::Text("Show solve list"),
+        MessageKey::MenuAbout => Message::Text("About {name}"),
+        MessageKey::MenuImportData => Message::Text("Import from csTimer…"),
+        MessageKey::MenuExportData => Message::Text("Export to csTimer…"),
+        MessageKey::TimerHintIdle => Message::Text("Hold Space or touch to start"),
+        MessageKey::TimerHintHolding => Message::Text("Keep holding…"),
+        MessageKey::TimerHintReady => Message::Text("Release to start"),
+        MessageKey::TimerHintInspectionReady => Message::Text("Release to inspect"),
+        MessageKey::TimerHintInspecting => Message::Text("Inspection — Space starts, Esc cancels"),
+        MessageKey::TimerHintRunning => Message::Text("Press any key or tap to stop"),
+        MessageKey::ScrambleGenerating => Message::Text("Generating scramble…"),
+        MessageKey::ScrambleDiagram => Message::Text("Scramble diagram"),
+        MessageKey::ScrambleNew => Message::Text("New scramble"),
+        MessageKey::ScrambleCopy => Message::Text("Copy the scramble (Ctrl+C)"),
+        MessageKey::ScrambleCopied => Message::Text("Scramble copied"),
+        MessageKey::ScrambleImage => Message::Text("Show the scramble image"),
+        MessageKey::ScrambleType => Message::Text("Scramble type"),
+        MessageKey::ScrambleChooseType => Message::Text("Choose the scramble type"),
+        MessageKey::ScrambleOptions => Message::Text("Scramble options"),
+        MessageKey::ScrambleCategory => Message::Text("Category"),
+        MessageKey::ScrambleFast => Message::Text("Fast scramble"),
+        MessageKey::ScrambleMoves => Message::Text("Moves"),
+        MessageKey::ScrambleScrambles => Message::Text("Number of scrambles"),
+        MessageKey::ScrambleCubes => Message::Text("Number of cubes"),
+        MessageKey::ScrambleFailed => Message::Text("Scramble failed: {reason}"),
+        MessageKey::TransferImportTitle => Message::Text("Import from csTimer"),
+        MessageKey::TransferImportAccept => Message::Text("Import"),
+        MessageKey::TransferExportTitle => Message::Text("Export to csTimer"),
+        MessageKey::TransferFilter => Message::Text("csTimer data"),
+        MessageKey::TransferExportAccept => Message::Text("Export"),
+        MessageKey::TransferImportSessions => Message::Plural {
+            one: Some("{count} session"),
+            other: "{count} sessions",
+        },
+        MessageKey::TransferImportSolves => Message::Plural {
+            one: Some("{count} solve"),
+            other: "{count} solves",
+        },
+        MessageKey::TransferImportDone => Message::Text("Imported {sessions}, {solves}."),
+        MessageKey::TransferImportWarnings => Message::Plural {
+            one: Some("{count} warning — see the log"),
+            other: "{count} warnings — see the log",
+        },
+        MessageKey::TransferImportFailed => Message::Text("Import failed"),
+        MessageKey::TransferExportDone => Message::Text("Exported to {name}"),
+        MessageKey::TransferExportFailed => Message::Text("Export failed"),
+        MessageKey::PrefsTitle => Message::Text("Preferences"),
+        MessageKey::PrefsTimerTitle => Message::Text("Timer"),
+        MessageKey::PrefsTimerGroup => Message::Text("Starting a solve"),
+        MessageKey::PrefsInspection => Message::Text("WCA inspection"),
+        MessageKey::PrefsInspectionSubtitle => {
+            Message::Text("Show a 15-second count down before the solve starts")
+        }
+        MessageKey::PrefsCues => Message::Text("Inspection sound cues"),
+        MessageKey::PrefsCuesSubtitle => {
+            Message::Text("If enabled, first beep at 8 s, second at 12 s")
+        }
+        MessageKey::PrefsHold => Message::Text("Hold time"),
+        MessageKey::PrefsHoldSubtitle => {
+            Message::Text("How long Space must be held to start the timer")
+        }
+        MessageKey::PrefsMouse => Message::Text("Mouse control"),
+        MessageKey::PrefsMouseSubtitle => Message::Text("Control the timer with the mouse"),
+        MessageKey::PrefsAppearanceTitle => Message::Text("Appearance"),
+        MessageKey::PrefsSchemeGroup => Message::Text("Colour scheme"),
+        MessageKey::PrefsTheme => Message::Text("Theme"),
+        MessageKey::PrefsThemeSystem => Message::Text("Follow system"),
+        MessageKey::PrefsThemeLight => Message::Text("Light"),
+        MessageKey::PrefsThemeDark => Message::Text("Dark"),
+        MessageKey::PrefsSizesGroup => Message::Text("Sizes"),
+        MessageKey::PrefsSizesDescription => {
+            Message::Text("Scale the timer, the scramble text and the image.")
+        }
+        MessageKey::PrefsSizeTimer => Message::Text("Timer"),
+        MessageKey::PrefsSizeTimerSubtitle => Message::Text("Size of the timer digits"),
+        MessageKey::PrefsSizeScramble => Message::Text("Scramble text"),
+        MessageKey::PrefsSizeScrambleSubtitle => {
+            Message::Text("Size of the scramble above the timer")
+        }
+        MessageKey::PrefsSizeDiagram => Message::Text("Scramble image"),
+        MessageKey::PrefsSizeDiagramSubtitle => Message::Text("Size of the scramble picture"),
+        MessageKey::PrefsPageScramble => Message::Text("Scramble"),
+        MessageKey::PrefsPreScrambleGroup => Message::Text("Pre-scramble"),
+        MessageKey::PrefsPreScrambleDescription => {
+            Message::Text("Moves applied to the scramble diagram, e.g. y or z2.")
+        }
+        MessageKey::PrefsPreScrambleRow => Message::Text("Moves"),
+        MessageKey::PrefsImageGroup => Message::Text("Image"),
+        MessageKey::PrefsImageDescription => Message::Text("Show the picture of the scramble."),
+        MessageKey::PrefsImageRow => Message::Text("Show the scramble image"),
+        MessageKey::PrefsLanguageGroup => Message::Text("Language"),
+        MessageKey::PrefsLanguageRow => Message::Text("Language"),
+        MessageKey::PrefsLanguageSystem => Message::Text("Follow system"),
+        MessageKey::PrefsLanguageEnglish => Message::Text("English"),
+        MessageKey::PrefsLanguageChinese => Message::Text("中文"),
+        MessageKey::PrefsLanguageRestart => Message::Text("Restart to apply the language"),
+        MessageKey::SessionTooltip => Message::Text("Session"),
+        MessageKey::SessionNewTooltip => Message::Text("New session (Ctrl+N)"),
+        MessageKey::SessionNew => Message::Text("New session"),
+        MessageKey::SessionNewDescription => {
+            Message::Text("Each session keeps its own list of solves.")
+        }
+        MessageKey::SessionName => Message::Text("Session name"),
+        MessageKey::SessionRename => Message::Text("Rename session"),
+        MessageKey::SessionDeleteTitle => Message::Text("Delete “{name}”?"),
+        MessageKey::SessionDeleteEmpty => Message::Text("This cannot be undone."),
+        MessageKey::SessionDeleteBody => Message::Plural {
+            one: Some("{count} solve will be removed. This cannot be undone."),
+            other: "{count} solves will be removed. This cannot be undone.",
+        },
+        MessageKey::SessionRenameMenu => Message::Text("Rename…"),
+        MessageKey::SessionDeleteMenu => Message::Text("Delete…"),
+        MessageKey::SessionErrorName => Message::Text("A session needs a name."),
+        MessageKey::SessionErrorLong => Message::Text("Names are up to {count} characters."),
+        MessageKey::SessionErrorTaken => Message::Text("A session with that name already exists."),
+        MessageKey::SessionManagerTitle => Message::Text("Sessions"),
+        MessageKey::SessionManagerTooltip => Message::Text("Manage sessions"),
+        MessageKey::SessionManagerCurrent => Message::Text("Current session"),
+        MessageKey::SessionManagerRename => Message::Text("Rename session"),
+        MessageKey::SessionManagerDelete => Message::Text("Delete session"),
+        MessageKey::SessionManagerReorder => Message::Text("Drag to reorder"),
+        MessageKey::ListTime => Message::Text("Time"),
+        MessageKey::ListScramble => Message::Text("Scramble"),
+        MessageKey::ListDate => Message::Text("Date"),
+        MessageKey::ListEmptyTitle => Message::Text("No solves yet"),
+        MessageKey::ListEmptyBody => Message::Text("Finish a solve and it will appear here."),
+        MessageKey::ListEditTooltip => {
+            Message::Text("Edit the selected solve — penalty and comment (Ctrl+E)")
+        }
+        MessageKey::ListEdit => Message::Text("Edit"),
+        MessageKey::ListDeleteTooltip => Message::Text("Delete the selected solve(s) (Delete)"),
+        MessageKey::ListCopyScramble => Message::Text("Copy the scramble"),
+        MessageKey::ListCopyDate => Message::Text("Copy the date"),
+        MessageKey::ListPenalty => Message::Text("Penalty"),
+        MessageKey::ListPenaltyOk => Message::Text("_OK"),
+        MessageKey::ListPenaltyPlus2 => Message::Text("+_2"),
+        MessageKey::ListPenaltyDnf => Message::Text("_DNF"),
+        MessageKey::ListComment => Message::Text("Comment"),
+        MessageKey::ListEditTitle => Message::Text("Edit solve #{number}"),
+        MessageKey::ListSelected => Message::Plural {
+            one: Some("{count} selected"),
+            other: "{count} selected",
+        },
+        MessageKey::StatsTitle => Message::Text("Statistics"),
+        MessageKey::StatsSingle => Message::Text("Single"),
+        MessageKey::StatsMo3 => Message::Text("mo3"),
+        MessageKey::StatsAo5 => Message::Text("ao5"),
+        MessageKey::StatsAo12 => Message::Text("ao12"),
+        MessageKey::StatsAny => Message::Text("Any"),
+        MessageKey::StatsCurrent => Message::Text("Current"),
+        MessageKey::StatsBest => Message::Text("Best"),
+        MessageKey::StatsTarget => Message::Text("Target"),
+        MessageKey::StatsEmpty => Message::Text("No solves yet"),
+        MessageKey::StatsMean => Message::Text("Session mean"),
+        MessageKey::StatsSolves => Message::Plural {
+            one: Some("{count} solve"),
+            other: "{count} solves",
+        },
+        MessageKey::StatsCounted => Message::Text("{count} of {total} counted"),
+        MessageKey::StatsDnf => Message::Plural {
+            one: Some("{count} DNF"),
+            other: "{count} DNFs",
+        },
+        MessageKey::StatsAo50 => Message::Text("ao50"),
+        MessageKey::StatsAo100 => Message::Text("ao100"),
+        MessageKey::StatsAo1000 => Message::Text("ao1000"),
+        MessageKey::StatsSpread => Message::Text("Spread"),
+        MessageKey::StatsWorst => Message::Text("Worst"),
+        MessageKey::StatsRange => Message::Text("Range"),
+        MessageKey::StatsSigma => Message::Text("σ"),
+        MessageKey::StatsTotalTime => Message::Text("Total time"),
+        MessageKey::StatsTabSummary => Message::Text("Summary"),
+        MessageKey::StatsTabCharts => Message::Text("Charts"),
+        MessageKey::StatsRecordsGroup => Message::Text("Personal bests"),
+        MessageKey::StatsRecordsDescription => Message::Text(
+            "Only improvements count. Each row shows when it was set and how long it stood.",
+        ),
+        MessageKey::StatsRecordsNone => Message::Text("No record yet"),
+        MessageKey::StatsRecordsCurrent => Message::Text("still standing"),
+        MessageKey::StatsRecordsSetDate => Message::Text("Set {date}"),
+        MessageKey::StatsRecordsSetSolve => Message::Text("Set at #{number}"),
+        MessageKey::StatsRecordsHeldDays => Message::Plural {
+            one: Some("held {count} day"),
+            other: "held {count} days",
+        },
+        MessageKey::StatsRecordsHeldSameDay => Message::Text("broken the same day"),
+        MessageKey::StatsRecordsOlder => Message::Plural {
+            one: Some("{count} older improvement not shown"),
+            other: "{count} older improvements not shown",
+        },
+        MessageKey::StatsRecordsHeldSolves => Message::Plural {
+            one: Some("held {count} solve"),
+            other: "held {count} solves",
+        },
+        MessageKey::StatsActivityTotalSolves => Message::Text("Solves"),
+        MessageKey::StatsActivityToday => Message::Text("Today"),
+        MessageKey::StatsActivityLast7 => Message::Text("Last 7 days"),
+        MessageKey::StatsActivityLast30 => Message::Text("Last 30 days"),
+        MessageKey::StatsActivityActiveCount => Message::Plural {
+            one: Some("{count} active day"),
+            other: "{count} active days",
+        },
+        MessageKey::StatsActivityCurrentStreak => Message::Text("Current streak"),
+        MessageKey::StatsActivityLongestStreak => Message::Text("Longest streak"),
+        MessageKey::StatsActivityDays => Message::Plural {
+            one: Some("{count} day"),
+            other: "{count} days",
+        },
+        MessageKey::StatsActivityActiveDays => Message::Text("Active days"),
+        MessageKey::StatsActivityPerDay => Message::Text("Solves per active day"),
+        MessageKey::StatsActivityBestDay => Message::Text("Best day"),
+        MessageKey::StatsActivityUndated => Message::Text("Solves without a date"),
+        MessageKey::StatsChartsDistribution => Message::Text("Time distribution"),
+        MessageKey::StatsChartsTrend => Message::Text("Time trend"),
+        MessageKey::StatsActivityOverview => Message::Text("Overview"),
+        MessageKey::StatsActivityRecent => Message::Text("Recent days"),
+        MessageKey::StatsActivityLess => Message::Text("Less"),
+        MessageKey::StatsActivityMore => Message::Text("More"),
+        MessageKey::StatsActivityNoSolves => Message::Text("No solves"),
+        MessageKey::ShortcutsTitle => Message::Text("Keyboard Shortcuts"),
+        MessageKey::ShortcutsGroupTimer => Message::Text("Timer"),
+        MessageKey::ShortcutsGroupScramble => Message::Text("Scramble"),
+        MessageKey::ShortcutsGroupList => Message::Text("Solve list"),
+        MessageKey::ShortcutsGroupSessions => Message::Text("Sessions"),
+        MessageKey::ShortcutsGroupGeneral => Message::Text("General"),
+        MessageKey::ShortcutsGroupData => Message::Text("Data"),
+        MessageKey::ShortcutsStartStop => Message::Text("Start and stop the timer"),
+        MessageKey::ShortcutsCancelInspection => Message::Text("Cancel the inspection countdown"),
+        MessageKey::ShortcutsCopyScramble => Message::Text("Copy the scramble"),
+        MessageKey::ShortcutsSidebar => Message::Text("Show or hide the sidebar"),
+        MessageKey::ShortcutsHideDrawer => Message::Text("Hide the drawer"),
+        MessageKey::ShortcutsDeleteSolves => Message::Text("Delete the selected solves"),
+        MessageKey::ShortcutsClearPenalty => Message::Text("Clear the penalty of the newest solve"),
+        MessageKey::ShortcutsPlus2 => Message::Text("Give the newest solve +2"),
+        MessageKey::ShortcutsDnf => Message::Text("Mark the newest solve DNF"),
+        MessageKey::ShortcutsEditSolve => Message::Text("Edit the selected (or newest) solve"),
+        MessageKey::ShortcutsSessionMenu => Message::Text("Open the session menu"),
+        MessageKey::ShortcutsSessionManager => Message::Text("Session manager"),
+        MessageKey::ShortcutsNewSession => Message::Text("New session"),
+        MessageKey::ShortcutsRenameSession => Message::Text("Rename the active session"),
+        MessageKey::ShortcutsDeleteSession => Message::Text("Delete the active session"),
+        MessageKey::ShortcutsStatistics => Message::Text("Open the statistics dialog"),
+        MessageKey::ShortcutsKeyboard => Message::Text("Open the keyboard reference"),
+        MessageKey::ShortcutsPreferences => Message::Text("Open preferences"),
+        MessageKey::ShortcutsFullscreen => Message::Text("Toggle fullscreen"),
+        MessageKey::ShortcutsQuit => Message::Text("Quit"),
+        MessageKey::ShortcutsImportData => Message::Text("Import from csTimer"),
+        MessageKey::ShortcutsExportData => Message::Text("Export to csTimer"),
+        MessageKey::ToastSolvesDeleted => Message::Plural {
+            one: Some("Solve deleted"),
+            other: "{count} solves deleted",
+        },
+        MessageKey::ToastSessionFileUnreadable => Message::Text("Session file could not be read"),
+        MessageKey::ToastSessionListUnreadable => Message::Text("Session list could not be read"),
+        MessageKey::ToastSettingsUnreadable => {
+            Message::Text("Settings could not be read — defaults are in use")
+        }
+    }
+}
+
+/// Scramble category names, keyed by the catalogue's own name.
+pub const GROUP_NAMES: &[(&str, &str)] = &[
+    ("WCA", "WCA"),
+    ("3x3x3", "3x3x3"),
+    ("3x3x3 CFOP", "3x3x3 CFOP"),
+    ("3x3x3 Roux", "3x3x3 Roux"),
+    ("3x3x3 Mehta", "3x3x3 Mehta"),
+    ("2x2x2", "2x2x2"),
+    ("4x4x4", "4x4x4"),
+    ("4x4x4 Yau/Hoya", "4x4x4 Yau/Hoya"),
+    ("5x5x5", "5x5x5"),
+    ("6x6x6", "6x6x6"),
+    ("7x7x7", "7x7x7"),
+    ("Clock", "Clock"),
+    ("Megaminx", "Megaminx"),
+    ("Pyraminx", "Pyraminx"),
+    ("Skewb", "Skewb"),
+    ("Square-1", "Square-1"),
+    (
+        "FTO (Face-Turning Octahedron)",
+        "FTO (Face-Turning Octahedron)",
+    ),
+    ("15 puzzle", "15 puzzle"),
+    ("8 puzzle", "8 puzzle"),
+    ("LxMxN", "LxMxN"),
+    ("Gear Cube", "Gear Cube"),
+    ("Kilominx", "Kilominx"),
+    ("Gigaminx", "Gigaminx"),
+    ("Crazy Puzzle", "Crazy Puzzle"),
+    ("Cmetrick", "Cmetrick"),
+    ("Helicopter Cube", "Helicopter Cube"),
+    ("Redi Cube", "Redi Cube"),
+    ("Dino Cube", "Dino Cube"),
+    ("Ivy cube", "Ivy cube"),
+    ("Master Pyraminx", "Master Pyraminx"),
+    ("Pyraminx Crystal", "Pyraminx Crystal"),
+    ("Siamese Cube", "Siamese Cube"),
+    ("Square", "Square"),
+    ("Super Floppy", "Super Floppy"),
+    ("UFO", "UFO"),
+    ("Icosahedron", "Icosahedron"),
+    ("3x3x3 subsets", "3x3x3 subsets"),
+    ("Bandaged Cube", "Bandaged Cube"),
+    ("Relays", "Relays"),
+    ("1x1x1", "1x1x1"),
+    ("-1x-1x-1", "-1x-1x-1"),
+    ("1x1x2", "1x1x2"),
+    ("LOL", "LOL"),
+    ("Derrick Eide", "Derrick Eide"),
+];
+
+/// The four higher classes the type picker's sidebar groups categories under.
+pub const SECTION_NAMES: &[(&str, &str)] = &[
+    ("WCA", "WCA"),
+    ("Other", "Other"),
+    ("Special", "Special"),
+    ("Jokes", "Jokes"),
+];

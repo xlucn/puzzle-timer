@@ -18,6 +18,7 @@
 
 use std::collections::HashSet;
 
+use super::preferences::{MAX_HOLD_THRESHOLD_MS, MIN_HOLD_THRESHOLD_MS};
 use super::time::Penalty;
 
 /// WCA inspection limits (ms of inspection elapsed).
@@ -26,10 +27,6 @@ pub const INSPECTION_DNF_MS: f64 = 17_000.0;
 /// Acoustic signals: one sound at 8 s, two at 12 s.
 pub const INSPECTION_CUE_8S: f64 = 8_000.0;
 pub const INSPECTION_CUE_12S: f64 = 12_000.0;
-
-/// The hold threshold range the preferences normaliser enforces.
-pub const MIN_HOLD_THRESHOLD_MS: f64 = 0.0;
-pub const MAX_HOLD_THRESHOLD_MS: f64 = 2_000.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TimerState {
