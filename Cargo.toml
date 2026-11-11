@@ -34,3 +34,6 @@ unicode-normalization = "0.1"
 # algorithm JavaScript's Date gave the v0.3.0 app; no time-zone database is
 # parsed in process and no crate is added for it.
 libc = "0.2"
+# OS entropy for the scramble seed: explicit CSPRNG rather than cstimer_module's
+# wall-clock fallback.
+getrandom = "0.3"

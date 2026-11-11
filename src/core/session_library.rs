@@ -28,7 +28,8 @@ use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::is_combining_mark;
 
 /// One session as the index on disk knows it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionEntry {
     /// File id: lowercase, hyphenated, unique, never changes.
     pub id: String,
@@ -39,6 +40,7 @@ pub struct SessionEntry {
     /// switching restores the type dropdown.
     ///
     /// [`SCRAMBLE_DEFAULT_TYPE`]: crate::core::scramble_types::SCRAMBLE_DEFAULT_TYPE
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scramble_type: Option<String>,
 }
 
