@@ -1,12 +1,15 @@
 # Rust: embedding `cstimer_module` vs. porting it
 
-> **Status: research only.** Written 2026-10-07/08, at the user's request, so
-> the findings survive until the day they're needed. Nothing here is scheduled —
-> the milestone order in [PLAN.md](./PLAN.md) §1 is unchanged. A Rust port is
-> **not** M16 and must not be started unprompted.
+> **Status: scheduled 2026-11-10 as M18.** Rust is the chosen target; `main`
+> is the port and the v0.3.0 node-gtk tree is frozen on branch `legacy`.
+> **JSC is the default engine for binary size; V8 is the alternative.** Vala
+> is measured in §10 and gets M19 as a comparison after Rust ships. This
+> document was written 2026-10-07/08; its measurements stand, and the port
+> plan lives in [PLAN.md](./PLAN.md) §6.
 >
 > **Re-run the evidence:** `tools/rust-embed/run.sh` (see [§7](#7-reproducing-this)),
 > and `tools/rust-embed/probe-vala/run.sh` for the Vala variant ([§10](#10-vala-the-other-candidate-language)).
+> After the cutover the bundle is vendored at `vendor/cstimer_module.js`.
 
 ## 1. The question, and the short answer
 
@@ -31,7 +34,13 @@ reason *"awkward fit for the JS scramble module"*. Two questions follow:
    seed parity. Doable, but it is weeks of work against a few hours for option 1.
 
 **Recommendation: embed, don't port.** Reserve porting for the case where
-shipping a JS engine is itself unacceptable (§6).
+shipping a JS engine is itself unacceptable (§6). **Adopted for M18:** the
+Rust app embeds the vendored bundle in **JavaScriptCore**, the engine that
+costs one system library and a small binary (614 KiB release, 415 KiB
+stripped). The earlier V8-direct recommendation is kept as the **alternative**
+when a self-contained engine is worth the larger build and dependency
+surface; the app's engine sits behind `src/scramble/`'s `ScrambleEngine`, so
+the swap is local.
 
 A second, independent argument for Rust is the binding quality: `gtk4-rs` is at
 0.11.5 (2026-09-20) and `libadwaita` at 0.9.2 (2026-07-07), both under the
@@ -708,6 +717,10 @@ mid-sweep.
 The harness is a probe, not a dependency — `tools/rust-embed/target/` is
 gitignored (2 GB), and nothing here ships with the app.
 
+**Since the M18 cutover** the bundle is vendored at
+`vendor/cstimer_module.js`; `probe-common`'s repo-root check and
+`node-reference.cjs` read it there, so the sweep needs no `node_modules`.
+
 ---
 
 ## 8. What a Rust rewrite would touch in *this* app
@@ -811,11 +824,12 @@ happens; don't retrofit it into the node-gtk app.
    does not exist in the runtime.
 6. **Python stays rejected** unless someone measures a JIT strategy that
    integrates with GTK bindings.
-7. **Rust or Vala?** [§10](#10-vala-the-other-candidate-language)
-   measures the part a language choice actually decides for the dependency —
-   Vala embeds JSC with less code and its vapis track the installed libraries —
-   and names what it does *not* decide (the 7 043-line rewrite, memory safety
-   vs. tooling, and Vala's loss of the "own your engine" option). Re-run
+7. **Rust or Vala?** **Rust was chosen on 2026-11-10 for M18**, because
+   gtk-rs now covers the GTK 4.24 / libadwaita 1.9 APIs the app needs, and
+   memory safety plus `cargo test` carry more of the rewrite. [§10](#10-vala-the-other-candidate-language)
+   measures the module half of the Vala option — it embeds JSC with less code
+   and its vapis track the installed libraries — and names what it does *not*
+   decide. The full language comparison is **M19**, after Rust ships; re-run
    `tools/rust-embed/probe-vala/run.sh` before trusting either column.
 
 ---

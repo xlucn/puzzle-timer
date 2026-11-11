@@ -21,18 +21,22 @@ list.
 
 **MVP (M0–M5):** timers, scrambles, sessions, statistics.
 
-**Scheduled (M7–M17, decided 2026-10-05; M16 added 2026-10-06, M8 added
-2026-10-10; queue reordered 2026-10-16; **M13 landed 2026-10-22** as
-`0.1.0`; **M15 landed 2026-10-31** as a viable phone verdict; **M8, M9 and
-M10 landed 2026-11-06**, and **M11 landed 2026-11-08**).** The queue is now
-**M12, M16 and M17**; M17 is the phone-package slice M15 attached. M14 (touch)
-landed on 2026-10-23 and M7 (size preferences) on 2026-10-28.
-Numbers are stable identifiers, not queue positions (§6). Two of the
-adjacencies are
-dependencies rather than preferences: i18n lands ahead of every string-heavy
-feature, so those are written translated instead of swept afterwards, and
-M13 came before M16 because an AUR package needs a name, an icon and a tag to
-point at:
+**Scheduled (M7–M19, decided 2026-10-05; M16 added 2026-10-06, M8 added
+2026-10-10, M18/M19 added 2026-11-10; queue reordered 2026-10-16, then again
+on 2026-11-10).** The queue is now **M18, M16, M17 and M19**: M18 is the Rust
+port, M16 and M17 package the Rust app, and M19 is the Vala comparison the
+user asked for after Rust. `v0.3.0` landed on 2026-11-10 as the last
+TypeScript/node-gtk release; that tree is frozen on branch `legacy` and is no
+longer developed. M13 landed 2026-10-22 as `0.1.0`, M15 on 2026-10-31 as a
+viable phone verdict, M8/M9/M10 on 2026-11-06, M11 on 2026-11-08 and M12 on
+2026-11-10. M14 (touch) landed on 2026-10-23, M7 (size preferences) on
+2026-10-28.
+Numbers are stable identifiers, not queue positions (§6). Three of the
+adjacencies are dependencies rather than preferences: i18n lands ahead of
+every string-heavy feature, so those are written translated instead of swept
+afterwards; M13 came before M16 because an AUR package needs a name, an icon
+and a tag to point at; and the port (M18) comes before the packages because
+packaging the temporary Node runtime was only ever a stopgap.
 
 - **M13 — release readiness (landed 2026-10-22).** Versioning from
   `package.json` through `platform/meta.ts`, a CHANGELOG for every tagged
@@ -86,19 +90,29 @@ point at:
   and `src/js/stats/distribution.js` (GPL — port the math, not the DOM), and
   `Gtk.DrawingArea` + Cairo line/bar drawing in `ui/charts.ts`. Stats already
   live in `core/`, so the charts are rendering-only on top.
-- **M16 — AUR package.** A PKGBUILD that precompiles with Arch's own
-  `typescript` (in [extra]) and ships only `dist/` plus the two npm runtime
-  dependencies: about **13 MiB installed against today's 39 MiB**
-  `npm install --omit=dev` tree — because `node-gtk` declares `node-gyp` and
-  `@mapbox/node-pre-gyp` as *production* deps and drags 113 lockfile packages
-  in behind them. **Blocked on M13** (a package needs a name, an icon, a
-  `.desktop` file and a tag for `source=()` to point at); the draft PKGBUILD
-  and every measurement are in §6.
-- **M17 — postmarketOS/Alpine package (attached by M15, 2026-10-31).** A
-  scoped aarch64 `apk` package for the phone M15 proved, shipping `dist/` and
-  the two runtime deps (`node-gtk`, `cstimer_module`) and built against
-  Alpine's `nodejs`, GTK4 and libadwaita. Not Flatpak, deb or AppStream;
-  M16's AUR slice is separate and x86_64. Details in §6.
+- **M16 — AUR package (Rust).** A PKGBUILD for the M18 Rust binary: `cargo
+  build --release`, one executable, and the existing `data/`, `style.css`,
+  `CHANGELOG.md` and licence. No Node, no node-gyp, no ABI-specific binding,
+  no launcher that has to `cd` first. **Blocked on M18** and, as before, on
+  the repo being public at tag time; the draft plan and the dependency
+  trade-off are in §6.
+- **M17 — postmarketOS/Alpine package (attached by M15; Rust).** The same
+  Rust binary as an aarch64 `apk` for the phone M15 proved, built against
+  Alpine's Rust, GTK4 and libadwaita. Not Flatpak, deb or AppStream; M16's
+  AUR slice is separate and x86_64. Details in §6.
+- **M18 — Rust port (scheduled 2026-11-10).** Rewrite the app in Rust with
+  `gtk4-rs`/`libadwaita-rs`, keep `cstimer_module` by embedding it in
+  JavaScriptCore rather than porting it, and reach byte-for-byte feature
+  parity with v0.3.0 on the same data files. This is the milestone that
+  retires the temporary Node stage; §6 has the port surface, the module
+  boundary and the engine decision.
+- **M19 — Vala comparison (scheduled after M18/M16/M17, 2026-11-10).** Build
+  the same vertical slice in Vala, with JSC through the installed vapi, and
+  compare the two ports on porting effort, build and package size,
+  maintainability and runtime behaviour. It is a comparison, not a promise to
+  ship Vala; if Vala wins, it reopens M16/M17 rather than running a second
+  app forever. Evidence and the module probe are in
+  [RUST-PORT.md](./RUST-PORT.md) §10.
 
 **Explicitly out of scope for now:**
 - Bluetooth smart cube support (decided: not in v1)
@@ -119,11 +133,13 @@ point at:
 
 | Choice | Verdict |
 |---|---|
-| `node-gtk` + libadwaita | **Chosen.** Active (last push 2026-07), Adwaita first-class, TypeScript scaffold, CSS hot-reload, prebuilds for Node 22/24/26. |
-| `cstimer_module` npm | **Chosen.** Official (author `cs0x7f`), v0.1.5 released 2026-02, pure JS, GPL-3.0, 206 scramble types + SVG images. |
+| `gtk4-rs` + `libadwaita-rs` + JSC | **Chosen for the port (M18, 2026-11-10).** Native Rust; the installed `gtk4` 0.11.5 binds GTK 4.24 and `libadwaita` 0.9.2 binds libadwaita 1.9 APIs (the 1.10-only accessors are unused). JSC 2.54 embeds `cstimer_module` with no Node runtime and a small binary. |
+| `node-gtk` + libadwaita | **Legacy.** Chosen for v0.3.0 and frozen there on branch `legacy`; the temporary stage M18 replaces. Active (last push 2026-07), Adwaita first-class, TypeScript scaffold, CSS hot-reload, prebuilds for Node 22/24/26. |
+| `cstimer_module` npm | **Chosen, still.** Official (author `cs0x7f`), v0.1.5 released 2026-02, pure JS, GPL-3.0, 206 scramble types + SVG images. M18 vendors the same bundle and embeds it in JSC instead of installing the npm package. |
+| Vala + JSC | **M19 candidate.** A second, later port with the installed vapi; see [RUST-PORT.md](./RUST-PORT.md) §10. |
 | GJS (GNOME's JS runtime) | **Rejected**, despite better long-term maintainability (GNOME-backed, no ABI churn). See evidence in §5. |
 | Electron / WebView wrapper | Rejected — user wants native GTK only, no web stack. |
-| Python + PyGObject / Rust | Rejected — awkward fit for the JS scramble module. **Revisited 2026-10-08:** embedding the module in a Rust JS engine works and is byte-identical across 206 types, so Rust is no longer ruled out on *this* ground — see [RUST-PORT.md](./RUST-PORT.md). Python alone stays rejected (measured ~190× slower). |
+| Python + PyGObject / Rust | Rejected — awkward fit for the JS scramble module. **Revisited 2026-10-08:** embedding the module in a Rust JS engine works and is byte-identical across 206 types, so Rust is no longer ruled out on *this* ground — see [RUST-PORT.md](./RUST-PORT.md). Python alone stays rejected (measured ~190× slower). **Rust chosen 2026-11-10.** |
 
 **License:** GPL-3.0-or-later (LICENSE file). Required by `cstimer_module` and
 permitted for porting
@@ -132,6 +148,12 @@ csTimer's GPL source. Compatible with GTK/Libadwaita (LGPL) and node-gtk (MIT).
 ---
 
 ## 3. Architecture
+
+> **Main is the Rust port since 2026-11-10 (M18).** The tree below describes
+> the v0.3.0 node-gtk app, preserved on branch `legacy`; M18 replaces it
+> module by module in the same directories. The boundaries are the part that
+> carries over: pure core, platform/IO, UI-only GTK, and a scramble worker
+> that never runs on the main thread.
 
 ```
 src/
@@ -1373,110 +1395,67 @@ solves; the bars should track the spread of times, and the gray/red/blue
 lines the singles, ao5 and ao12 over solve order. Scroll down for the heat
 map, now at the bottom of the same tab.
 
-### M16 — scheduled (AUR package)
+### M16 — scheduled (AUR package, Rust)
 
-Opened 2026-10-06 — the one exception to the packaging line in §1. **Blocked
-on M13**: a package needs a name, an icon, a `.desktop` file, and a tag for
-`source=()` to point at.
+Opened 2026-10-06 as the one exception to the packaging line in §1. The
+package was originally the node-gtk tree; **since M18 (2026-11-10) it packages
+the Rust binary instead.** The old Node measurements stay in the `legacy`
+branch's plan and in this file's history; nothing in them applies to the Rust
+package.
 
-**Second blocker, noted 2026-10-07: the repo is private.** `makepkg` fetches
-every `source=()` entry over plain HTTP, so
-`github.com/xlucn/puzzle-timer` as it stands is unbuildable for anyone but
-its owner — and for you too, inside a clean chroot or a container that has no
-SSH keys. M16 needs the repo **public at tag time**, or the release tarball
-hosted somewhere public. Make that call deliberately before submitting, not
-discovered at submission; note that it cuts against the reason the repo is
-private.
+**Blockers, both deliberate:**
 
-**What Arch already has** (queried with `pacman -Si`, 2026-10-06, all in
-[extra]): `typescript` 6.0.3 (23.21 MiB), `esbuild` 0.28.2 (11.09 MiB — the
-same version as our `allowScripts` pin), `node-gyp` 13.1.0, `nodejs` 26.10.0,
-`npm` 12.2.0. **Packaged nowhere — official repos *or* AUR:** `node-gtk`,
-`cstimer_module`, `tsx`, `vitest`, `@types/node`. So `typescript` becomes a
-`makedepends`, and precompiling is what keeps `tsx` and its 11 MiB of esbuild
-out of the package entirely.
+- **M18 must reach parity first.** A package is the port's first release, not
+  a parallel product.
+- **The repo must be public at tag time.** `makepkg` fetches every `source=()`
+  entry over plain HTTP, so `github.com/xlucn/puzzle-timer` as it stands is
+  unbuildable for anyone without SSH keys. Make that call before submitting,
+  not at submission.
 
-**Three size levers**, measured against today's **39 MiB**
-`npm install --omit=dev` tree:
+**What the package is now:**
 
-1. **Precompile.** `typescript` (23 MiB), `esbuild` (11 MiB), `vitest`,
-   `cross-env`, `tsx` and `src/` (476 KiB) never enter the package — they are
-   shared system packages or build-time only.
-2. **Prune node-gtk's build closure — 26.7 MiB of the 39.** `node-gtk`
-   declares `node-gyp` **and** `@mapbox/node-pre-gyp` as *production*
-   dependencies, so `--omit=dev` dutifully ships npm's internals (`cacache`,
-   `@npmcli/*`, `tar`, `glob`, `nan`, …) — **113 non-dev packages in the
-   lockfile**. Once `lib/binding/node-v147-linux-x64/node_gtk.node` is in
-   place none of it is needed: `lib/native.js` only reaches
-   `require('@mapbox/node-pre-gyp')` *inside*
-   `if (!fs.existsSync(bindingPath))`. What stays: `node-gtk/lib` 12 M
-   (almost all of it the binding) plus `cstimer_module` 288 K, which has zero
-   dependencies.
-3. **Ship neither `tools/` nor tests.** `tsconfig.json` has
-   `include: ["src/**/*.ts"]` and **no `exclude`**, so `npm run build` emits
-   all **9 `*.test.ts` files** into `dist/` (measured: 39 `.js`, of which 9
-   are `.test.js`), each importing `vitest`. Add
-   `"exclude": ["**/*.test.ts"]` — or delete them in `package()`.
+- `depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')` — the last one provides
+  `libjavascriptcoregtk-6.0`. That is the price of embedding the scramble
+  engine without shipping V8: on a GNOME box `webkitgtk-6.0` is usually
+  already installed (Help/Epiphany use it), but a bare system pays ~139 MiB.
+  Measure it at M16; a V8 static build is the alternative if that trade is
+  wrong.
+- `makedepends=('cargo' 'rust' 'pkgconf')`; `build()` is
+  `cargo build --release --locked`. No `node-gyp`, no prebuilds, no Node ABI
+  pin, no launcher that has to `cd` first.
+- `source=()` is the GitHub tag tarball, as before. `cargo` fetches the crate
+  graph at build time; if Arch review asks for everything in `source=()`, use
+  `cargo vendor` and add that tarball.
+- `package()` installs one executable under `/usr/bin`, plus `LICENSE`, the
+  desktop file and both icon trees. The stylesheet and the changelog are
+  embedded in the binary (`include_str!`), so there is no runtime data path to
+  get wrong.
+- The app's data directory and JSON schema do not move: a user upgrading from
+  `0.3.0` keeps every solve.
 
-**Verified so far:** `npm run build` is clean under tsc 5.9.3, and all three
-runtime paths resolve from `dist/` — `dist/platform/meta.js` imports and
-returns `APP_VERSION` (its `../../package.json` reaches the root from `src/`
-*and* `dist/`), `dist/main.js` carries `new URL('../style.css', …)`, and
-`dist/scramble/service.js` still branches `.ts` → `.js`, so it picks
-`worker.js`. **Not verified:** running the built output, and compiling with
-Arch's `typescript` **6.0.3** against a project declared `^5.5.0` — that gap
-is the first thing to test.
-
-**Two gotchas, both measured:**
-- The binding path is ABI-specific (`node-v147-linux-x64`), so an Arch
-  `nodejs` major bump breaks the package until a `pkgrel` rebuild.
-- `--import node-gtk/register` resolves a bare specifier **from the cwd** —
-  it works from the repo root and fails `ERR_MODULE_NOT_FOUND` from `/tmp`.
-  The `/usr/bin` launcher must `cd` into the app directory.
-
-**Draft PKGBUILD** (untested against Arch's tsc):
+**Draft PKGBUILD shape** (re-measure before submitting):
 
 ```bash
-# Maintainer: Lu Xu
 pkgname=puzzle-timer
-pkgver=0.1.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
 arch=('x86_64')
 url="https://github.com/xlucn/puzzle-timer"
 license=('GPL-3.0-or-later')
-depends=('nodejs' 'gtk4' 'libadwaita' 'gobject-introspection')
-makedepends=('typescript' 'npm' 'node-gyp' 'gcc' 'make' 'python')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
-        'cstimer_module-0.1.5.tgz::https://registry.npmjs.org/cstimer_module/-/cstimer_module-0.1.5.tgz'
-        'node-gtk-4.1.1.tgz::https://registry.npmjs.org/node-gtk/-/node-gtk-4.1.1.tgz'
-        'node-types-node.tgz::https://registry.npmjs.org/@types/node/-/node-<exact>.tgz')
+depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')
+makedepends=('cargo' 'rust' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 b2sums=('…')
-
-prepare() {
-  cd "$pkgname-$pkgver"
-  # lockfile-pinned; no scripts — we compile node-gtk ourselves below.
-  npm ci --omit=dev --ignore-scripts
-  # Arch doesn't package @types/node, and tsconfig sets "types": ["node"]
-  mkdir -p node_modules/@types/node
-  tar -xf "$srcdir/node-types-node.tgz" -C node_modules/@types/node --strip-components=1
-}
 
 build() {
   cd "$pkgname-$pkgver"
-  tsc -p tsconfig.json                     # Arch's typescript, not npm's
-  ( cd node_modules/node-gtk && npx --no-install node-pre-gyp \
-      install --fallback-to-build )        # → lib/binding/node-v147-…/node_gtk.node
+  cargo build --release --locked
 }
 
 package() {
-  local d="/usr/lib/$pkgname"
   cd "$pkgname-$pkgver"
-  install -d "$pkgdir$d/node_modules" "$pkgdir/usr/bin"
-  cp -r dist package.json style.css CHANGELOG.md "$pkgdir$d/"
-  cp -r node_modules/cstimer_module "$pkgdir$d/node_modules/"
-  cp -r node_modules/node-gtk/lib node_modules/node-gtk/package.json \
-        "$pkgdir$d/node_modules/node-gtk/"
+  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "data/$pkgname.desktop" \
     "$pkgdir/usr/share/applications/$pkgname.desktop"
@@ -1484,60 +1463,159 @@ package() {
     "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
   install -Dm644 "data/icons/hicolor/symbolic/apps/$pkgname-symbolic.svg" \
     "$pkgdir/usr/share/icons/hicolor/symbolic/apps/$pkgname-symbolic.svg"
-  # The launcher name must match the .desktop's Exec=.
-  printf '#!/bin/sh\ncd %s && exec node --import node-gtk/register dist/main.js\n' "$d" |
-    install -Dm750 /dev/stdin "$pkgdir/usr/bin/$pkgname"
 }
 ```
 
-Pragmatic note: `npm ci` inside `prepare()` fetches the network, which Arch's
-guidelines prefer to avoid (everything should be in `source=()`). The clean
-alternative is listing every tarball — but node-gtk's production closure alone
-is 113 packages, so start pragmatic and tighten later if it bothers you.
+**Checkpoint for the user:** `makepkg -si`, launch `/usr/bin/puzzle-timer`
+from a directory that is not the source tree, generate a scramble, and confirm
+the About dialog reports `0.4.0`.
 
-**Checkpoint for the user:** `makepkg -si`, then launch `/usr/bin/puzzle-timer`
-from a directory that is *not* the source tree.
+### M17 — scheduled (postmarketOS/Alpine package, Rust)
 
-### M17 — scheduled by M15 (postmarketOS/Alpine package)
+Opened 2026-10-31 by the M15 verdict; **rewritten for the Rust app on
+2026-11-10.** Scope is still the phone that proved the runtime, not packaging
+in general: an **aarch64 `apk`** for postmarketOS/Alpine (Nura edge).
 
-Opened 2026-10-31 by the M15 verdict. Scope is the phone that proved the
-runtime, not packaging in general: an **aarch64 `apk`** package for
-postmarketOS/Alpine (Nura edge), shipping the precompiled `dist/` plus the
-two runtime deps (`node-gtk`, `cstimer_module`), with a launcher that `cd`s
-into the app directory before `node --import node-gtk/register dist/main.js`.
-Flatpak, deb and AppStream stay out; M16's AUR package is the separate
-x86_64 slice.
+- `depends=gtk4 libadwaita webkit2gtk-6.0` (Alpine names to confirm; the last
+  provides `libjavascriptcoregtk-6.0`), `makedepends=cargo rust pkgconf`.
+- Build natively on the phone or cross-compile; the binary and data layout are
+  the same as M16. The Node/ABI-137 details in the old block are history.
+- The launcher does not need to `cd`; there is no `node-gtk/register` lookup.
+- The phone's touch checklist is the acceptance test, not just "it launches";
+  M15's list stays the reference.
+- `apk` metadata: `arch=aarch64`, `pkgver` matching `Cargo.toml`; confirm the
+  Alpine package names for GTK4, libadwaita and JSC before writing `APKBUILD`.
 
-**What the phone already proves:** Node 24.18.1 (ABI 137), GTK 4.24.1,
-libadwaita 1.10.0, gobject-introspection 1.86, gcc 15.2, make 4.4.1, Python
-3.14; the app runs on Phosh/Phoc, the worker generates 206/206 scrambles, and
-`paplay` is the audio player. The node-gtk binding present on the phone was
-built for ABI 137; the package must build it against Alpine's
-`gtk4-dev`/`libadwaita-dev`/`gobject-introspection-dev` rather than assume a
-musl prebuild. M16's three size levers apply unchanged: precompile, prune
-node-gtk's production build closure once the binding exists, and ship no
-`tools/` or tests.
+**Checkpoint for the user:** `apk add` the built package, launch from outside
+the source tree, and repeat the touch checklist.
 
-**Open questions for M17** (the first things to test):
-- The tag to package: `v0.2.0` currently predates the M7/continuous-size and
-  touch commits; decide whether to move it or cut a new tag before M16/M17.
-- `npm run build` and the `dist/` runtime on the phone: `meta.js`'s
-  `../../package.json` and `../../CHANGELOG.md`, the `.ts`/`.js` worker
-  branch, and the six relative paths still resolve from `dist/`.
-- The node-gtk source build on musl (`node-gyp`, Python 3.14, gcc 15) and the
-  binding path for Alpine's Node 24; the ABI pin means a `nodejs` bump needs
-  a rebuild.
-- `tsx`/esbuild stay out of the package if `dist/` is precompiled; Alpine's
-  `typescript` (or a build-time npm) must compile the same `tsconfig`.
-- `.desktop`, both icons, `style.css`, `data/`, `CHANGELOG.md`, `package.json`
-  and the launcher; `node-gtk/register` resolves from the cwd, so the launcher
-  must `cd` first.
-- `apk` metadata: `arch=aarch64`, `depends=nodejs gtk4 libadwaita
-  gobject-introspection`, `makedepends=nodejs npm gcc g++ make python3
-  node-gyp` (names to confirm in Alpine).
+### M18 — scheduled (Rust port)
 
-**Checkpoint for the user:** `apk add` the built package, launch the app from
-a directory that is not the source tree, and repeat the touch checklist above.
+Opened 2026-11-10 by user call: **the node-gtk/TypeScript stage is temporary;
+the app is ported to Rust in `main`, and the v0.3.0 tree is frozen on branch
+`legacy`.** M18 is a rewrite of the same app, not a feature release: parity is
+the exit condition, and new features wait.
+
+**Why Rust (and why not Vala yet).** `RUST-PORT.md` measured the module
+question: every candidate engine reproduces all 206 scrambles byte-for-byte,
+so the dependency is **embedded, not ported**. Six engines were tested;
+JavaScriptCore 2.54 ships as a system library, needs a ~10-function host shim,
+and keeps the binary small. On the GUI side, `gtk4` 0.11.5 binds up to GTK
+4.24 and `libadwaita` 0.9.2 up to libadwaita 1.9 (the app uses no 1.10-only
+accessor), so the newest widgets the app needs are available. Rust also gives
+`cargo test` a clean home for `core/`'s 2,053 test lines and memory safety for
+the callback-heavy UI. Vala is measured in §10 of `RUST-PORT.md` and gets its
+own comparison milestone (M19) rather than a coin flip now.
+
+**Stack:**
+
+| Layer | Choice |
+|---|---|
+| UI | `gtk4` 0.11 (`v4_24`) + `libadwaita` 0.9 (`v1_9`) — crate import names are `gtk4`/`libadwaita` in these versions |
+| scramble engine | JavaScriptCore 6 (`javascriptcoregtk-6.0`), bound with the 8-function FFI proven in `tools/rust-embed/probe-jsc`. **JSC is the default for binary size**; **V8** (`v8` crate) is the alternative when a self-contained engine beats the 139 MiB `webkitgtk-6.0` dependency. Both sit behind `src/scramble/`'s `ScrambleEngine`. |
+| scramble module | vendor `cstimer_module` 0.1.5's bundle; evaluate the shim once per context; never reimplement the maths |
+| core | pure Rust modules, no GTK/JSC/IO; `cargo test` |
+| persistence | `serde_json` + the existing atomic-write rules and XDG paths |
+| CSPRNG | OS entropy (`getrandom` or `/dev/urandom`) |
+| i18n | typed Rust catalogs (the TS `Record<keyof en, Message>` guarantee ported; no gettext) |
+| charts | `gtk4::DrawingArea` + `cairo` |
+| audio | spawn the same `pw-play`/`paplay`/gst/`aplay` fallback |
+| build | Cargo; one binary plus `data/` (desktop file and icons); the stylesheet and changelog are embedded |
+
+**Port order** (each step keeps the tree compiling and tested):
+
+1. **Scaffold + engine.** Cargo project, minimal Adw window, vendored bundle,
+   JSC context on one worker thread, seed + `getScramble`/`getImage` over a
+   channel, and a sweep binary that proves `OK=206 images=177 failures=0`.
+2. **Core, in dependency order.** `time`, `timer`, `stats`, `charts`,
+   `records`, `activity`, `session`, `sessionLibrary`, `csTimerFormat`,
+   `sessionImport`, `scrambleTypes`, `scrambleFeed`, `layout`, `i18n`,
+   `preferences` — porting each module's tests with it.
+3. **Platform.** Store (same paths/schema/atomic rename), random, audio, meta
+   (version from `Cargo.toml`, release notes from `CHANGELOG.md`).
+4. **UI shell.** `Adw.OverlaySplitView`, `Adw.Breakpoint`s, the sidebar and
+   header, timer readout, scramble panel, the continuous-size plumbing from
+   `Gdk.Surface::layout`, CSS.
+5. **UI features.** `Gtk.ColumnView` list + factories, editors, session
+   manager (including drag reorder), statistics (Summary + Charts + heat
+   map), preferences, shortcuts, About, import/export file dialogs.
+6. **Parity + cutover.** Probe suite, live keyboard/touch checkpoint, data
+   round-trip against a real `~/.local/share/puzzle-timer` tree, then tag
+   `0.4.0`.
+
+**Hard rules carried into the port:**
+
+- **Data compatibility is not optional.** The Rust app reads the same
+  `sessions/_index.json` and per-session files, with the same schema and
+  quarantine rules; a user must be able to upgrade without losing solves.
+- **A scramble never runs on the main thread**, and **one thread owns the JSC
+  context**; results come back to the UI through a channel + idle, never by
+  touching the context from a second thread.
+- **`core/` stays free of GTK, GLib, JSC and IO**, so its tests run headless
+  exactly like the Vitest suite did.
+- **No bare user-visible literals.** The typed catalogs are ported before the
+  string-heavy UI; `en` remains the source of truth and the compiler must
+  catch a missing key.
+- **Native adaptive widgets, not reimplementations.** `Adw.OverlaySplitView`,
+  `Adw.Dialog`, `Adw.PreferencesDialog`, `Adw.ToastOverlay`,
+  `Adw.StatusPage`, `Adw.ViewSwitcher` + `ViewSwitcherBar`; sizes stay a
+  continuous function of the window.
+- **No feature work disguised as porting.** A missing feature is a parity
+  bug, not an excuse to redesign it; record genuine bugs instead.
+
+**Risks to probe early:**
+
+- libadwaita-rs 0.9.2 stops at `v1_9`; the app uses `Adw.Sidebar` (1.9), not
+  the 1.10-only `prefix`/`suffix`, but re-check every new widget against the
+  crate features.
+- `webkitgtk-6.0` is a 139 MiB installed dependency on a bare system; M16/M17
+  must decide whether that is acceptable or whether V8 static is the better
+  package.
+- `Gtk.ColumnView` factories, drag-and-drop, Cairo draw functions and
+  `Intl`-style date formatting all need a Rust shape; each gets a small probe
+  before the UI around it.
+- The Node probe suite (`.mjs` files) does not run against Rust. Port the
+  behavioural checks to Rust probe binaries under `tools/`; keep the
+  checkpoints, not the implementation.
+
+**Measured scaffold (2026-11-11):** `cargo build --release` gives a
+**614 KiB** `puzzle-timer` (415 KiB stripped); the sweep binary is 952 KiB
+(754 KiB stripped) and links `libjavascriptcoregtk-6.0.so.1`. The full
+206-type sweep through the Rust bridge reports `generated OK=206 empty=0
+images=177 failures=0 total=206`. The JSC library's 139 MiB installed
+dependency is the trade-off M16 must weigh against a static V8 build; that
+V8 backend would be a local change inside `src/scramble/`, not a rewrite of
+the app.
+
+**Exit criteria:** `cargo clippy --all-targets -- -D warnings` clean,
+`cargo test` at least the v0.3.0 test count, the 206-type sweep green, the set
+of live checkpoints signed off, existing data files open unchanged, and
+`0.4.0` tagged.
+
+### M19 — scheduled (Vala comparison, after M18/M16/M17)
+
+Opened 2026-11-10 by user call: Rust ships first, then try the same port in
+Vala and compare. This is an evaluation with a shipping-shaped slice, not a
+second product running in parallel.
+
+**Why it is worth measuring:** `RUST-PORT.md` §10 shows Vala embeds JSC through
+the installed `javascriptcoregtk-6.0` vapi with no hand-written FFI, and the
+`libadwaita-1.vapi` covers the installed 1.10 widgets. The porting surface is
+the same ~7k non-test lines; the question is which language gets there with
+less friction and stays maintainable.
+
+**Slice to build:** window + sidebar + solve list + scramble panel + timer +
+one statistics page + preferences, reading the same data directory. That is
+enough to measure the hard parts (models/factories, breakpoints, dialogs,
+signals, threads) without maintaining two full apps for months.
+
+**Measure and record:** non-test LOC, build time and dependencies, binary and
+package size, startup and scramble latency, test ergonomics, and how much of
+the code is GObject boilerplate. Then decide: keep Rust, adopt Vala, or keep
+Vala only as a reference. If Vala wins, it reopens M16/M17 and M18's cutover
+version rather than shipping both.
+
+**Evidence to re-run first:** `tools/rust-embed/probe-vala/run.sh`.
 
 ### M0 — landed 2026-09-30
 
@@ -2166,19 +2244,18 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M16 and M17 scheduled — M8, M9 and M10 landed 2026-11-06, M11 on
-  2026-11-08, M12 on 2026-11-10** — the scramble type control carries the length, the
-  pre-scramble (a preference through the module's `preScr` global) and the
-  fast 4x4 switch, the UI reads English or Chinese through typed catalogs, a
-  csTimer file imports into sessions and exports back out, and the Statistics
-  dialog now has Summary and Charts tabs. Next is M16
-  AUR package → M17 phone package. M13 is out of the queue:
-  it landed 2026-10-22 as `v0.1.0`, tagged and pushed; M14 (touch input)
-  joined it on 2026-10-23, M7 (size preferences) on 2026-10-28, and M15
-  (phone verdict) on 2026-10-31.
-  Numbers are stable identifiers, not queue positions (§6) — only the order
-  moved, because milestone numbers are about to appear in tag messages and
-  changelog entries. Nothing was dropped: M16 and M17 remain scheduled.
+- **M18 (Rust port) is current — M12 landed 2026-11-10 and `v0.3.0` was cut
+  the same day.** The v0.3.0 tree is frozen on branch `legacy`; `main` is the
+  Rust port. The scramble type control carries the length, the pre-scramble
+  (a preference through the module's `preScr` global) and the fast 4x4
+  switch, the UI reads English or Chinese through typed catalogs, a csTimer
+  file imports into sessions and exports back out, and Statistics has Summary
+  and Charts tabs. **The queue is M18 → M16 (AUR) → M17 (Alpine) → M19 (Vala
+  comparison).** M13 is out of the queue: it landed 2026-10-22 as `v0.1.0`;
+  M14 (touch input) joined it on 2026-10-23, M7 (size preferences) on
+  2026-10-28, and M15 (phone verdict) on 2026-10-31.
+  Numbers are stable identifiers, not queue positions (§6). Nothing was
+  dropped: M16 and M17 remain scheduled, now against the Rust app.
   Three decisions settle most of
   the "how": sizes **scale** `layoutFor()` instead of replacing its tiers
   (decision 14), i18n comes before every *string-heavy* feature so M10's and
@@ -2189,13 +2266,11 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M10: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  **M16 (AUR) has one blocker left**, written into its §6 block: the repo's
-  **privacy** — `makepkg` fetches over plain HTTP, so the sources must be
-  public at tag time. The `v0.1.0` tag was the other one, and it is cut. The
-  draft PKGBUILD
-  and the size measurements live there too, along with the first two things to
-  test: Arch's `typescript` 6.0.3 against our declared `^5.5.0`, and whether
-  the built `dist/` runs at all.
+  **M16 (AUR) is blocked on two things**, written into its §6 block: M18 must
+  reach parity first, and the repo must be **public at tag time** —
+  `makepkg` fetches over plain HTTP, so the sources must be public. The
+  `v0.1.0` tag was the other one, and it is cut. The rewritten Rust
+  PKGBUILD, its dependency trade-off and its checkpoint live there.
   Open before M8 and M9: nothing — M8's one open question (whether the
   bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
   its own block. Probes that gate M10 and M12 (`Gtk.FileDialog` async

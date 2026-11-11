@@ -1,264 +1,108 @@
 # tools/ — manual UI verification
 
-Helpers for driving the running app with synthetic keyboard input and
-photographing it, so UI behaviour can be checked without a human at the
-keyboard. **These are not part of `npm test`** — unit tests cover `src/core/`;
-these cover the part Vitest cannot, which is the GTK layer.
+Helpers for driving the running app on a nested X server. **These are not
+part of `cargo test`** — unit tests cover `src/core/`, these cover the GTK
+layer. The v0.3.0 node-gtk probe suite (`.mjs`) lives on branch `legacy`;
+its probes are being ported to Rust during M18.
 
 | File | What it does |
 |---|---|
 | `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click (aimed, then verified with `pointer`), hold and drag the pointer (`down`/`up`/`drag`), screenshot (`shot`/`rootshot`), list windows (`wins`) |
-| `timer_walk.py` | Walks the timer through all five states and captures each one |
-| `keyprobe.mjs` | Minimal node-gtk app that logs raw key events (for plumbing bugs) |
-| `colview_probe.mjs` | Mini ColumnView: factory setup/bind, position → id, the multi-select walk, ActionBar reveal (the sidebar plumbing) |
-| `sidebar_probe.mjs` | Rebuilds main.ts's `OverlaySplitView` with the real sidebar: property readback, own minimum, clamped width (logical px — see trap 6) |
-| `session_probe.mjs` | Headless: the session manager — the sidebar header's button and its action/accelerator, the dialog's rows with solve counts and types, the active check, rename/delete buttons, switching by activating a row, drag-and-drop reordering (top half inserts before, bottom after), and Delete going insensitive at the last session |
-| `scramble_probe.ts` | Headless: generates all 206 scramble types through the real worker (no display needed) |
-| `breakpoint_probe.mjs` | Adaptive-layout plumbing: `Adw.Breakpoint::apply/unapply` fire under node-gtk with current sizes, both structural bands fire on every crossing, `Gdk.Surface::layout` reports each resize, `set_default_size` does not resize a presented window. Its bands are built from `core/layout.ts` and its widest step is 900 px, so a `1280x800` screen is enough |
-| `prefs_probe.mjs` | Headless: the real Preferences dialog — every preference read back from the live widgets, including the language ComboRow |
-| `i18n_probe.mjs` | Headless: the zh-CN catalog reaches real widgets — the timer hint, Preferences (title, page, hold-time and language rows) and the shortcuts dialog, read back by their Chinese labels |
-| `prescr_probe.mjs` | Headless: what csTimer's `preScr` global changes — one scramble drawn twice, writing both SVGs to `/tmp/opencode`, plus the text-vs-image checks behind the pre-scramble preference |
-| `file_dialog_probe.mjs` | Headless (X11): `Gtk.FileDialog`'s async `open`/`save` callbacks fire under node-gtk, and a cancellation comes back through `openFinish`/`saveFinish` instead of aborting — with the JSON filter attached |
-| `import_probe.mjs` | Headless: a csTimer file becomes sessions, solves, an index and session files through `src/platform/store.ts`, then exports and parses back |
-| `stats_probe.mjs` | Headless: the Statistics dialog — two `Adw.ViewStack` tabs, the header/bottom `Adw.ViewSwitcher` pair and its breakpoint swap (including the narrow `Adw.WindowTitle`), a theme icon on every tab, the eight-row summary ColumnView, the overview figures, seven record expanders with history, a 13-week calendar heat map with its Less/More legend under Charts, two chart canvases that draw on switch, and tab switching by name |
-| `scramble_control_probe.mjs` | Headless: the header's type control (`Adw.SplitButton`) — both halves and their tooltips, the popover's length row per type and the fast-scramble switch, their callbacks, and the arrow alone going insensitive on a type with no length |
-| `edit_dialog_probe.mjs` | Headless: the edit dialog end to end — row order and geometry, the scramble expander, save/discard paths, the form scroll view at a clamped parent |
-| `floor_probe.mjs` | Headless (X11): the window floor — `heightRequest` floors the widget on allocation **and** against a forced `xdotool` resize (the floor line of the layout walk) |
-| `preview_probe.mjs` | Headless: Adaptive Preview premises — content sits in the emulated screen and the window's breakpoints measure that screen (what makes content-basis ground correct) |
-| `content_min_probe.mjs` | Headless: the main stack's minimum per widget at floor widths — bars + panel + timer, text- and width-independent (the 294-floor fit) |
-| `diagram_box_probe.mjs` | Headless: the scramble diagram's box — the SVG is parsed once at its own size, the box follows the layout's cap, a zero cap hides it, and the timer view hides/restores it |
-| `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines (rquickjs, boa, deno_core, rusty_v8, JavaScriptCore, libnode) and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK. |
+| `timer_walk.py` | Walks the v0.3.0 timer through its states and captures each one; re-port with the UI |
+| `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK |
 
 ## Requirements
 
-- The app running **on X11**, not native Wayland:
-  `GDK_BACKEND=x11 npm start` (XWayland is fine — it is what you get by
-  adding that flag inside a Wayland session), **or better, the nested
-  display below**.
+- The app on **X11**, not native Wayland: run it on the nested display below,
+  or add `GDK_BACKEND=x11`.
 - Python 3 with `libX11` and `libXtst` (standard on any X system).
 - ImageMagick's `import` for screenshots.
 
-## Recommended workflow: drive a nested display (Xephyr)
-
-Run the app on its own X server instead of the live desktop — this sidesteps
-traps 1, 2, 4 and 5 in one move:
+## Driving a nested display (Xephyr)
 
 ```sh
-Xephyr :99 -screen 1280x800 -ac -br &          # nested X server = a window on your desktop
-pkill -f "[n]ode-gtk/register"                 # trap 3: only one instance per session bus
-DISPLAY=:99 GDK_BACKEND=x11 npm start &
+Xephyr :99 -screen 1280x800 -ac -br &          # a window on your desktop
+pkill -f 'target/debug/puzzle-timer'            # only one GApplication instance
+DISPLAY=:99 GDK_BACKEND=x11 cargo run &
 DISPLAY=:99 python3 tools/xtest.py --window "Puzzle Timer" \
-  tap ctrl+e sleep 0.5 shot out.png
+  tap ctrl+q sleep 0.5
 ```
 
-Why it is worth the two extra prefixes (`xtest.py`, `maim`, `xwininfo` all
-read `$DISPLAY`):
+Why the two extra prefixes (`xtest.py`, `import` and `xwininfo` all read
+`$DISPLAY`):
 
-- **XTEST there is plain X11** — no RemoteDesktop consent prompt, ever
-  (trap 4). The nested window stays on your desktop, so a human can still
-  watch the test run.
-- No physical mouse or window drag to fight. **But trap 2 is not gone**:
-  on the nested display `shot` *and* `rootshot` have returned frames
-  *minutes* old — a whole session-menu state replayed while the live window
-  already showed something else (XGetImage reads server buffers GTK's GL
-  rendering does not promise to update). `cmp` only proves two grabs agree,
-  not that they are current: verify state changes against the store
-  (`jq …/sessions/_index.json`) or a human watching the window, and trust a
-  pixel only when it *differs* from the pre-action frame in the way the
-  action should change it.
-- Windows sit at known coordinates with **1× pixels and no shadows** —
-  window-relative = root-relative, no HiDPI (trap 6) arithmetic.
-- Popups (menus, popovers) are ordinary toplevels *of the nested server*,
-  so `rootshot`/`popup` see them instead of the solid black the live
-  XWayland root gives (trap 4's caveat).
-- **One caveat — physical keys ≠ XWayland**: a *human* holding a key in
-  Xephyr runs the nested server's stock XKB auto-repeat, which can emit
-  release/press *pairs* mid-hold. That fakes an inspection bug (green
-  "Release to start" bouncing back to red "Keep holding…" with the
-  countdown already eating seconds) which does **not** reproduce on the
-  same machine under GNOME with either backend — Wayland, or
-  `GDK_BACKEND=x11` (xlsclients-confirmed XWayland). Synthetic
-  `press`/`hold` never auto-repeats, so automation
-  will not see it either: verify hold flows with synthetic input, and
-  distrust a bounce seen only under a physical hand in Xephyr.
+- **XTEST there is plain X11** — no GNOME RemoteDesktop consent prompt. The
+  nested window stays visible, so a human can still watch the run.
+- Windows sit at known coordinates with **1× pixels and no shadows**, so
+  window-relative equals root-relative.
+- Popups are ordinary toplevels of the nested server, so `rootshot` sees them
+  instead of the black rectangle the live XWayland root gives.
+- **Caveat:** a *human* holding a key in Xephyr runs the nested server's stock
+  XKB auto-repeat, which can emit release/press pairs mid-hold. Synthetic
+  `press`/`hold` never auto-repeats; verify hold flows synthetically, and
+  distrust a bounce seen only under a physical hand.
 
-## The six traps these tools work around
+Start the app **detached from the tool call**:
+`setsid bash -c 'DISPLAY=:99 GDK_BACKEND=x11 cargo run > LOG 2>&1' &`. A
+`(cargo run … &)` dies with the call's process group and can read like a
+crash.
+
+## The traps these tools work around
 
 1. **Focus.** X sends keys to whichever window owns focus. `App()` takes focus
    and reads it back to verify; otherwise keystrokes land somewhere else and
    the test silently does nothing.
 
-2. **Stale screenshots.** `XGetImage` on an XWayland surface regularly returns
-   an *old* frame while the app is painting perfectly well — three
-   consecutive screenshots spanning 3 s of live counting have come back byte
-   identical, which looks exactly like a frozen app. `capture()` therefore
-   forces a full repaint first (a resize by a few pixels makes GTK redraw the
-   whole surface), which usually refreshes what the X server holds.
-
-   "Usually" is honest: it can still catch the same buffer twice, which is
-   why `timer_walk.py` compares consecutive frames and warns about repeats.
-   Identical frames mean *a stale grab*, not a frozen app — the state machine
-   and input handling are unaffected (confirmed by logging every key event
-   and transition while the walk ran: all five states, correct timing).
-   Re-run, or look at the window with your own eyes. Staleness is not
-   XWayland-specific: the nested server does it too (see the workflow
-   section above).
-
-   The settle costs ~0.35 s, so for short-lived states pass
-   `force_repaint=False` / `--no-repaint`: a 300 ms hold threshold will not
-   wait for your screenshot. `timer_walk.py` does exactly this for the
-   "holding" shot.
-
-   Corollary: a forced repaint proves the *content* is right, not that the app
-   repaints by itself. To test self-initiated painting, compare a raw
-   (`--no-repaint`) capture against the previous one — and prefer the app's
-   own behaviour (logs, state) over pixels for anything timing-related.
-
-   And one thing a capture can show that the app does not put there: **the
-   pointer**. `maim` includes the cursor, and Xephyr runs with no cursor
-   theme, so the X server draws its fallback — a heavy black ✕ — wherever
-   the mouse happens to be parked. An ✕ floating over the header looks
-   exactly like a broken icon or a stray widget: `xdotool mousemove 60 600`
-   it out of the way and re-shoot before believing it (one once sat beside
-   the copy button and read as a second, mystery button).
+2. **Stale screenshots.** `XGetImage` regularly returns an *old* frame while
+   the app is painting perfectly well. `capture()` forces a repaint first (a
+   resize by a few pixels), which usually refreshes the buffer. "Usually" is
+   honest: it can still catch the same buffer twice. Identical frames mean *a
+   stale grab*, not a frozen app — verify state against the store or a log,
+   and re-run rather than looping on retries. The settle costs ~0.35 s; pass
+   `force_repaint=False` / `--no-repaint` for short-lived states.
+   A capture also includes the pointer; Xephyr draws a heavy black ✕ where
+   the mouse is parked. `xdotool mousemove 60 600` it out of the way before
+   believing an artifact.
 
 3. **A duplicate instance quits instantly.** `Adw.Application` is a
-   single-instance `GApplication`: starting a second copy while one is alive
-   hands the activate to the first and exits with code 0, so the walk finds
-   the *old* window and your fresh changes are never exercised. If the app
-   appears to die on launch, check first: `pgrep -fa "node-gtk/register"`.
-   Kill leftovers with the bracketed pattern — `pkill -f "[n]ode-gtk/register"`
-   (or `pkill -f "[t]sx.*src/main.ts"` for the `npm start` form). The
-   brackets are not decoration: an unbracketed pattern matches the very shell
-   running the `pkill` command line, so it kills itself instead of the app.
+   single-instance `GApplication`: a second copy hands `activate` to the
+   first and exits 0, so the walk finds the *old* window. Check
+   `pgrep -fa 'target/debug/puzzle-timer'` and kill leftovers with a bracketed
+   pattern (`pkill -f 'target/debug/puzzle-[t]imer'`); an unbracketed pattern
+   matches the shell running the `pkill` and kills itself.
 
-4. **Synthetic input demands a portal approval on the live Wayland session —
-   keys *and* clicks.** XWayland implements XTEST through libei (mutter ≥ 45),
-   and emulated input is gated behind GNOME's
-   `org.freedesktop.portal.RemoteDesktop.CreateSession` consent: the first
-   synthetic key or button event pops the "desktop sharing" prompt, and while
-   it sits unanswered it owns keyboard focus — every later key goes to the
-   dialog instead of the app, which is what "weird test results" look like
-   (probes confirmed: key taps and a single
-   click each summon it immediately, while focus grabs, screenshots and
-   window enumeration do not). **The fix is the nested display above**, where
-   XTEST is plain X11
-   and never asks; if you must drive the live screen, a human answers the
-   prompt first. Even then some targets are unverifiable headlessly: popups
-   and the root window capture solid black, so a dropdown opening *cannot* be
-   confirmed from a screenshot — have a human look, or verify the effect
-   instead of the popup (e.g. the selection label changing in the header).
-   **Policy: don't rely on mouse clicks in tests at
-   all — trigger actions through keybindings.** Every menu/dialog action gets
-   an accelerator (`app.setAccelsForAction` in `src/main.ts`, documented in
-   `src/ui/shortcuts.ts`), and tests press keys; on the nested display that
-   sidesteps the portal prompt, the physical-mouse fight below, and the
-   black-popup problem in one move. If a new action has no key yet, add one
-   *before* testing it.
-   Input occasionally goes quiet for
-   every app after a restart of the session: confirm with `keyprobe.mjs` before
-   blaming the app, and if keys do reach the app but nothing changes, drop a
-   temporary `console.error` in the handler to see the event arrive.
+4. **Synthetic input demands portal approval on the live Wayland session —
+   keys *and* clicks.** XWayland implements XTEST through libei, gated behind
+   GNOME's RemoteDesktop consent; while the prompt is unanswered it owns
+   keyboard focus. The nested display avoids it. Even there, popups and the
+   root window can capture black, so verify the effect, not the popup.
+   **Policy: trigger actions through keybindings, not clicks.** Every action
+   gets an accelerator before it is tested.
 
 5. **The window moves, so a click can land off it — verify, don't assume.**
-   `xtest` reads the window origin from `xwininfo` once per run and aims every
-   click there, but a human dragging the window (or a WM animation) invalidates
-   that origin *mid-run*: the warp then parks the pointer over empty root —
-   `pointer` prints `over=0x0` — and the click hits nothing while the test
-   cheerfully reports success. Two habits fix it: run a whole scenario in
-   **one** `xtest` invocation (a single origin read) with `pointer` after each
-   `click`, treating `over=0x<window id>` as "landed" and `0x0` as "re-read
-   the origin and retry"; and reach for *keys* once focus is in the app, since
-   key events go to the focused window wherever it is on screen. A
-   screenshot showing "nothing happened" may just mean the click landed on the
-   desktop beside the app. And the origin can be
-   correct while the world is not: if the user is driving the same machine,
-   every warp fights their hand — `over=0x0` with perfectly right math, and a
-   `rootshot` that comes back solid black mid-drag (trap 4) while the window
-   `shot` still shows the truth. When that happens (or the user offers to
-   help test, per AGENTS.md), stop synthesising and hand the run over.
+   `xtest` reads the origin once per run; a human dragging the window
+   invalidates it mid-run. Run a scenario in **one** invocation, with
+   `pointer` after each click (`over=0x<window id>` = landed, `0x0` =
+   re-read and retry), and prefer keys once focus is in the app. If the user
+   is driving the same machine, stop synthesising and hand the run over.
 
-   Two safety nets now live in `App.close()`: every key the run pressed and
-   did not release gets released, and keyboard focus is handed back to whoever
-   had it before the run. Both were written after real damage: an unpaired
-   `press`/`hold` leaves X believing the key is physically down, which makes
-   the *user's* real presses on that key do nothing (Space and Escape were
-   broken this way), and without the handback every run left the user's
-   keystrokes going to the app under test.
-
-   Note what `hold KEY SECS` means: press and **keep holding** for SECS — it
-   does not release (only `tap` does). Pair it with an explicit `release KEY`,
-   or use `press`/`sleep`/`release` for anything that arms the timer (e.g. the
-   hold that starts the solve after inspection). A run that ends with Space
-   still held makes every later shot in it show the same frozen `ready`
-   frame — and the exit safety then releases the key *after* the screenshots,
-   silently starting whatever the pending release was supposed to start (two
-   "identical" frames and a mystery leftover inspection).
-
-6. **HiDPI: screenshot pixels are physical, widget sizes are logical.** This
-   machine runs the X11 session at scale 2 (`Xft.dpi: 192` = 96 × 2). The
-   screen itself follows the monitor, so read it fresh with `xwininfo -root`;
-   logical width is
-   always half the physical. GTK lays out in *logical*
-   px and the compositor renders each at 2×, so every measurement needs
-   halving before it can be compared with a config value. Worked example: the
-   solve sidebar measured **478 physical px** in
-   screenshots while `maxSidebarWidth: 320` claimed it could never exceed
-   320 — which looked like a libadwaita bug. It wasn't: the window is
-   `setDefaultSize(900, …)` = 900 *logical* wide, so the sidebar computes
-   `CLAMP(0.25 × 900, 240, 320)` = **240 logical = its minimum** → 480
-   physical ≈ the 478 measured (max only binds from 1280 logical up; a
-   probe at 1728 logical correctly clamped to 320). Corollaries: `xwininfo`
-   and `identify` report physical sizes (1900 ≈ `(900 + 2×25) × 2` incl.
-   CSD shadow), and `xdotool windowsize 1900 1180` against a window already
-   ~1900 physical is a **no-op** — which is why a resize-based test appeared
-   to hang. Rule: before trusting a pixel count, derive the scale from
-   something known (window default size vs `xwininfo`, row height vs GTK's
-   ~34 logical default) and never mix units in one comparison.
+6. **HiDPI: screenshot pixels are physical, widget sizes are logical.**
+   Read the scale from `xwininfo -root`; GTK lays out in logical px and the
+   compositor renders at 2×. Never mix units in one comparison.
 
 ## Keyboard walk
 
-Everything here is reachable without the pointer, which also sidesteps the
-portal prompt (trap 4) and the physical mouse (trap 5).
-
-- `<Ctrl+S>` opens the session menu with focus on its **first** item, so
-  `Down`+`Return` picks the second session. `<Ctrl+N>` new, `F2` rename,
-  `<Ctrl>Delete` delete.
-- `<Ctrl+S>` then `Escape` leaves focus on the **session switch** in the
-  sidebar header (a popover restores focus to its anchor button); `Tab` walks
-  on into the list, `Shift+Tab` leaves the sidebar. `<Ctrl+S>` while the
-  sidebar is closed must reveal it *and* pop the menu (`ensureVisible` in
-  `src/ui/sessionMenu.ts`).
-- The app menu is the content header's last control — Statistics, then
-  Fullscreen / Preferences / Shortcuts / About / Quit — so it stays reachable
-  with the sidebar closed. Walk `Tab` until its ring is on it (focus is
-  sticky, so there is no fixed stop count), `Return` to open it, `Down`×3 +
-  `Return` for Keyboard Shortcuts.
-- The header reads, left to right: sidebar toggle → refresh → copy → select →
-  image → Cancel (while inspecting) → app menu, next to the window controls.
-  On a narrow window the scramble controls move to the bottom toolbar; Cancel
-  and the menu stay in the header; the centred type title is not focusable.
-  Tab runs right to left through those end controls: `AdwHeaderBar.packEnd`
-  prepends, so the tree order is the reverse of the visual one.
-- **The type chooser, by key**: both layouts open the same dialog — walk
-  `Tab` until the select button's ring is on it (focus is sticky, so there is
-  no fixed stop count) and press `Return`. The dialog focuses its own list,
-  so `Down`+`Return` picks a type straight away.
-- `Adw.ShortcutsDialog` is not a toplevel: it draws inside the app's own
-  surface, so `xwininfo -root -tree` finds nothing for it. Capture the app
-  window (`maim -i 0x<id>`) and close it with `Escape`.
-- Focus chains shift whenever a key races a popover popdown: confirm where a
-  `Shift+Tab` chain landed with one focus-ring `shot` before trusting the
-  arithmetic, and judge any frame only after two shots + `cmp` (`shot` forces
-  a repaint but can still return the pre-action frame). To *see* a sub-second
-  state, widen the window and switch to `4x4x4` (~1.2 s) instead of racing
-  3x3's ~50 ms.
+The Rust UI's accelerators arrive with the UI port. Until then, drive the
+app with `xtest.py` and check state from logs or the store; the v0.3.0
+keyboard walk (Ctrl+S session menu, Ctrl+T statistics, Ctrl+M sessions,
+Ctrl+comma preferences, F11 fullscreen, Ctrl+Q quit) is on the `legacy`
+branch and is the target to re-establish.
 
 ## Recipes
 
 ```sh
-# all five timer states + a checklist of what each image should show
-GDK_BACKEND=x11 npm start &
+# all timer states (v0.3.0; re-port with the Rust timer)
+GDK_BACKEND=x11 cargo run &
 python3 tools/timer_walk.py --out /tmp/shots
 
 # one-shot scripted interaction (flags come before the command list)
@@ -266,116 +110,10 @@ python3 tools/xtest.py --window "Puzzle Timer" \
     press space sleep 0.6 shot ready.png release space \
     sleep 1.0 press x release x sleep 0.2 shot stopped.png
 
-# debug key plumbing: does GTK see the event at all, and with what signature?
-GDK_BACKEND=x11 node --import tsx --import node-gtk/register tools/keyprobe.mjs &
-python3 tools/xtest.py --window KeyProbe press space sleep 0.6 release space tap x
-
-# zero-freeze timing test: hold 0.35 s -> run -> stop at 0.40 s.
-# --no-repaint matters: a forced repaint's 0.35 s settle would outlast the hold.
-# The big digits must read ~0.40 (timing uses GLib monotonic µs in the key
-# handler, so a stall on the main thread would show up as drift here).
+# zero-freeze timing: hold 0.35 s -> run -> stop at 0.40 s
 python3 tools/xtest.py --no-repaint \
     hold space 0.35 release space sleep 0.40 \
     press x release x sleep 0.6 shot timing.png
-
-# Solve-list deletion: select three rows (Shift+Down extends natively) and delete them.
-# The pointer is aimed once and re-checked (`pointer` must print the window
-# id, not 0x0); after that everything is keys — the Delete key — so the
-# origin can move without breaking the test.
-python3 tools/xtest.py --window "Puzzle Timer" \
-    click 1740 240 pointer sleep 0.3 \
-    press Shift_L press Down release Down press Down release Down release Shift_L \
-    sleep 0.3 shot selected.png \
-    press Delete release Delete sleep 0.6 shot deleted.png
-# …then click the toast's Undo (bottom-centre, window-relative) in the same
-# invocation and screenshot again to prove the batch came back.
-
-# The scramble-type chooser: a header *button* opening an Adw.Dialog — not a
-# popup. The type text lives in the header's
-# title/subtitle (Adw.WindowTitle); the control is an icon-only button
-# packed after refresh/copy (≈160,28 at 900px window-relative, sidebar
-# closed — re-verify the x before trusting it, coords in this file drift).
-# Walk Tab until the focus ring is on it (focus is sticky, so there is no
-# fixed stop count; order: sidebar → refresh → copy → select)
-# and press Return. The dialog focuses its own list, so Down + Return picks
-# straight away; there is no search entry — rows are
-# browsed, not filtered.
-python3 tools/xtest.py --window "Puzzle Timer" \
-    click 160 28 sleep 0.6 \
-    press Down release Down sleep 0.3 \
-    press Return release Return sleep 1.5 shot type-switched.png
-
-# Touch path — no touch device needed: XTEST supplies a tap or press-hold.
-# The timer area below the scramble is the start key (same keyDown/keyUp as
-# Space); the scramble itself scrolls. While the solve list is a drawer the
-# outlined card is the target and the strip outside it belongs to the swipe —
-# aim inside the card. Mouse
-# input is off by default; enable Mouse control in Preferences before using
-# a click, or drive the touch path with a real touch device. The timer's
-# centre is just a convenient aim. With inspection on (the default) the
-# first release starts the 15 s countdown — a tap is enough — and the second
-# release starts the solve; a Cancel button appears in the header's end area
-# while inspecting (same path as Escape), with the app menu to its right.
-# Pressing start hides the scramble,
-# hint/averages, bottom bar and solve list; the list's toggle and the diagram
-# toggle grey out, while the header stays. The list returns to its previous
-# open/closed state when the timer is idle or stopped. At 900x540 the timer's
-# centre is ≈560,300; Cancel sits around x≈690, y≈22, just left of the app
-# menu. At the 360 floor the menu is the rightmost header control. Re-aim
-# both, coords drift with the layout.
-python3 tools/xtest.py --window "Puzzle Timer" \
-    down 560 300 sleep 0.7 up sleep 0.8 \
-    down 560 300 sleep 0.7 up sleep 1.2 \
-    tap x
-# Per-session scramble type: the index file is ground truth for this
-# feature — screenshots go stale (trap 2), so pair every switch with jq.
-jq -c '{active, t: [.sessions[] | {id, scrambleType}]}' \
-    ~/.local/share/puzzle-timer/sessions/_index.json
-
-# Adaptive layout: the whole band walk is sizes and keys, and every step
-# announces the layout it applied. Ctrl+B is `app.sidebar` and Escape closes the
-# drawer (only while one is up), so neither needs the pointer.
-W=$(DISPLAY=:99 xdotool search --name "Puzzle Timer" | head -1)
-tail -f /tmp/m6.log | grep --line-buffered '\[layout\]\|\[sidebar\]' &
-DISPLAY=:99 xdotool windowsize --sync $W 700 540   # drawer, selectors still in the header
-DISPLAY=:99 xdotool windowsize --sync $W 550 480   # selectors leave for their own row
-DISPLAY=:99 xdotool key ctrl+b                     # drawer opens   (log: activate → true)
-DISPLAY=:99 xdotool key Escape                     # drawer closes  (log: show-sidebar=false)
-DISPLAY=:99 xdotool windowsize --sync $W 400 360   # the floor: nothing may clip or warn
-DISPLAY=:99 xdotool windowsize --sync $W 1700 900  # every size keeps growing: timer ≈135 px
-# `xdotool windowsize` is *surface* px: the widget is 10 smaller (CSD shadow),
-# which is why the log prints
-# `890x530 (win 530, content 650x484, sidebar docked)` for a 900x540 window
-# with the sidebar open. The line is debounced by 150 ms, so a drag reports
-# once — where it came to rest — not once per pixel. `content` is the
-# mainContent box between the toolbar bars — the area the timer and diagram
-# actually share — and `sidebar` is `docked` or `overlay` (the exact gap is not
-# logged; it animates while the split view opens). The same line names the
-# diagram placement: `diagram wide` on a window wider than the 540 content-width
-# band whose content width is at least 1.4× its height with the sidebar hidden,
-# or at least 0.7× its height with it docked; `diagram tall-narrow` below that
-# threshold, and `diagram none` where a narrow short one sheds it (surface
-# 360x294/360x360/540x360 shed it, 600x360 keeps it). The docked sidebar
-# offsets the diagram, so the shown threshold is deliberately looser; the gap
-# is measured only while the sidebar is docked, so neither the 800→801 handoff
-# nor a collapsing sidebar leaves a stale docked frame. A portrait tablet
-# (800x1280) therefore stacks the rows and centres the timer. The picture is
-# flush bottom-right in every live placement.
-
-# Long labels do not move the selectors out: the header's control is
-# one button whose label *ellipsizes* instead of forcing Gtk.HeaderBar to
-# keep its natural width. Select the catalogue's worst pair (FTO category +
-# Diamond type, 52 chars) and check three things:
-#   • `[layout] … selectors in the header` at 900/700/541 and `in their own
-#     row` only at ≤540 — the labels are not part of that decision;
-#   • the minimize/maximize/close buttons stay on screen at every width,
-#     including side-by-side with the sidebar open (header ≈ w − 240);
-#   • the label reads `…` under that squeeze rather than shoving the
-#     window controls over the edge.
-jq '(.sessions[] | select(.id == "default")).scrambleType = "dmdso"' \
-    ~/.local/share/puzzle-timer/sessions/_index.json > /tmp/idx && \
-    cp /tmp/idx ~/.local/share/puzzle-timer/sessions/_index.json
-# …restart, walk 1700/900/700/541/540, then restore with _index.json.bak.
 ```
 
 Key names are X keysym names: `space`, `Return`, `Escape`, `a`, `z`, `F5`, …
