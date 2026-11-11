@@ -1578,6 +1578,10 @@ own comparison milestone (M19) rather than a coin flip now.
   behavioural checks to Rust probe binaries under `tools/`; keep the
   checkpoints, not the implementation.
 
+**Landed so far (2026-11-11):** `main` is the Rust crate; `core/time.rs` and
+`core/timer.rs` are ported with 48 tests; the JSC bridge sweeps 206/206; the
+UI is still the placeholder window.
+
 **Measured scaffold (2026-11-11):** `cargo build --release` gives a
 **614 KiB** `puzzle-timer` (415 KiB stripped); the sweep binary is 952 KiB
 (754 KiB stripped) and links `libjavascriptcoregtk-6.0.so.1`. The full
