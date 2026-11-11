@@ -12,15 +12,22 @@
 
 use libc::{c_int, time_t, tm};
 
-#[derive(Clone, Copy, Debug)]
-struct Civil {
-    year: i32,
-    month: u32,
-    day: u32,
-    weekday: u32,
+/// Local civil time at an instant: the fields a date formatter needs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CivilTime {
+    pub year: i32,
+    /// 1-based.
+    pub month: u32,
+    pub day: u32,
+    pub hour: u32,
+    pub minute: u32,
+    pub second: u32,
+    /// 0 = Sunday, like JavaScript's `Date#getDay`.
+    pub weekday: u32,
 }
 
-fn to_civil(epoch_ms: f64) -> Civil {
+/// The local civil time at `epoch_ms`.
+pub fn civil_time(epoch_ms: f64) -> CivilTime {
     // Seconds since the epoch, rounded down: a timestamp at 23:59:59.999 is
     // still that day.
     let seconds = (epoch_ms / 1000.0).floor() as time_t;
@@ -29,17 +36,23 @@ fn to_civil(epoch_ms: f64) -> Civil {
     if result.is_null() {
         // Local time is unavailable for this instant (no TZ database); fall
         // back to UTC-like fields rather than panicking inside a timer.
-        return Civil {
+        return CivilTime {
             year: 1970,
             month: 1,
             day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
             weekday: 4,
         };
     }
-    Civil {
+    CivilTime {
         year: local.tm_year + 1900,
         month: (local.tm_mon + 1) as u32,
         day: local.tm_mday as u32,
+        hour: local.tm_hour as u32,
+        minute: local.tm_min as u32,
+        second: local.tm_sec as u32,
         weekday: local.tm_wday as u32,
     }
 }
@@ -62,26 +75,26 @@ fn midnight(year: i32, month: u32, day: i32) -> f64 {
 
 /// Local midnight of the day `epoch_ms` falls in, in epoch milliseconds.
 pub fn day_start(epoch_ms: f64) -> f64 {
-    let civil = to_civil(epoch_ms);
+    let civil = civil_time(epoch_ms);
     midnight(civil.year, civil.month, civil.day as i32)
 }
 
 /// `YYYY-MM-DD` for the local day of `epoch_ms`; also the sort key.
 pub fn day_key(epoch_ms: f64) -> String {
-    let civil = to_civil(epoch_ms);
+    let civil = civil_time(epoch_ms);
     format!("{:04}-{:02}-{:02}", civil.year, civil.month, civil.day)
 }
 
 /// Local midnight `delta` days from `start_ms`, DST-safe: the calendar day is
 /// stepped, never a constant 24 hours.
 pub fn shift_days(start_ms: f64, delta: i32) -> f64 {
-    let civil = to_civil(start_ms);
+    let civil = civil_time(start_ms);
     midnight(civil.year, civil.month, civil.day as i32 + delta)
 }
 
 /// Weekday of the local day, 0 = Sunday (JavaScript's `Date#getDay`).
 pub fn weekday(epoch_ms: f64) -> u32 {
-    to_civil(epoch_ms).weekday
+    civil_time(epoch_ms).weekday
 }
 
 #[cfg(test)]

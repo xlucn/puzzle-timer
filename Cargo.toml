@@ -26,6 +26,9 @@ path = "src/bin/scramble_sweep.rs"
 gtk4 = { version = "0.11", features = ["v4_24"] }
 libadwaita = { version = "0.9", features = ["v1_9"] }
 glib = "0.22"
+# The scramble worker answers the UI over an async channel the main loop polls;
+# glib 0.22 no longer carries its own channel.
+async-channel = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Session ids fold accents out of names (NFKD, like the v0.3.0 app).

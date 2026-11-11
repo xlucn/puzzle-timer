@@ -43,3 +43,5 @@ impl ScrambleEngine for jsc::Engine {
         self.scramble(type_id, length, pre_scramble, with_image)
     }
 }
+
+pub mod worker;

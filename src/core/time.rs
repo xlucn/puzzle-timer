@@ -80,6 +80,50 @@ pub fn format_time(ms: f64, use_ms: bool) -> String {
     }
 }
 
+/// Wall-clock stamp for the solve list:
+///
+/// ```text
+///   same day    → "14:32"
+///   earlier     → "09-30 14:32"
+///   other year  → "2025-12-31 14:32"
+/// ```
+///
+/// Local time, and the day is only spelled out when it is not today — that
+/// keeps the sidebar column narrow while still telling yesterday's solves
+/// apart. `0` is the import's "unknown" (a csTimer row without a date), so it
+/// reads as no timestamp rather than as 1970.
+pub fn format_timestamp(epoch_ms: f64, now: f64) -> String {
+    if !epoch_ms.is_finite() || epoch_ms <= 0.0 {
+        return String::new();
+    }
+    let then = crate::core::calendar::civil_time(epoch_ms);
+    let today = crate::core::calendar::civil_time(now);
+    let clock = format!("{:02}:{:02}", then.hour, then.minute);
+
+    if then.year == today.year && then.month == today.month && then.day == today.day {
+        return clock;
+    }
+    let date = format!("{:02}-{:02}", then.month, then.day);
+    if then.year == today.year {
+        format!("{date} {clock}")
+    } else {
+        format!("{:04}-{date} {clock}", then.year)
+    }
+}
+
+/// The complete wall-clock stamp for the edit dialog: year to second, always
+/// spelled out — `2026-10-01 22:49:58`. Local time, no "today" elision.
+pub fn format_full_timestamp(epoch_ms: f64) -> String {
+    if !epoch_ms.is_finite() || epoch_ms <= 0.0 {
+        return String::new();
+    }
+    let then = crate::core::calendar::civil_time(epoch_ms);
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+        then.year, then.month, then.day, then.hour, then.minute, then.second
+    )
+}
+
 /// WCA inspection readout: 15…1 seconds left, then `+2`, then `DNF`.
 pub fn format_inspection(elapsed_ms: f64) -> String {
     if elapsed_ms >= 17_000.0 {
@@ -135,5 +179,61 @@ mod tests {
         assert_eq!(format_inspection(14_001.0), "1");
         assert_eq!(format_inspection(15_000.0), "+2");
         assert_eq!(format_inspection(17_000.0), "DNF");
+    }
+}
+
+#[cfg(test)]
+mod timestamp_tests {
+    use super::*;
+
+    /// Local wall-clock time through libc, the same source the formatter reads.
+    fn local(year: i32, month: u32, day: i32, hour: i32, minute: i32) -> f64 {
+        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        tm.tm_year = year - 1900;
+        tm.tm_mon = month as libc::c_int - 1;
+        tm.tm_mday = day;
+        tm.tm_hour = hour;
+        tm.tm_min = minute;
+        tm.tm_isdst = -1;
+        unsafe { libc::mktime(&mut tm) as f64 * 1000.0 }
+    }
+
+    #[test]
+    fn today_shows_only_the_clock() {
+        let now = local(2026, 11, 8, 20, 0);
+        assert_eq!(format_timestamp(local(2026, 11, 8, 14, 32), now), "14:32");
+    }
+
+    #[test]
+    fn another_day_this_year_adds_the_date() {
+        let now = local(2026, 11, 8, 20, 0);
+        assert_eq!(
+            format_timestamp(local(2026, 9, 30, 14, 32), now),
+            "09-30 14:32"
+        );
+    }
+
+    #[test]
+    fn another_year_spells_the_year_out() {
+        let now = local(2026, 11, 8, 20, 0);
+        assert_eq!(
+            format_timestamp(local(2025, 12, 31, 14, 32), now),
+            "2025-12-31 14:32"
+        );
+    }
+
+    #[test]
+    fn an_unknown_date_is_blank() {
+        assert_eq!(format_timestamp(0.0, 0.0), "");
+        assert_eq!(format_timestamp(f64::NAN, 0.0), "");
+        assert_eq!(format_full_timestamp(0.0), "");
+    }
+
+    #[test]
+    fn the_full_stamp_spells_everything_out() {
+        assert_eq!(
+            format_full_timestamp(local(2026, 10, 1, 22, 49)),
+            "2026-10-01 22:49:00"
+        );
     }
 }
