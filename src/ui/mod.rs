@@ -770,7 +770,11 @@ impl App {
             return;
         };
         let session = self.state.active_session();
-        solve_editor::open(&self.window, &solve, {
+        let number = session
+            .borrow()
+            .index_of(solve.id)
+            .map_or(0, |index| index + 1);
+        solve_editor::open(&self.window, &solve, number, {
             let session = Rc::clone(&session);
             let slot = self.slot.clone();
             move |penalty, comment| {

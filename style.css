@@ -1,9 +1,8 @@
 /*
  * Custom styles for Puzzle Timer.
  *
- * Loaded by src/main.ts (via node-gtk/styles), layered on top of the Adwaita
- * stylesheet. Under `npm run dev` it hot-reloads — edit and save to see changes
- * live, with no restart. See the GTK4 CSS reference:
+ * Loaded by src/ui/mod.rs (`include_str!`), layered on top of the Adwaita
+ * stylesheet. See the GTK4 CSS reference:
  *   https://docs.gtk.org/gtk4/css-overview.html
  *   https://docs.gtk.org/gtk4/css-properties.html
  *
@@ -11,6 +10,76 @@
  * `.title-1`, `.dim-label`, …) — prefer those before writing custom CSS:
  *   https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/style-classes.html
  *
- * Currently empty on purpose: app styles live beside their widgets, in the
- * `styles.add(...)` blocks of the component modules (see timerLabel.ts).
+ * Font sizes are not here: they are the layout curve times the user's scale,
+ * written into their own provider on every layout pass (see
+ * `src/ui/font_size.rs`).
  */
+
+/* ---- timer readout ------------------------------------------------------
+ *
+ * State colours are semantics, not styling: idle dimmed while waiting, red
+ * while holding, green at ready, orange through inspection and red once
+ * doomed (≥ 17 s → the readout spells DNF). Running and stopped carry no rule
+ * on purpose — they are the default foreground.
+ */
+.timer-display {
+  font-weight: 700;
+}
+
+.timer-display.state-idle {
+  color: alpha(@window_fg_color, 0.55);
+}
+
+.timer-display.state-holding {
+  color: @error_color;
+}
+
+.timer-display.state-ready,
+.timer-display.state-inspection-ready {
+  color: @success_color;
+}
+
+.timer-display.state-inspecting {
+  color: @warning_color;
+}
+
+.timer-display.expired {
+  color: @error_color;
+}
+
+/* ---- scramble ----------------------------------------------------------- */
+
+/* Ghost of the scramble being replaced: it keeps its space (so the timer does
+ * not move while the next one generates) without reading as live. */
+.scramble-text.pending {
+  opacity: 0.4;
+}
+
+/* Only the failure keeps a rule — red is semantics; the resting status gets
+ * its size and dim from the built-in caption/dim-label classes. */
+.scramble-status.error {
+  color: @error_color;
+}
+
+/* ---- stats strip --------------------------------------------------------
+ *
+ * Small secondary text comes from the built-in caption and dim-label classes.
+ * The weight stays a rule because no Adwaita class is exactly semibold; the
+ * tabular figures come from the built-in numeric class.
+ */
+.stats-value {
+  font-weight: 600;
+}
+
+.stats-value.incomplete {
+  font-weight: 400;
+  color: alpha(@window_fg_color, 0.4);
+}
+
+/* ---- session manager ---------------------------------------------------- */
+
+/* The row a dragged session will land on. A tint, not a border: the row's own
+ * card stays the same shape while the pointer moves down the list. */
+.session-drop-target {
+  background-color: alpha(@accent_bg_color, 0.18);
+}
