@@ -99,6 +99,23 @@ and all report `generated OK=206 empty=0 images=177 failures=0 total=206`.
 seed parity survives the engine boundary completely — including the shared RNG
 stream across 206 sequential calls.
 
+### The port's own bridge reproduces it
+
+The probes were the argument; the shipped bridge is the proof. `scramble_sweep
+--dump` drives `src/scramble/` (the app's own eight-function FFI, its shim and
+its `getScramble`+`getImage` round trip) over the same catalogue with the same
+seed, and hashes to the same md5:
+
+```
+$ cargo run --release --bin scramble_sweep -- --dump | md5sum
+7750f9e8e1eaf18540c43a8ec7f6d574  -
+$ cargo run --release --bin scramble_sweep
+generated OK=206 empty=0 images=177 failures=0 total=206
+```
+
+So seed parity is not a probe property that the port has yet to earn: the
+port is the thing that produces it.
+
 ---
 
 ## 3. The host shim (the entire porting surface)

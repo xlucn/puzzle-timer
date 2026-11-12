@@ -1578,9 +1578,25 @@ own comparison milestone (M19) rather than a coin flip now.
   behavioural checks to Rust probe binaries under `tools/`; keep the
   checkpoints, not the implementation.
 
-**Landed so far (2026-11-11):** `main` is the Rust crate; `core/time.rs` and
-`core/timer.rs` are ported with 48 tests; the JSC bridge sweeps 206/206; the
-UI is still the placeholder window.
+**Landed (2026-11-11 → 2026-11-12):** `main` is the Rust crate. All fourteen
+`core/` modules are ported with their tests (327 tests), `platform/` holds the
+store, entropy, audio, metadata and transfer, and `scramble/` runs the bundle
+on its own thread behind `ScrambleEngine`. The UI is the real shell: sidebar,
+`Gtk.ColumnView` list with undoable delete, timer over the core state machine,
+scramble panel with the diagram, the type picker and its options, statistics
+(Summary + Charts + heat map), preferences, shortcuts, the session manager
+with drag reorder, and csTimer import/export.
+
+Three parity checks are green as of 2026-11-12:
+
+- `cargo run --release --bin scramble_sweep -- --dump | md5sum` gives
+  `7750f9e8e1eaf18540c43a8ec7f6d574`, the Node reference's hash — the port's
+  own bridge reproduces seed parity, not just the probes.
+- A copy of a real `~/.local/share/puzzle-timer` tree (18 index entries, 15
+  session files) loads, runs and quits byte-identical; deleting `_index.json`
+  makes the app rebuild and write it back once.
+- Keyboard checkpoints under Xephyr: a space-hold solve records with its
+  scramble, and Ctrl+N/S/M/E/T/,/?/O/Shift+S and F2 all reach their dialogs.
 
 **Measured scaffold (2026-11-11):** `cargo build --release` gives a
 **614 KiB** `puzzle-timer` (415 KiB stripped); the sweep binary is 952 KiB
