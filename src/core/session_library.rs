@@ -77,7 +77,7 @@ pub enum NameError {
     Duplicate,
 }
 
-type Listener = Box<dyn FnMut(&LibraryChange)>;
+type Listener = Box<dyn FnMut(&LibraryChange, &[SessionEntry], &str)>;
 pub type ListenerId = u64;
 
 /// Long enough for a real name, short enough for the header button.
@@ -332,7 +332,10 @@ impl SessionLibrary {
         true
     }
 
-    pub fn subscribe(&mut self, listener: impl FnMut(&LibraryChange) + 'static) -> ListenerId {
+    pub fn subscribe(
+        &mut self,
+        listener: impl FnMut(&LibraryChange, &[SessionEntry], &str) + 'static,
+    ) -> ListenerId {
         let id = self.next_listener_id;
         self.next_listener_id += 1;
         self.listeners.push((id, Box::new(listener)));
@@ -359,9 +362,12 @@ impl SessionLibrary {
     }
 
     fn emit(&mut self, change: LibraryChange) {
+        // As in `Session::emit`: the listeners are moved out first, so a
+        // listener can read the entry list and the active id it is hearing
+        // about without borrowing the library a second time.
         let mut listeners = std::mem::take(&mut self.listeners);
         for (_, listener) in &mut listeners {
-            listener(&change);
+            listener(&change, &self.items, &self.current_id);
         }
         self.listeners = listeners;
     }
@@ -385,7 +391,7 @@ mod tests {
     fn collect(library: &mut SessionLibrary) -> Rc<RefCell<Vec<LibraryChange>>> {
         let seen: Rc<RefCell<Vec<LibraryChange>>> = Rc::default();
         let sink = seen.clone();
-        library.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        library.subscribe(move |change, _entries, _active| sink.borrow_mut().push(change.clone()));
         seen
     }
 
@@ -746,7 +752,7 @@ mod tests {
         let mut library = SessionLibrary::new(vec![entry("a", "A"), entry("b", "B")], None);
         let seen: Rc<RefCell<usize>> = Rc::default();
         let sink = seen.clone();
-        let id = library.subscribe(move |_| *sink.borrow_mut() += 1);
+        let id = library.subscribe(move |_, _, _| *sink.borrow_mut() += 1);
         library.unsubscribe(id);
         library.switch_to("b");
         assert_eq!(*seen.borrow(), 0);

@@ -148,7 +148,7 @@ impl SessionChange {
 }
 
 pub type ListenerId = u64;
-type Listener = Box<dyn FnMut(&SessionChange)>;
+type Listener = Box<dyn FnMut(&SessionChange, &[Solve])>;
 
 pub struct Session {
     items: Vec<Solve>,
@@ -292,7 +292,10 @@ impl Session {
     }
 
     /// Subscribe to every change. Returns an id for `unsubscribe`.
-    pub fn subscribe(&mut self, listener: impl FnMut(&SessionChange) + 'static) -> ListenerId {
+    pub fn subscribe(
+        &mut self,
+        listener: impl FnMut(&SessionChange, &[Solve]) + 'static,
+    ) -> ListenerId {
         let id = self.next_listener_id;
         self.next_listener_id += 1;
         self.listeners.push((id, Box::new(listener)));
@@ -307,9 +310,13 @@ impl Session {
         // Take the listeners out for the duration, like the TS copy of the
         // set: a listener added by a listener does not see this event, and a
         // removed one still does.
+        // The listeners are moved out first, so handing them the solve list
+        // borrows `self` immutably while nothing else does: a listener can read
+        // the session it is hearing about (the persistence save does exactly
+        // that) without a second borrow of the session itself.
         let mut listeners = std::mem::take(&mut self.listeners);
         for (_, listener) in &mut listeners {
-            listener(&change);
+            listener(&change, &self.items);
         }
         self.listeners = listeners;
     }
@@ -362,7 +369,7 @@ mod tests {
         let mut session = Session::new(Vec::new());
         let seen: Rc<RefCell<Vec<SessionChange>>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        session.subscribe(move |change, _solves| sink.borrow_mut().push(change.clone()));
 
         session.add(fresh(1_000.0));
         session.add(fresh(2_000.0));
@@ -402,7 +409,7 @@ mod tests {
         let mut session = Session::new(vec![stored(1), stored(2), stored(3)]);
         let seen: Rc<RefCell<Vec<SessionChange>>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        session.subscribe(move |change, _solves| sink.borrow_mut().push(change.clone()));
 
         let removed = session.remove(2).expect("solve 2 exists");
 
@@ -443,7 +450,7 @@ mod tests {
         let removed = session.remove(2).expect("solve 2 exists");
         let seen: Rc<RefCell<Vec<SessionChange>>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        session.subscribe(move |change, _solves| sink.borrow_mut().push(change.clone()));
 
         assert_eq!(session.restore(removed), Some(stored(2)));
         assert_eq!(ids(&session), vec![1, 2, 3]);
@@ -507,7 +514,7 @@ mod tests {
         let mut session = Session::new(vec![stored(1), stored(2)]);
         let seen: Rc<RefCell<Vec<SessionChange>>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        session.subscribe(move |change, _solves| sink.borrow_mut().push(change.clone()));
 
         let solve = session
             .set_penalty(2, Some(Penalty::Plus2))
@@ -547,7 +554,7 @@ mod tests {
         let mut session = Session::new(vec![stored(1)]);
         let seen: Rc<RefCell<usize>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |_| *sink.borrow_mut() += 1);
+        session.subscribe(move |_, _| *sink.borrow_mut() += 1);
 
         session.set_penalty(1, Some(Penalty::Plus2));
         session.set_penalty(1, Some(Penalty::Plus2)); // no-op
@@ -587,7 +594,7 @@ mod tests {
         let mut session = Session::new(vec![stored(1)]);
         let seen: Rc<RefCell<Vec<SessionChange>>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        session.subscribe(move |change, _solves| sink.borrow_mut().push(change.clone()));
 
         let solve = session
             .set_comment(1, Some("lockup on the last alg".into()))
@@ -629,7 +636,7 @@ mod tests {
         let mut session = Session::new(vec![stored(1)]);
         let seen: Rc<RefCell<usize>> = Rc::default();
         let sink = seen.clone();
-        session.subscribe(move |_| *sink.borrow_mut() += 1);
+        session.subscribe(move |_, _| *sink.borrow_mut() += 1);
 
         session.set_comment(1, Some("note".into()));
         session.set_comment(1, Some("note".into())); // no-op
@@ -644,11 +651,29 @@ mod tests {
     }
 
     #[test]
+    fn lets_a_listener_read_the_solves_it_is_hearing_about() {
+        // The persistence listener saves exactly this slice, so it must be the
+        // state *after* the change and readable while the event is delivered.
+        let mut session = Session::new(Vec::new());
+        let seen: Rc<RefCell<Vec<Vec<u64>>>> = Rc::default();
+        let sink = seen.clone();
+        session.subscribe(move |_change, solves| {
+            sink.borrow_mut()
+                .push(solves.iter().map(|solve| solve.id).collect());
+        });
+
+        session.add(fresh(1_000.0));
+        session.add(fresh(2_000.0));
+
+        assert_eq!(*seen.borrow(), vec![vec![1], vec![1, 2]]);
+    }
+
+    #[test]
     fn unsubscribes_cleanly() {
         let mut session = Session::new(Vec::new());
         let count: Rc<RefCell<usize>> = Rc::default();
         let sink = count.clone();
-        let id = session.subscribe(move |_| *sink.borrow_mut() += 1);
+        let id = session.subscribe(move |_, _| *sink.borrow_mut() += 1);
 
         session.add(fresh(1_000.0));
         assert_eq!(*count.borrow(), 1);

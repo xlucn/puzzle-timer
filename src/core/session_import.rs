@@ -211,7 +211,7 @@ mod tests {
         let mut library = SessionLibrary::default();
         let seen: Rc<RefCell<usize>> = Rc::default();
         let sink = seen.clone();
-        library.subscribe(move |_| *sink.borrow_mut() += 1);
+        library.subscribe(move |_, _, _| *sink.borrow_mut() += 1);
         let hooked = Rc::new(RefCell::new(false));
         let hook_flag = hooked.clone();
         let announce_count = seen.clone();
@@ -230,7 +230,7 @@ mod tests {
         let mut library = SessionLibrary::default();
         let changes: Rc<RefCell<Vec<LibraryChange>>> = Rc::default();
         let sink = changes.clone();
-        library.subscribe(move |change| sink.borrow_mut().push(change.clone()));
+        library.subscribe(move |change, _, _| sink.borrow_mut().push(change.clone()));
 
         import_into_library(
             &mut library,
