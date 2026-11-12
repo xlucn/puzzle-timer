@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::core::preferences::Preferences;
-use crate::core::session::Session;
+use crate::core::session::{Session, Solve};
 use crate::core::session_library::{SessionEntry, SessionLibrary};
 use crate::platform::store::Store;
 
@@ -107,6 +107,20 @@ impl AppState {
             .borrow_mut()
             .insert(id.to_string(), Rc::clone(&session));
         session
+    }
+
+    /// Put a freshly imported session into the cache, with the same save
+    /// subscription every loaded session has. Called from the importer's
+    /// before-announce hook, so the first UI reaction already reads the
+    /// imported solves rather than an empty file.
+    pub fn seed_session(&self, id: &str, solves: Vec<Solve>) {
+        let session = Rc::new(RefCell::new(Session::new(solves)));
+        let store = Rc::clone(&self.store);
+        let save_id = id.to_string();
+        session.borrow_mut().subscribe(move |_change, solves| {
+            store.borrow_mut().schedule_save(&save_id, solves);
+        });
+        self.sessions.borrow_mut().insert(id.to_string(), session);
     }
 
     pub fn active_session(&self) -> SharedSession {

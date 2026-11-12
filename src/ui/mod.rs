@@ -7,12 +7,17 @@
 //! lower area holds the timer and the scramble diagram.
 
 mod font_size;
+#[path = "preferences.rs"]
+mod preferences_dialog;
+mod scramble_options;
 mod scramble_panel;
 mod scramble_type_picker;
 mod session_dialogs;
+mod shortcuts;
 mod sidebar;
 mod solve_editor;
 mod state;
+mod statistics;
 mod stats_strip;
 mod timer_view;
 mod times_list;
@@ -39,6 +44,7 @@ use crate::core::timer::{Timer, TimerConfig, TimerSnapshot, TimerState};
 use crate::platform::{audio, meta, random};
 use crate::scramble::worker::{Job, JobResult, ScrambleWorker};
 
+use self::scramble_options::ScrambleOptions;
 use self::scramble_panel::ScramblePanel;
 use self::session_dialogs::prompt_name;
 use self::sidebar::SessionMenu;
@@ -143,6 +149,7 @@ struct App {
     lower_area: gtk::Grid,
     diagram_dock: gtk::Box,
     type_title: adw::WindowTitle,
+    options: Rc<ScrambleOptions>,
     image_toggle: gtk::ToggleButton,
     refresh_button: gtk::Button,
     copy_button: gtk::Button,
@@ -153,6 +160,8 @@ struct App {
     /// The scrambles whose diagram we have, keyed by the scramble text.
     images: RefCell<std::collections::HashMap<String, String>>,
     scramble_type: RefCell<String>,
+    scramble_length: Cell<u32>,
+    fast_scramble: Cell<bool>,
     selectors_in_row: Cell<bool>,
     placed_diagram: Cell<Option<DiagramPlacement>>,
     chrome_hidden: Cell<bool>,
@@ -272,6 +281,7 @@ impl App {
             length: request.length,
             pre_scramble: prefs.pre_scramble.clone(),
             with_image: prefs.scramble_image,
+            fast: self.fast_scramble.get(),
         });
     }
 
@@ -337,8 +347,12 @@ impl App {
             return;
         }
         *self.scramble_type.borrow_mut() = type_id.to_string();
+        // The fast switch is per selection, like the length: a new type gets
+        // its own generator rather than inheriting a stand-in.
+        self.fast_scramble.set(false);
         self.update_type_title();
         let length = scramble_length(type_id);
+        self.scramble_length.set(length);
         let request = self.feed.borrow_mut().set_type(type_id, length);
         self.dispatch(request);
         self.render_feed();
@@ -359,6 +373,30 @@ impl App {
         let (category, name) = scramble_type_title(&self.scramble_type.borrow());
         self.type_title.set_title(&name);
         self.type_title.set_subtitle(&category);
+        self.sync_scramble_options();
+    }
+
+    fn sync_scramble_options(&self) {
+        self.options.sync(
+            &self.scramble_type.borrow(),
+            self.scramble_length.get(),
+            self.fast_scramble.get(),
+        );
+    }
+
+    fn set_scramble_length(&self, length: u32) {
+        self.scramble_length.set(length);
+        let request = self.feed.borrow_mut().set_length(length);
+        self.dispatch(request);
+        self.render_feed();
+    }
+
+    fn set_fast_scramble(&self, fast: bool) {
+        if fast == self.fast_scramble.get() {
+            return;
+        }
+        self.fast_scramble.set(fast);
+        self.refresh_scramble();
     }
 
     // ---- sessions ----------------------------------------------------------
@@ -374,6 +412,9 @@ impl App {
             .and_then(|entry| entry.scramble_type.clone())
             .unwrap_or_else(|| SCRAMBLE_DEFAULT_TYPE.to_string());
         self.set_type(&scramble_type);
+        // `set_type` is a no-op when the type did not change, but the header
+        // still has to name it on the first run and after a rename.
+        self.update_type_title();
     }
 
     fn switch_session(&self, id: &str) {
@@ -508,6 +549,220 @@ impl App {
             }
         }
         self.refresh_solves();
+    }
+
+    fn delete_selected(&self) {
+        if self.timer.borrow().state() == TimerState::Running {
+            return;
+        }
+        let solves = self.times.selected_solves();
+        if !solves.is_empty() {
+            self.delete_solves(solves);
+        }
+    }
+
+    fn set_selected_penalty(&self, penalty: Option<crate::core::time::Penalty>) {
+        if self.timer.borrow().state() == TimerState::Running {
+            return;
+        }
+        let solves = self.times.selected_solves();
+        if solves.is_empty() {
+            return;
+        }
+        {
+            let session = self.state.active_session();
+            let mut session = session.borrow_mut();
+            for solve in &solves {
+                session.set_penalty(solve.id, penalty);
+            }
+        }
+        self.refresh_solves();
+    }
+
+    fn edit_selected(&self) {
+        if self.timer.borrow().state() == TimerState::Running {
+            return;
+        }
+        let solves = self.times.selected_solves();
+        if !solves.is_empty() {
+            self.edit_solves(solves);
+        }
+    }
+
+    fn copy_scramble(&self) {
+        let state = self.feed.borrow().state();
+        if let Some(text) = state.scramble {
+            self.window.clipboard().set_text(&text);
+            self.toast_overlay
+                .add_toast(adw::Toast::new(&t0(MessageKey::ScrambleCopied)));
+        }
+    }
+
+    fn import_data(&self) {
+        let dialog = gtk::FileDialog::builder()
+            .title(t0(MessageKey::TransferImportTitle))
+            .build();
+        let slot = self.slot.clone();
+        dialog.open(
+            Some(&self.window),
+            None::<&gtk::gio::Cancellable>,
+            move |result| {
+                let Ok(file) = result else {
+                    return;
+                };
+                let Some(path) = file.path() else {
+                    return;
+                };
+                let text = match crate::platform::transfer::read_text(&path) {
+                    Ok(text) => text,
+                    Err(error) => {
+                        eprintln!("[import] {}: {error}", path.display());
+                        with_app(&slot, |app| {
+                            app.toast_overlay
+                                .add_toast(adw::Toast::new(&t0(MessageKey::TransferImportFailed)))
+                        });
+                        return;
+                    }
+                };
+                with_app(&slot, |app| app.apply_import(&text));
+            },
+        );
+    }
+
+    fn apply_import(&self, text: &str) {
+        let parsed = match crate::core::cs_timer_format::parse_cs_timer_data(text) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                eprintln!("[import] {error}");
+                self.toast_overlay
+                    .add_toast(adw::Toast::new(&t0(MessageKey::TransferImportFailed)));
+                return;
+            }
+        };
+        for warning in &parsed.warnings {
+            eprintln!("[import] {warning}");
+        }
+        let state = Rc::clone(&self.state);
+        let summary = self.state.with_library(|library| {
+            crate::core::session_import::import_into_library(
+                library,
+                &parsed.sessions,
+                &mut |entry, solves| state.seed_session(&entry.id, solves.to_vec()),
+            )
+        });
+        if summary.session_count == 0 {
+            self.toast_overlay
+                .add_toast(adw::Toast::new(&t0(MessageKey::TransferImportFailed)));
+            return;
+        }
+        self.state.save_library_index();
+        self.after_session_change();
+        self.state.flush();
+        let sessions = t(
+            MessageKey::TransferImportSessions,
+            &[("count", Param::Number(summary.session_count as f64))],
+        );
+        let solves = t(
+            MessageKey::TransferImportSolves,
+            &[("count", Param::Number(summary.solve_count as f64))],
+        );
+        self.toast_overlay.add_toast(adw::Toast::new(&t(
+            MessageKey::TransferImportDone,
+            &[
+                ("sessions", Param::Text(&sessions)),
+                ("solves", Param::Text(&solves)),
+            ],
+        )));
+    }
+
+    fn export_data(&self) {
+        let dialog = gtk::FileDialog::builder()
+            .title(t0(MessageKey::TransferExportTitle))
+            .initial_name("puzzle-timer.json")
+            .build();
+        let slot = self.slot.clone();
+        dialog.save(
+            Some(&self.window),
+            None::<&gtk::gio::Cancellable>,
+            move |result| {
+                let Ok(file) = result else {
+                    return;
+                };
+                let Some(path) = file.path() else {
+                    return;
+                };
+                with_app(&slot, |app| app.write_export(&path));
+            },
+        );
+    }
+
+    fn write_export(&self, path: &std::path::Path) {
+        let (entries, _) = self.state.library_snapshot();
+        let sessions: Vec<_> = entries
+            .iter()
+            .map(|entry| {
+                (
+                    entry.clone(),
+                    self.state.session(&entry.id).borrow().solves().to_vec(),
+                )
+            })
+            .collect();
+        let exports: Vec<crate::core::cs_timer_format::ExportSession<'_>> = sessions
+            .iter()
+            .map(
+                |(entry, solves)| crate::core::cs_timer_format::ExportSession {
+                    name: &entry.name,
+                    scramble_type: entry.scramble_type.as_deref(),
+                    solves,
+                },
+            )
+            .collect();
+        let data = crate::core::cs_timer_format::format_cs_timer_data(&exports);
+        match crate::platform::transfer::write_text(path, &data) {
+            Ok(()) => {
+                let name = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                self.toast_overlay.add_toast(adw::Toast::new(&t(
+                    MessageKey::TransferExportDone,
+                    &[("name", Param::Text(&name))],
+                )));
+            }
+            Err(error) => {
+                eprintln!("[export] {}: {error}", path.display());
+                self.toast_overlay
+                    .add_toast(adw::Toast::new(&t0(MessageKey::TransferExportFailed)));
+            }
+        }
+    }
+
+    fn show_session_menu(&self) {
+        self.sidebar.session_button.popup();
+    }
+
+    fn delete_active_session(&self) {
+        let (entries, active) = self.state.library_snapshot();
+        if entries.len() <= 1 {
+            return;
+        }
+        let Some(entry) = entries.iter().find(|entry| entry.id == active) else {
+            return;
+        };
+        let name = entry.name.clone();
+        let id = entry.id.clone();
+        let solve_count = self.state.session(&id).borrow().len();
+        let slot = self.slot.clone();
+        session_dialogs::confirm_delete(&self.window, &name, solve_count, move || {
+            with_app(&slot, |app| app.apply_delete_session(&id));
+        });
+    }
+
+    fn rename_active(&self) {
+        let (entries, active) = self.state.library_snapshot();
+        if let Some(entry) = entries.iter().find(|entry| entry.id == active) {
+            self.rename_session(&entry.id, &entry.name);
+        }
     }
 
     fn edit_solves(&self, solves: Vec<Solve>) {
@@ -738,7 +993,27 @@ pub fn build_window(application: &adw::Application) {
         .css_classes(["flat"])
         .tooltip_text(t0(MessageKey::ScrambleChooseType))
         .build();
-    header.set_title_widget(Some(&type_button));
+    let options = ScrambleOptions::new(
+        {
+            let slot = Rc::clone(&slot);
+            move |length| with_app(&slot, |app| app.set_scramble_length(length))
+        },
+        {
+            let slot = Rc::clone(&slot);
+            move |fast| with_app(&slot, |app| app.set_fast_scramble(fast))
+        },
+    );
+    if let Some(popover) = options.button.popover() {
+        let slot = Rc::clone(&slot);
+        popover.connect_show(move |_| with_app(&slot, |app| app.sync_scramble_options()));
+    }
+    let type_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(0)
+        .build();
+    type_box.append(&type_button);
+    type_box.append(&options.button);
+    header.set_title_widget(Some(&type_box));
 
     let refresh_button = gtk::Button::builder()
         .icon_name("view-refresh-symbolic")
@@ -853,6 +1128,7 @@ pub fn build_window(application: &adw::Application) {
         lower_area,
         diagram_dock,
         type_title,
+        options,
         image_toggle: image_toggle.clone(),
         refresh_button: refresh_button.clone(),
         copy_button: copy_button.clone(),
@@ -861,6 +1137,8 @@ pub fn build_window(application: &adw::Application) {
         worker: RefCell::new(worker),
         images: RefCell::new(std::collections::HashMap::new()),
         scramble_type: RefCell::new(SCRAMBLE_DEFAULT_TYPE.to_string()),
+        scramble_length: Cell::new(scramble_length(SCRAMBLE_DEFAULT_TYPE)),
+        fast_scramble: Cell::new(false),
         selectors_in_row: Cell::new(false),
         placed_diagram: Cell::new(None),
         chrome_hidden: Cell::new(false),
@@ -883,16 +1161,7 @@ pub fn build_window(application: &adw::Application) {
     }
     {
         let slot = Rc::clone(&slot);
-        copy_button.connect_clicked(move |_| {
-            with_app(&slot, |app| {
-                let state = app.feed.borrow().state();
-                if let Some(text) = state.scramble {
-                    app.window.clipboard().set_text(&text);
-                    app.toast_overlay
-                        .add_toast(adw::Toast::new(&t0(MessageKey::ScrambleCopied)));
-                }
-            })
-        });
+        copy_button.connect_clicked(move |_| with_app(&slot, |app| app.copy_scramble()));
     }
     {
         let slot = Rc::clone(&slot);
@@ -928,6 +1197,17 @@ pub fn build_window(application: &adw::Application) {
         );
         app_section.append(Some(&t0(MessageKey::MenuQuit)), Some("app.quit"));
         menu.append_section(None, &app_section);
+
+        let data_section = gtk::gio::Menu::new();
+        data_section.append(
+            Some(&t0(MessageKey::MenuImportData)),
+            Some("app.import-data"),
+        );
+        data_section.append(
+            Some(&t0(MessageKey::MenuExportData)),
+            Some("app.export-data"),
+        );
+        menu.append_section(None, &data_section);
 
         let help_section = gtk::gio::Menu::new();
         help_section.append(Some(&t0(MessageKey::MenuAbout)), Some("app.about"));
@@ -1066,6 +1346,114 @@ fn install_actions(app: &Rc<App>, application: &adw::Application) {
     }
     application.add_action(&sidebar);
 
+    let statistics = gtk::gio::SimpleAction::new("statistics", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        statistics.connect_activate(move |_, _| {
+            with_app(&slot, |app| self::statistics::open(&app.window, app))
+        });
+    }
+    application.add_action(&statistics);
+
+    let preferences = gtk::gio::SimpleAction::new("preferences", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        preferences.connect_activate(move |_, _| {
+            with_app(&slot, |app| preferences_dialog::open(&app.window, app))
+        });
+    }
+    application.add_action(&preferences);
+
+    let shortcuts = gtk::gio::SimpleAction::new("shortcuts", None);
+    {
+        let window = app.window.clone();
+        shortcuts.connect_activate(move |_, _| self::shortcuts::open(&window));
+    }
+    application.add_action(&shortcuts);
+
+    let copy_scramble = gtk::gio::SimpleAction::new("copy-scramble", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        copy_scramble.connect_activate(move |_, _| with_app(&slot, |app| app.copy_scramble()));
+    }
+    application.add_action(&copy_scramble);
+
+    for (name, penalty) in [
+        ("solve-ok", None),
+        ("solve-plus2", Some(crate::core::time::Penalty::Plus2)),
+        ("solve-dnf", Some(crate::core::time::Penalty::Dnf)),
+    ] {
+        let action = gtk::gio::SimpleAction::new(name, None);
+        let slot = Rc::clone(&app.slot);
+        action
+            .connect_activate(move |_, _| with_app(&slot, |app| app.set_selected_penalty(penalty)));
+        application.add_action(&action);
+    }
+
+    let solve_edit = gtk::gio::SimpleAction::new("solve-edit", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        solve_edit.connect_activate(move |_, _| with_app(&slot, |app| app.edit_selected()));
+    }
+    application.add_action(&solve_edit);
+
+    let solve_delete = gtk::gio::SimpleAction::new("solve-delete", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        solve_delete.connect_activate(move |_, _| with_app(&slot, |app| app.delete_selected()));
+    }
+    application.add_action(&solve_delete);
+
+    let session_new = gtk::gio::SimpleAction::new("session-new", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        session_new.connect_activate(move |_, _| with_app(&slot, |app| app.new_session()));
+    }
+    application.add_action(&session_new);
+
+    let session_rename = gtk::gio::SimpleAction::new("session-rename", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        session_rename.connect_activate(move |_, _| with_app(&slot, |app| app.rename_active()));
+    }
+    application.add_action(&session_rename);
+
+    let session_menu = gtk::gio::SimpleAction::new("session-menu", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        session_menu.connect_activate(move |_, _| with_app(&slot, |app| app.show_session_menu()));
+    }
+    application.add_action(&session_menu);
+
+    let session_delete = gtk::gio::SimpleAction::new("session-delete", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        session_delete
+            .connect_activate(move |_, _| with_app(&slot, |app| app.delete_active_session()));
+    }
+    application.add_action(&session_delete);
+
+    let session_manager = gtk::gio::SimpleAction::new("session-manager", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        session_manager.connect_activate(move |_, _| with_app(&slot, |app| app.manage_sessions()));
+    }
+    application.add_action(&session_manager);
+
+    let import_data = gtk::gio::SimpleAction::new("import-data", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        import_data.connect_activate(move |_, _| with_app(&slot, |app| app.import_data()));
+    }
+    application.add_action(&import_data);
+
+    let export_data = gtk::gio::SimpleAction::new("export-data", None);
+    {
+        let slot = Rc::clone(&app.slot);
+        export_data.connect_activate(move |_, _| with_app(&slot, |app| app.export_data()));
+    }
+    application.add_action(&export_data);
+
     let about = gtk::gio::SimpleAction::new("about", None);
     {
         let slot = Rc::clone(&app.slot);
@@ -1087,4 +1475,20 @@ fn install_actions(app: &Rc<App>, application: &adw::Application) {
     application.set_accels_for_action("app.fullscreen", &["F11"]);
     application.set_accels_for_action("app.sidebar", &["<Control>b"]);
     application.set_accels_for_action("app.quit", &["<Control>q"]);
+    application.set_accels_for_action("app.copy-scramble", &["<Control>c"]);
+    application.set_accels_for_action("app.statistics", &["<Control>t"]);
+    application.set_accels_for_action("app.import-data", &["<Control>o"]);
+    application.set_accels_for_action("app.export-data", &["<Control><Shift>s"]);
+    application.set_accels_for_action("app.preferences", &["<Control>comma"]);
+    application.set_accels_for_action("app.shortcuts", &["<Control>question"]);
+    application.set_accels_for_action("app.solve-ok", &["<Control>1"]);
+    application.set_accels_for_action("app.solve-plus2", &["<Control>2"]);
+    application.set_accels_for_action("app.solve-dnf", &["<Control>3"]);
+    application.set_accels_for_action("app.solve-edit", &["<Control>e"]);
+    application.set_accels_for_action("app.solve-delete", &["Delete"]);
+    application.set_accels_for_action("app.session-new", &["<Control>n"]);
+    application.set_accels_for_action("app.session-rename", &["F2"]);
+    application.set_accels_for_action("app.session-manager", &["<Control>m"]);
+    application.set_accels_for_action("app.session-menu", &["<Control>s"]);
+    application.set_accels_for_action("app.session-delete", &["<Control>Delete"]);
 }

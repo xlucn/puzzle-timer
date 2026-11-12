@@ -24,6 +24,10 @@ pub struct Job {
     pub length: u32,
     pub pre_scramble: String,
     pub with_image: bool,
+    /// csTimer's "fast" option: swap a slow solver for its random-move
+    /// stand-in. The type the feed knows stays the real one, so a result is
+    /// still matched to the right request.
+    pub fast: bool,
 }
 
 /// The answer to a [`Job`].
@@ -60,9 +64,15 @@ impl ScrambleWorker {
                         Message::Job(job) => job,
                         Message::Shutdown => break,
                     };
+                    let generator = if job.fast {
+                        crate::core::scramble_types::fast_scramble_type(&job.type_id)
+                            .unwrap_or(&job.type_id)
+                    } else {
+                        &job.type_id
+                    };
                     let result = match &engine {
                         Ok(engine) => engine.generate(
-                            &job.type_id,
+                            generator,
                             job.length,
                             &job.pre_scramble,
                             job.with_image,
@@ -128,6 +138,7 @@ mod tests {
             length: 0,
             pre_scramble: String::new(),
             with_image: true,
+            fast: false,
         });
         worker.submit(Job {
             seq: 2,
@@ -135,6 +146,7 @@ mod tests {
             length: 0,
             pre_scramble: String::new(),
             with_image: false,
+            fast: false,
         });
 
         let first = worker.results().recv_blocking().expect("a result arrives");
@@ -158,6 +170,7 @@ mod tests {
             length: 0,
             pre_scramble: String::new(),
             with_image: false,
+            fast: false,
         });
         let answer = worker.results().recv_blocking().expect("a result arrives");
         assert_eq!(answer.seq, 7);
