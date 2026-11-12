@@ -5,6 +5,8 @@
 //! apply. A language change cannot reach widgets that were built with `t()`,
 //! so it is saved and announced as taking effect on the next start.
 
+use std::rc::Rc;
+
 use gtk4 as gtk;
 use gtk4::prelude::*;
 use libadwaita as adw;
@@ -73,7 +75,10 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
         .build();
 
     // ---- timer -------------------------------------------------------------
-    let timer_page = page(MessageKey::PrefsTimerTitle, "alarm-symbolic");
+    let timer_page = page(
+        MessageKey::PrefsTimerTitle,
+        "preferences-system-time-symbolic",
+    );
     let timer_group = adw::PreferencesGroup::builder()
         .title(t0(MessageKey::PrefsTimerGroup))
         .build();
@@ -267,7 +272,7 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     dialog.add(&appearance_page);
 
     // ---- scramble ----------------------------------------------------------
-    let scramble_page = page(MessageKey::PrefsPageScramble, "view-refresh-symbolic");
+    let scramble_page = page(MessageKey::PrefsPageScramble, "image-x-generic-symbolic");
     let pre_scramble_group = adw::PreferencesGroup::builder()
         .title(t0(MessageKey::PrefsPreScrambleGroup))
         .description(t0(MessageKey::PrefsPreScrambleDescription))
@@ -275,20 +280,39 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     let pre_scramble = adw::EntryRow::builder()
         .title(t0(MessageKey::PrefsPreScrambleRow))
         .text(prefs.pre_scramble.clone())
+        .show_apply_button(true)
         .build();
-    {
-        let app = app.slot.clone();
-        pre_scramble.connect_changed(move |row| {
-            if let Some(app) = app.borrow().clone() {
-                {
-                    let mut prefs = app.preferences.borrow_mut();
-                    prefs.pre_scramble = row.text().trim().to_string();
-                }
-                let prefs = app.preferences.borrow().clone();
-                app.state.set_preferences(prefs);
-                app.refresh_scramble();
+    // Committed on Enter, on the apply button (the touch path) or when the
+    // dialog closes — not per keystroke, which would regenerate the scramble
+    // for every letter typed.
+    let commit_pre_scramble: Rc<dyn Fn()> = {
+        let slot = app.slot.clone();
+        let pre_scramble = pre_scramble.clone();
+        Rc::new(move || {
+            let Some(app) = slot.borrow().clone() else {
+                return;
+            };
+            let text = pre_scramble.text().trim().to_string();
+            if app.preferences.borrow().pre_scramble == text {
+                return;
             }
-        });
+            app.preferences.borrow_mut().pre_scramble = text;
+            let prefs = app.preferences.borrow().clone();
+            app.state.set_preferences(prefs);
+            app.refresh_scramble();
+        })
+    };
+    {
+        let commit = Rc::clone(&commit_pre_scramble);
+        pre_scramble.connect_apply(move |_| commit());
+    }
+    {
+        let commit = Rc::clone(&commit_pre_scramble);
+        pre_scramble.connect_entry_activated(move |_| commit());
+    }
+    {
+        let commit = Rc::clone(&commit_pre_scramble);
+        dialog.connect_closed(move |_| commit());
     }
     pre_scramble_group.add(&pre_scramble);
 
@@ -315,11 +339,7 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     scramble_page.add(&image_group);
     dialog.add(&scramble_page);
 
-    // ---- language ----------------------------------------------------------
-    let language_page = page(
-        MessageKey::PrefsLanguageRow,
-        "preferences-desktop-locale-symbolic",
-    );
+    // ---- language: on the appearance page, as in the original ------------
     let language_group = adw::PreferencesGroup::builder()
         .title(t0(MessageKey::PrefsLanguageGroup))
         .build();
@@ -352,8 +372,7 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
         });
     }
     language_group.add(&language);
-    language_page.add(&language_group);
-    dialog.add(&language_page);
+    appearance_page.add(&language_group);
 
     dialog.present(Some(parent));
 }

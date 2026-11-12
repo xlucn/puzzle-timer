@@ -100,6 +100,9 @@ pub struct IndexResult {
     pub active_id: Option<String>,
     /// Human-readable note when the index had to be rebuilt or partly skipped.
     pub notice: Option<String>,
+    /// True when the list came from the session files rather than a readable
+    /// index, so the caller has to write the rebuilt one back.
+    pub rebuilt: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,58 +252,31 @@ impl Store {
 
         let raw = match fs::read_to_string(&file) {
             Ok(raw) => raw,
+            // A missing index is the pre-index layout or a fresh install; the
+            // files are the truth and the caller writes the rebuilt index.
             Err(error) if error.kind() == ErrorKind::NotFound => {
-                let (sessions, active_id) = self.rebuild_from_files();
-                return IndexResult {
-                    sessions,
-                    active_id,
-                    notice: None,
-                };
+                return self.rebuilt_index(None);
             }
             Err(error) => {
-                let (sessions, active_id) = self.rebuild_from_files();
-                return IndexResult {
-                    sessions,
-                    active_id,
-                    notice: Some(format!("{} could not be read: {error}", file.display())),
-                };
+                return self.rebuilt_index(Some(format!(
+                    "{} could not be read: {error}",
+                    file.display()
+                )));
             }
         };
 
         let parsed: Value = match serde_json::from_str(&raw) {
             Ok(parsed) => parsed,
-            Err(_) => {
-                let (sessions, active_id) = self.rebuild_from_files();
-                return IndexResult {
-                    sessions,
-                    active_id,
-                    notice: Some(quarantine(&file, "not valid JSON")),
-                };
-            }
+            Err(_) => return self.rebuilt_index(Some(quarantine(&file, "not valid JSON"))),
         };
         let Some(object) = parsed.as_object() else {
-            let (sessions, active_id) = self.rebuild_from_files();
-            return IndexResult {
-                sessions,
-                active_id,
-                notice: Some(quarantine(&file, "unrecognised format")),
-            };
+            return self.rebuilt_index(Some(quarantine(&file, "unrecognised format")));
         };
         if object.get("version").and_then(Value::as_u64) != Some(INDEX_FILE_VERSION) {
-            let (sessions, active_id) = self.rebuild_from_files();
-            return IndexResult {
-                sessions,
-                active_id,
-                notice: Some(quarantine(&file, "unrecognised format")),
-            };
+            return self.rebuilt_index(Some(quarantine(&file, "unrecognised format")));
         }
         let Some(entries) = object.get("sessions").and_then(Value::as_array) else {
-            let (sessions, active_id) = self.rebuild_from_files();
-            return IndexResult {
-                sessions,
-                active_id,
-                notice: Some(quarantine(&file, "unrecognised format")),
-            };
+            return self.rebuilt_index(Some(quarantine(&file, "unrecognised format")));
         };
 
         let mut sessions: Vec<SessionEntry> = Vec::with_capacity(entries.len());
@@ -319,20 +295,15 @@ impl Store {
         }
 
         if sessions.is_empty() {
-            let (rebuilt_sessions, active_id) = self.rebuild_from_files();
-            return IndexResult {
-                sessions: rebuilt_sessions,
-                active_id,
-                notice: Some(format!(
-                    "{} listed no usable sessions; rebuilt from the files on disk",
-                    file.display()
-                )),
-            };
+            return self.rebuilt_index(Some(format!(
+                "{} listed no usable sessions; rebuilt from the files on disk",
+                file.display()
+            )));
         }
 
         let active = object.get("active").and_then(Value::as_str);
-        let active_id = active
-            .filter(|active| seen.contains(*active))
+        let known_active = active.filter(|active| seen.contains(*active));
+        let active_id = known_active
             .map(str::to_string)
             .unwrap_or_else(|| sessions[0].id.clone());
 
@@ -345,6 +316,20 @@ impl Store {
                     file.display()
                 )
             }),
+            // A dropped active id or a skipped entry leaves a file that does
+            // not describe what the app is showing, so write it back.
+            rebuilt: skipped > 0 || known_active.is_none(),
+        }
+    }
+
+    /// Use the session files as the index, marked for writing back.
+    fn rebuilt_index(&self, notice: Option<String>) -> IndexResult {
+        let (sessions, active_id) = self.rebuild_from_files();
+        IndexResult {
+            sessions,
+            active_id,
+            notice,
+            rebuilt: true,
         }
     }
 
@@ -789,6 +774,22 @@ mod tests {
             ]
         );
         assert_eq!(index.active_id.as_deref(), Some("default"));
+        // Rebuilt from the files, so the caller has to write it back once.
+        assert!(index.rebuilt);
+    }
+
+    #[test]
+    fn a_readable_index_is_not_rebuilt() {
+        let (_home, store) = store();
+        store.save_index(
+            &[
+                SessionEntry::new("default", "Default"),
+                SessionEntry::new("meet-weekly", "Meet weekly"),
+            ],
+            Some("meet-weekly"),
+        );
+
+        assert!(!store.load_index().rebuilt);
     }
 
     #[test]

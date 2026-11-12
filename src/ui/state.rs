@@ -45,6 +45,13 @@ impl AppState {
             notices.push(notice);
         }
         let library = SessionLibrary::new(index.sessions, index.active_id.as_deref());
+        if index.rebuilt {
+            // First run, migration or recovery: the library was rebuilt from
+            // the session files, so write that list back once.
+            store
+                .borrow()
+                .save_index(library.entries(), Some(library.active_id()));
+        }
 
         let loaded = store.borrow().load_preferences();
         if let Some(notice) = loaded.notice {
