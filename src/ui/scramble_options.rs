@@ -21,7 +21,7 @@ use crate::core::scramble_types::{ScrambleLengthKind, fast_scramble_type, scramb
 const MAX_LENGTH: f64 = 999.0;
 
 pub struct ScrambleOptions {
-    pub button: gtk::MenuButton,
+    pub popover: gtk::Popover,
     length: adw::SpinRow,
     fast: adw::SwitchRow,
     syncing: Rc<Cell<bool>>,
@@ -55,13 +55,6 @@ impl ScrambleOptions {
         let popover = gtk::Popover::new();
         popover.set_child(Some(&list));
 
-        let button = gtk::MenuButton::builder()
-            .icon_name("pan-down-symbolic")
-            .tooltip_text(t0(MessageKey::ScrambleOptions))
-            .popover(&popover)
-            .css_classes(["flat"])
-            .build();
-
         let syncing = Rc::new(Cell::new(false));
         {
             let syncing = Rc::clone(&syncing);
@@ -83,7 +76,7 @@ impl ScrambleOptions {
         }
 
         Rc::new(Self {
-            button,
+            popover,
             length,
             fast,
             syncing,

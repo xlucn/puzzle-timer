@@ -33,7 +33,7 @@ use gtk4::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use crate::core::i18n::{MessageKey, Param, resolve_language, set_locale, t, t0};
+use crate::core::i18n::{MessageKey, Param, resolve_language, set_locale, t, t_group, t0};
 use crate::core::layout::{
     BREAKPOINTS, ContentSize, DiagramPlacement, START_AREA_INSET_PX, SizeScales, layout_for,
 };
@@ -144,12 +144,18 @@ struct App {
     panel: Rc<ScramblePanel>,
 
     split: adw::OverlaySplitView,
+    sidebar_toggle: gtk::ToggleButton,
+    sidebar_action: gtk::gio::SimpleAction,
     header: adw::HeaderBar,
     selector_bar: gtk::Box,
+    content: adw::ToolbarView,
+    start_target: gtk::Box,
+    cancel_inspection: gtk::Button,
     main_content: gtk::Box,
     lower_area: gtk::Grid,
     diagram_dock: gtk::Box,
     type_title: adw::WindowTitle,
+    type_control: adw::SplitButton,
     options: Rc<ScrambleOptions>,
     image_toggle: gtk::ToggleButton,
     refresh_button: gtk::Button,
@@ -165,7 +171,12 @@ struct App {
     fast_scramble: Cell<bool>,
     selectors_in_row: Cell<bool>,
     placed_diagram: Cell<Option<DiagramPlacement>>,
+    /// The timer owns the view (arming through solving).
     chrome_hidden: Cell<bool>,
+    sidebar_was_shown: Cell<bool>,
+    start_area_inset: Cell<i32>,
+    /// Set when Ctrl+S asks for the menu while the sidebar has no anchor yet.
+    pending_menu_popup: Cell<bool>,
 }
 
 impl App {
@@ -220,31 +231,98 @@ impl App {
             .set_diagram_max(plan.diagram_max_width, plan.diagram_max_height);
         self.place_selectors(plan.selector_row);
         self.apply_diagram_placement(plan.diagram_placement);
+        self.sync_start_area();
+        // libadwaita re-shows a collapsed split view's sidebar when it
+        // uncollapses; the distraction-free view still owns the screen.
+        if self.chrome_hidden.get() && self.split.shows_sidebar() {
+            self.split.set_show_sidebar(false);
+        }
     }
 
-    /// Move the scramble controls between the header and the bottom bar.
+    /// Move the scramble controls between the header and the bottom bar. All
+    /// three travel together and the type title stays the header's title
+    /// widget at every width, so no widget ever changes parents twice.
     fn place_selectors(&self, in_row: bool) {
         if in_row == self.selectors_in_row.get() {
             return;
         }
         self.selectors_in_row.set(in_row);
-        let controls: [gtk::Widget; 3] = [
-            self.refresh_button.clone().upcast(),
-            self.copy_button.clone().upcast(),
-            self.image_toggle.clone().upcast(),
-        ];
         if in_row {
-            for control in &controls {
+            for control in [
+                self.refresh_button.clone().upcast::<gtk::Widget>(),
+                self.copy_button.clone().upcast(),
+                self.type_control.clone().upcast(),
+            ] {
                 control.unparent();
-                self.selector_bar.append(control);
+                self.selector_bar.append(&control);
             }
-            self.selector_bar.set_visible(true);
+            self.image_toggle.unparent();
+            // The bar's only expanding child, so the toggle sits right.
+            self.image_toggle.set_hexpand(true);
+            self.selector_bar.append(&self.image_toggle);
         } else {
-            for control in &controls {
-                control.unparent();
-                self.header.pack_start(control);
+            self.image_toggle.unparent();
+            self.image_toggle.set_hexpand(false);
+            // `pack_end` prepends: the toggle lands in front of Cancel and
+            // the menu, the order the initial build gives it.
+            self.header.pack_end(&self.image_toggle);
+            for control in [
+                self.refresh_button.clone().upcast::<gtk::Widget>(),
+                self.copy_button.clone().upcast(),
+                self.type_control.clone().upcast(),
+            ] {
+                self.selector_bar.remove(&control);
+                self.header.pack_start(&control);
             }
-            self.selector_bar.set_visible(false);
+        }
+        self.sync_bottom_bar();
+    }
+
+    /// The bottom bar is only on screen in the narrow layout, and never while
+    /// the timer owns the view.
+    fn sync_bottom_bar(&self) {
+        self.content
+            .set_reveal_bottom_bars(self.selectors_in_row.get() && !self.chrome_hidden.get());
+    }
+
+    /// Inset the start target by the drawer's swipe strip while the list is a
+    /// drawer, so the gesture that opens it can never arm the timer. The
+    /// dashed outline is drawn exactly where the inset applies.
+    fn sync_start_area(&self) {
+        let inset = if self.split.is_collapsed() && !self.chrome_hidden.get() {
+            START_AREA_INSET_PX as i32
+        } else {
+            0
+        };
+        if inset == self.start_area_inset.get() {
+            return;
+        }
+        self.start_area_inset.set(inset);
+        self.start_target.set_margin_start(inset);
+        self.start_target.set_margin_end(inset);
+        self.start_target.set_margin_top(inset);
+        self.start_target.set_margin_bottom(inset);
+        if inset > 0 {
+            self.start_target.add_css_class("timer-start-area");
+        } else {
+            self.start_target.remove_css_class("timer-start-area");
+        }
+    }
+
+    /// The sidebar is part of the distraction-free view too: remember whether
+    /// it was open, hide it, and grey out its toggle and Ctrl+B. The drawer's
+    /// swipe is off meanwhile, since the start target covers that strip.
+    fn apply_sidebar_focus(&self, focused: bool) {
+        self.split.set_enable_show_gesture(!focused);
+        if focused {
+            self.sidebar_was_shown.set(self.split.shows_sidebar());
+            self.sidebar_toggle.set_sensitive(false);
+            self.sidebar_action.set_enabled(false);
+            self.split.set_show_sidebar(false);
+        } else {
+            self.split.set_show_sidebar(self.sidebar_was_shown.get());
+            self.sidebar_toggle.set_sensitive(true);
+            self.sidebar_action.set_enabled(true);
         }
     }
 
@@ -351,9 +429,11 @@ impl App {
         // The fast switch is per selection, like the length: a new type gets
         // its own generator rather than inheriting a stand-in.
         self.fast_scramble.set(false);
-        self.update_type_title();
+        // The length lands before the title pass, which mirrors both values
+        // into the options popover: it has to see the new type's defaults.
         let length = scramble_length(type_id);
         self.scramble_length.set(length);
+        self.update_type_title();
         let request = self.feed.borrow_mut().set_type(type_id, length);
         self.dispatch(request);
         self.render_feed();
@@ -372,8 +452,17 @@ impl App {
 
     fn update_type_title(&self) {
         let (category, name) = scramble_type_title(&self.scramble_type.borrow());
-        self.type_title.set_title(&name);
-        self.type_title.set_subtitle(&category);
+        // Category over name, the two levels csTimer's own menu shows.
+        self.type_title.set_title(&t_group(&category));
+        self.type_title.set_subtitle(&name);
+        // A fixed-length type has no options: detaching the popover is how
+        // `Adw.SplitButton` greys only the arrow and leaves the picker live.
+        if scramble_length(&self.scramble_type.borrow()) > 0 {
+            self.type_control.set_popover(Some(&self.options.popover));
+        } else {
+            self.options.popover.popdown();
+            self.type_control.set_popover(None::<&gtk::Popover>);
+        }
         self.sync_scramble_options();
     }
 
@@ -751,8 +840,24 @@ impl App {
         }
     }
 
+    /// Ctrl+S and the popover button share one path: close it if open, pop it
+    /// if the button is on screen, and otherwise reveal the sidebar and pop it
+    /// on the frame the button maps.
     fn show_session_menu(&self) {
-        self.sidebar.session_button.popup();
+        if self.chrome_hidden.get() {
+            return;
+        }
+        let button = &self.sidebar.session_button;
+        if button.is_active() {
+            button.popdown();
+            return;
+        }
+        if button.is_mapped() {
+            button.popup();
+            return;
+        }
+        self.pending_menu_popup.set(true);
+        self.sidebar_toggle.set_active(true);
     }
 
     fn delete_active_session(&self) {
@@ -828,19 +933,30 @@ impl App {
         self.timer.borrow_mut().update(now);
         let snapshot = self.timer.borrow().snapshot(now);
         self.timer_view.render(&snapshot);
-        self.apply_chrome(&snapshot);
+        self.apply_timer_focus(&snapshot);
     }
 
-    /// Hide the scramble, the hint and the averages while the solve runs; the
-    /// readout stays and its font size is untouched.
-    fn apply_chrome(&self, snapshot: &TimerSnapshot) {
-        let running = snapshot.state == TimerState::Running;
-        if running == self.chrome_hidden.get() {
+    /// Arming, inspection and solving are the timer's own view: hide the
+    /// scramble, its diagram, the hint/averages, the selector bar and the
+    /// solve list, and grey out the list and diagram toggles. The header
+    /// stays — it carries Cancel and the app's controls — and everything
+    /// returns when the timer is idle or stopped.
+    fn apply_timer_focus(&self, snapshot: &TimerSnapshot) {
+        let focused = !matches!(snapshot.state, TimerState::Idle | TimerState::Stopped);
+        self.cancel_inspection
+            .set_visible(snapshot.state == TimerState::Inspecting);
+        if focused == self.chrome_hidden.get() {
             return;
         }
-        self.chrome_hidden.set(running);
-        self.timer_view.set_chrome_visible(!running);
-        self.panel.set_chrome_visible(!running);
+        self.chrome_hidden.set(focused);
+        self.panel.set_chrome_visible(!focused);
+        self.timer_view.set_chrome_visible(!focused);
+        // The diagram is hidden, so its toggle would only turn on a picture
+        // nobody can see.
+        self.image_toggle.set_sensitive(!focused);
+        self.apply_sidebar_focus(focused);
+        self.sync_bottom_bar();
+        self.sync_start_area();
     }
 
     fn key_down(&self, id: &str) {
@@ -967,6 +1083,7 @@ pub fn build_window(application: &adw::Application) {
 
     // ---- sidebar header ---------------------------------------------------
     let sidebar = SessionMenu::new(
+        application,
         {
             let slot = Rc::clone(&slot);
             move |id: &str| with_app(&slot, |app| app.switch_session(id))
@@ -974,6 +1091,14 @@ pub fn build_window(application: &adw::Application) {
         {
             let slot = Rc::clone(&slot);
             move || with_app(&slot, |app| app.new_session())
+        },
+        {
+            let slot = Rc::clone(&slot);
+            move || with_app(&slot, |app| app.rename_active())
+        },
+        {
+            let slot = Rc::clone(&slot);
+            move || with_app(&slot, |app| app.delete_active_session())
         },
         {
             let slot = Rc::clone(&slot);
@@ -996,7 +1121,11 @@ pub fn build_window(application: &adw::Application) {
     );
 
     // ---- content header ----------------------------------------------------
-    let header = adw::HeaderBar::builder().show_title(false).build();
+    // The centre slot names the scramble type (category over name); the
+    // controls around it act on that scramble. `show_title` stays on — with a
+    // custom title widget the property is what decides whether the slot is
+    // drawn at all.
+    let header = adw::HeaderBar::builder().show_title(true).build();
     let toggle = gtk::ToggleButton::builder()
         .icon_name("sidebar-show-symbolic")
         .tooltip_text(t0(MessageKey::MenuShowList))
@@ -1006,11 +1135,6 @@ pub fn build_window(application: &adw::Application) {
     header.pack_start(&toggle);
 
     let type_title = adw::WindowTitle::new("", "");
-    let type_button = gtk::Button::builder()
-        .child(&type_title)
-        .css_classes(["flat"])
-        .tooltip_text(t0(MessageKey::ScrambleChooseType))
-        .build();
     let options = ScrambleOptions::new(
         {
             let slot = Rc::clone(&slot);
@@ -1021,17 +1145,12 @@ pub fn build_window(application: &adw::Application) {
             move |fast| with_app(&slot, |app| app.set_fast_scramble(fast))
         },
     );
-    if let Some(popover) = options.button.popover() {
+    {
         let slot = Rc::clone(&slot);
-        popover.connect_show(move |_| with_app(&slot, |app| app.sync_scramble_options()));
+        options
+            .popover
+            .connect_show(move |_| with_app(&slot, |app| app.sync_scramble_options()));
     }
-    let type_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(0)
-        .build();
-    type_box.append(&type_button);
-    type_box.append(&options.button);
-    header.set_title_widget(Some(&type_box));
 
     let refresh_button = gtk::Button::builder()
         .icon_name("view-refresh-symbolic")
@@ -1043,24 +1162,48 @@ pub fn build_window(application: &adw::Application) {
         .tooltip_text(t0(MessageKey::ScrambleCopy))
         .css_classes(["flat"])
         .build();
+
+    // One `Adw.SplitButton`, two halves: the button opens the picker, the
+    // arrow opens the current type's options. The halves have to disagree —
+    // a type with a fixed length has no options but is still choosable — so
+    // the popover is detached for those and libadwaita greys only the arrow.
+    let type_control = adw::SplitButton::builder()
+        .icon_name("view-grid-symbolic")
+        .tooltip_text(t0(MessageKey::ScrambleChooseType))
+        .dropdown_tooltip(t0(MessageKey::ScrambleOptions))
+        .popover(&options.popover)
+        .css_classes(["flat"])
+        .build();
+    header.set_title_widget(Some(&type_title));
+    header.pack_start(&refresh_button);
+    header.pack_start(&copy_button);
+    header.pack_start(&type_control);
+
+    // Icon-only: the type name is the title, so this only says "picture".
+    // It rides the header's end box beside Cancel and the menu; `halign END`
+    // right-aligns it once the narrow layout moves it into the bottom bar.
     let image_toggle = gtk::ToggleButton::builder()
         .icon_name("image-x-generic-symbolic")
         .tooltip_text(t0(MessageKey::ScrambleImage))
         .active(preferences.scramble_image)
+        .halign(gtk::Align::End)
         .css_classes(["flat"])
         .build();
-    header.pack_start(&refresh_button);
-    header.pack_start(&copy_button);
-    header.pack_start(&image_toggle);
 
+    // Escape's job with no keyboard: an inspection otherwise has no visible
+    // way out. The button taps the same Escape key, so one cancellation route
+    // exists for both, and it is only shown while inspecting.
+    let cancel_inspection = gtk::Button::builder()
+        .label(t0(MessageKey::CommonCancel))
+        .tooltip_text(t0(MessageKey::MenuCancelInspection))
+        .css_classes(["destructive-action"])
+        .visible(false)
+        .build();
+
+    // The narrow layout's home for the scramble controls. Only `reveal-bars`
+    // decides whether the bar is on screen, so it stays visible here.
     let selector_bar = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .spacing(6)
-        .margin_top(4)
-        .margin_bottom(4)
-        .margin_start(6)
-        .margin_end(6)
-        .visible(false)
         .css_classes(["toolbar"])
         .build();
 
@@ -1121,11 +1264,41 @@ pub fn build_window(application: &adw::Application) {
         .bidirectional()
         .build();
 
+    // Ctrl+B and the toggle are the same switch; the action is kept so the
+    // timer's view can disable both at once.
+    let sidebar_action = gtk::gio::SimpleAction::new("sidebar", None);
+    {
+        let split = split.clone();
+        sidebar_action.connect_activate(move |_, _| {
+            split.set_show_sidebar(!split.shows_sidebar());
+        });
+    }
+    application.add_action(&sidebar_action);
+
     let toast_overlay = adw::ToastOverlay::new();
     toast_overlay.set_child(Some(&split));
     window.set_content(Some(&toast_overlay));
 
-    let feed = ScrambleFeed::new(SCRAMBLE_DEFAULT_TYPE, 0);
+    // A popover cannot anchor to an unmapped button, so Ctrl+S with the
+    // sidebar closed reveals it first and the menu opens on the map.
+    {
+        let slot = Rc::clone(&slot);
+        let button = sidebar.session_button.clone();
+        button.connect_map(move |button| {
+            let wanted = slot
+                .borrow()
+                .clone()
+                .is_some_and(|app| app.pending_menu_popup.replace(false));
+            if wanted {
+                button.popup();
+            }
+        });
+    }
+
+    let feed = ScrambleFeed::new(
+        SCRAMBLE_DEFAULT_TYPE,
+        scramble_length(SCRAMBLE_DEFAULT_TYPE),
+    );
     let worker = ScrambleWorker::spawn(random::random_seed());
 
     let app = Rc::new(App {
@@ -1140,12 +1313,18 @@ pub fn build_window(application: &adw::Application) {
         sidebar,
         panel,
         split: split.clone(),
+        sidebar_toggle: toggle.clone(),
+        sidebar_action: sidebar_action.clone(),
         header: header.clone(),
         selector_bar,
+        content: content.clone(),
+        start_target: start_target.clone(),
+        cancel_inspection: cancel_inspection.clone(),
         main_content,
         lower_area,
         diagram_dock,
         type_title,
+        type_control: type_control.clone(),
         options,
         image_toggle: image_toggle.clone(),
         refresh_button: refresh_button.clone(),
@@ -1160,6 +1339,9 @@ pub fn build_window(application: &adw::Application) {
         selectors_in_row: Cell::new(false),
         placed_diagram: Cell::new(None),
         chrome_hidden: Cell::new(false),
+        sidebar_was_shown: Cell::new(true),
+        start_area_inset: Cell::new(-1),
+        pending_menu_popup: Cell::new(false),
     });
     *slot.borrow_mut() = Some(Rc::clone(&app));
 
@@ -1194,7 +1376,7 @@ pub fn build_window(application: &adw::Application) {
     }
     {
         let slot = Rc::clone(&slot);
-        type_button.connect_clicked(move |_| {
+        type_control.connect_clicked(move |_| {
             with_app(&slot, |app| {
                 let current = app.scramble_type.borrow().clone();
                 let slot = Rc::clone(&slot);
@@ -1237,7 +1419,11 @@ pub fn build_window(application: &adw::Application) {
             .menu_model(&menu)
             .css_classes(["flat"])
             .build();
+        // `pack_end` prepends: the end box then reads image → Cancel → menu,
+        // the menu at the header's edge next to the window controls.
         header.pack_end(&menu_button);
+        header.pack_end(&cancel_inspection);
+        header.pack_end(&image_toggle);
     }
 
     // ---- actions -----------------------------------------------------------
@@ -1355,15 +1541,6 @@ fn install_actions(app: &Rc<App>, application: &adw::Application) {
     }
     application.add_action(&fullscreen);
 
-    let sidebar = gtk::gio::SimpleAction::new("sidebar", None);
-    {
-        let split = app.split.clone();
-        sidebar.connect_activate(move |_, _| {
-            split.set_show_sidebar(!split.shows_sidebar());
-        });
-    }
-    application.add_action(&sidebar);
-
     let statistics = gtk::gio::SimpleAction::new("statistics", None);
     {
         let slot = Rc::clone(&app.slot);
@@ -1422,34 +1599,12 @@ fn install_actions(app: &Rc<App>, application: &adw::Application) {
     }
     application.add_action(&solve_delete);
 
-    let session_new = gtk::gio::SimpleAction::new("session-new", None);
-    {
-        let slot = Rc::clone(&app.slot);
-        session_new.connect_activate(move |_, _| with_app(&slot, |app| app.new_session()));
-    }
-    application.add_action(&session_new);
-
-    let session_rename = gtk::gio::SimpleAction::new("session-rename", None);
-    {
-        let slot = Rc::clone(&app.slot);
-        session_rename.connect_activate(move |_, _| with_app(&slot, |app| app.rename_active()));
-    }
-    application.add_action(&session_rename);
-
     let session_menu = gtk::gio::SimpleAction::new("session-menu", None);
     {
         let slot = Rc::clone(&app.slot);
         session_menu.connect_activate(move |_, _| with_app(&slot, |app| app.show_session_menu()));
     }
     application.add_action(&session_menu);
-
-    let session_delete = gtk::gio::SimpleAction::new("session-delete", None);
-    {
-        let slot = Rc::clone(&app.slot);
-        session_delete
-            .connect_activate(move |_, _| with_app(&slot, |app| app.delete_active_session()));
-    }
-    application.add_action(&session_delete);
 
     let session_manager = gtk::gio::SimpleAction::new("session-manager", None);
     {
