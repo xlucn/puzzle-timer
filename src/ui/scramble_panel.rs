@@ -39,6 +39,58 @@ fn plausible_size(reported: i32, declared: f64) -> bool {
         || reported as f64 == declared.round()
 }
 
+/// `font: 40px Arial` → `font-size:40px;font-family:Arial`. `Gtk.Svg`'s
+/// minimal CSS declines the shorthand and the label would render at the wrong
+/// size; expanding it is the whole difference.
+fn expand_font_shorthand(svg: &str) -> String {
+    const NEEDLE: &str = "font:";
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(start) = rest.find(NEEDLE) {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + NEEDLE.len()..];
+        if let Some((expanded, tail)) = expand_font_value(after) {
+            out.push_str(&expanded);
+            rest = tail;
+        } else {
+            // Leave an unrecognised value alone, but move past the needle so
+            // the scan makes progress.
+            out.push_str(NEEDLE);
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `40px Arial` → (`font-size:40px;font-family:Arial`, the rest). `None` when
+/// the value is not a size-and-family pair the shorthand can be expanded from.
+fn expand_font_value(value: &str) -> Option<(String, &str)> {
+    let trimmed = value.trim_start();
+    let digits = trimmed
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(trimmed.len());
+    let size = &trimmed[..digits];
+    if size.is_empty() {
+        return None;
+    }
+    let after_size = trimmed[digits..].strip_prefix("px")?;
+    // `\s+` in the original: the family is separated from the size.
+    let separated = after_size.strip_prefix(char::is_whitespace)?;
+    let family_start = separated.trim_start();
+    let family_end = family_start
+        .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
+        .unwrap_or(family_start.len());
+    let family = &family_start[..family_end];
+    if family.is_empty() {
+        return None;
+    }
+    Some((
+        format!("font-size:{size}px;font-family:{family}"),
+        &family_start[family_end..],
+    ))
+}
+
 /// csTimer's SVG quirks, rewritten on the way in: literal `undefined` colours
 /// and the `font:` shorthand its generator emits. A `viewBox` is added when it
 /// is missing so the content scales with the box it is drawn into.
@@ -69,7 +121,11 @@ fn rewrite_svg(svg: &str) -> Option<(String, f64, f64)> {
     rewritten = rewritten
         .replace("fill:undefined", "fill:#000000")
         .replace("stroke:undefined", "stroke:#ffdddd");
-    Some((rewritten, declared_width, declared_height))
+    Some((
+        expand_font_shorthand(&rewritten),
+        declared_width,
+        declared_height,
+    ))
 }
 
 /// The numeric value of `name="…"` in an element's opening tag.
@@ -85,7 +141,30 @@ fn attr(root: &str, name: &str) -> Option<f64> {
 fn svg_paintable(svg: &str) -> Option<gtk::Svg> {
     let (rewritten, width, height) = rewrite_svg(svg)?;
     let bytes = glib::Bytes::from(rewritten.as_bytes());
-    let paintable = gtk::Svg::from_bytes(&bytes);
+    let paintable = gtk::Svg::new();
+    // Any warning left after the rewrites above is new: report it once per
+    // distinct message (an image repeats the same style on every label)
+    // rather than failing the picture — a partial render still beats none.
+    {
+        let warnings = Rc::new(RefCell::new(Vec::<String>::new()));
+        let sink = Rc::clone(&warnings);
+        paintable
+            .connect_error(move |_, error| sink.borrow_mut().push(error.message().to_string()));
+        paintable.load_from_bytes(&bytes);
+        let warnings = warnings.borrow();
+        if !warnings.is_empty() {
+            let mut unique: Vec<&String> = warnings.iter().collect::<Vec<_>>();
+            unique.sort();
+            unique.dedup();
+            let repeat = if warnings.len() > unique.len() {
+                format!(" ({}×)", warnings.len())
+            } else {
+                String::new()
+            };
+            let list: Vec<&str> = unique.iter().map(|warning| warning.as_str()).collect();
+            eprintln!("[scramble] svg warnings: {}{repeat}", list.join("; "));
+        }
+    }
     if !plausible_size(paintable.intrinsic_width(), width)
         || !plausible_size(paintable.intrinsic_height(), height)
     {
@@ -361,5 +440,43 @@ impl ScramblePanel {
         let has_room = self.diagram_max_width.get() > 0.0 && self.diagram_max_height.get() > 0.0;
         self.image
             .set_visible(self.chrome_visible.get() && self.picture_ready.get() && has_room);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{expand_font_shorthand, rewrite_svg};
+
+    #[test]
+    fn expands_the_font_shorthand_cstimer_emits() {
+        let svg =
+            r#"<svg width="40" height="20"><text style="font: 40px Arial" x="0">R</text></svg>"#;
+        let (rewritten, _, _) = rewrite_svg(svg).expect("a sized root");
+        assert!(rewritten.contains("font-size:40px;font-family:Arial"));
+        assert!(!rewritten.contains("font: 40px"));
+    }
+
+    #[test]
+    fn leaves_other_font_rules_alone() {
+        assert_eq!(
+            expand_font_shorthand("font-size:12px;font-family:monospace"),
+            "font-size:12px;font-family:monospace"
+        );
+        assert_eq!(expand_font_shorthand("font:"), "font:");
+    }
+
+    #[test]
+    fn adds_a_viewbox_and_replaces_undefined_colours() {
+        let svg = r#"<svg width="10" height="20"><rect fill="fill:undefined"/></svg>"#;
+        let (rewritten, width, height) = rewrite_svg(svg).expect("a sized root");
+        assert_eq!((width, height), (10.0, 20.0));
+        assert!(rewritten.contains(r#"viewBox="0 0 10 20""#));
+        assert!(rewritten.contains("fill:#000000"));
+    }
+
+    #[test]
+    fn rejects_a_root_without_a_size() {
+        assert!(rewrite_svg(r#"<svg width="NaN" height="NaN"></svg>"#).is_none());
+        assert!(rewrite_svg(r#"<g></g>"#).is_none());
     }
 }
