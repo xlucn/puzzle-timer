@@ -580,11 +580,24 @@ impl App {
         self.refresh_solves();
     }
 
+    /// The selection when exactly one row is on it, else the newest solve: the
+    /// dialog is one record wide, and the newest is the one being read.
     fn edit_selected(&self) {
         if self.timer.borrow().state() == TimerState::Running {
             return;
         }
-        let solves = self.times.selected_solves();
+        let mut solves = self.times.selected_solves();
+        if solves.len() != 1 {
+            solves = self
+                .state
+                .active_session()
+                .borrow()
+                .solves()
+                .last()
+                .cloned()
+                .map(|solve| vec![solve])
+                .unwrap_or_default();
+        }
         if !solves.is_empty() {
             self.edit_solves(solves);
         }

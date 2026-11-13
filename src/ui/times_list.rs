@@ -16,7 +16,7 @@ use gtk4 as gtk;
 use gtk4::prelude::*;
 use libadwaita as adw;
 
-use crate::core::i18n::{MessageKey, t0};
+use crate::core::i18n::{MessageKey, Param, t, t0};
 use crate::core::session::Solve;
 use crate::core::stats::{StatKind, effective_times, window_at_each};
 use crate::core::time::{format_average, format_solve};
@@ -123,13 +123,15 @@ fn column(
 }
 
 pub struct TimesList {
-    pub widget: gtk::Box,
+    pub widget: adw::ToolbarView,
     /// Header controls, owned by the sidebar builder but packed here.
     model: gtk::StringList,
     selection: gtk::MultiSelection,
     rows: Rc<std::cell::RefCell<Rows>>,
     action_bar: gtk::ActionBar,
-    stack: gtk::Stack,
+    footer_row: gtk::Box,
+    footer_info: gtk::Label,
+    edit_button: gtk::Button,
     scroller: gtk::ScrolledWindow,
     empty: adw::StatusPage,
 }
@@ -184,38 +186,68 @@ impl TimesList {
             .vexpand(true)
             .build();
 
-        let stack = gtk::Stack::new();
-        stack.add_named(&scroller, Some("list"));
-        stack.add_named(&empty, Some("empty"));
-        stack.set_visible_child_name("empty");
+        // Both live in the body and take turns being visible: a `Gtk.Stack`
+        // would measure them together and make the empty page's height part of
+        // the list's minimum.
+        empty.set_visible(true);
+        scroller.set_visible(false);
+        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        body.append(&scroller);
+        body.append(&empty);
 
-        // ---- selection footer -------------------------------------------------
-        let delete_button = gtk::Button::builder()
-            .label(t0(MessageKey::CommonDelete))
-            .tooltip_text(t0(MessageKey::ListDeleteTooltip))
+        // ---- selection footer: the actions available on the selected row ------
+        // `Gtk.ActionBar`'s `revealed` collapses it to nothing, so the bar
+        // costs list height only while a row is selected. Two buttons, not a
+        // battery — grading lives in the one edit dialog behind Edit. Edit goes
+        // insensitive over a multi-selection rather than hiding: one record,
+        // one dialog, and the row must not shift under the pointer.
+        let footer_info = gtk::Label::builder()
+            .xalign(0.0)
+            .hexpand(true)
+            .css_classes(["dim-label"])
+            // Context, not data: shrink it with an ellipsis rather than
+            // squeeze the buttons when the sidebar is narrow.
+            .ellipsize(gtk::pango::EllipsizeMode::End)
             .build();
         let edit_button = gtk::Button::builder()
-            .label(t0(MessageKey::ListEdit))
             .tooltip_text(t0(MessageKey::ListEditTooltip))
             .build();
-        delete_button.add_css_class("destructive-action");
+        edit_button.set_child(Some(
+            &adw::ButtonContent::builder()
+                .icon_name("document-edit-symbolic")
+                .label(t0(MessageKey::ListEdit))
+                .build(),
+        ));
+        let delete_button = gtk::Button::builder()
+            // Icon-only: the trash is unambiguous, and the label's width is
+            // what lets the info label show `#12 · 3.35+` in full.
+            .icon_name("user-trash-symbolic")
+            .tooltip_text(t0(MessageKey::ListDeleteTooltip))
+            .build();
 
-        let action_bar = gtk::ActionBar::new();
-        action_bar.pack_start(&edit_button);
-        action_bar.pack_end(&delete_button);
+        let footer_row = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(6)
+            .hexpand(true)
+            .build();
+        footer_row.append(&footer_info);
+        footer_row.append(&edit_button);
+        footer_row.append(&delete_button);
 
-        let header = adw::HeaderBar::builder().show_title(false).build();
+        let action_bar = gtk::ActionBar::builder().revealed(false).build();
+        action_bar.set_center_widget(Some(&footer_row));
+
+        let header = adw::HeaderBar::builder().show_title(true).build();
         header.pack_start(new_control);
         header.set_title_widget(Some(session_control));
         header.pack_end(manager_control);
 
-        let toolbar = adw::ToolbarView::new();
-        toolbar.add_top_bar(&header);
-        toolbar.add_bottom_bar(&action_bar);
-        toolbar.set_content(Some(&stack));
-
-        let widget = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        widget.append(&toolbar);
+        // The `sidebar` class moves to this root: libadwaita's own pane rules
+        // match descendants, so the header stays flat and the list keeps them.
+        let widget = adw::ToolbarView::builder().css_classes(["sidebar"]).build();
+        widget.add_top_bar(&header);
+        widget.add_bottom_bar(&action_bar);
+        widget.set_content(Some(&body));
 
         let list = Rc::new(Self {
             widget,
@@ -223,7 +255,9 @@ impl TimesList {
             selection,
             rows,
             action_bar,
-            stack,
+            footer_row,
+            footer_info,
+            edit_button: edit_button.clone(),
             scroller,
             empty,
         });
@@ -292,8 +326,6 @@ impl TimesList {
         self.model.splice(0, self.model.n_items(), &refs);
 
         let has_rows = !refs.is_empty();
-        self.stack
-            .set_visible_child_name(if has_rows { "list" } else { "empty" });
         self.scroller.set_visible(has_rows);
         self.empty.set_visible(!has_rows);
         self.sync_footer();
@@ -315,8 +347,37 @@ impl TimesList {
         solves
     }
 
+    /// Reflect the current selection in the footer toolbar.
     fn sync_footer(&self) {
-        let selected = self.selection.selection();
-        self.action_bar.set_revealed(!selected.is_empty());
+        let solves = self.selected_solves();
+        let has_selection = !solves.is_empty();
+        self.action_bar.set_revealed(has_selection);
+        // While collapsed the bar's buttons must not take keyboard focus.
+        self.footer_row.set_sensitive(has_selection);
+        // One edit dialog, one record; a child's sensitivity only ever
+        // restricts its parents', so set it after the row's flag.
+        self.edit_button.set_sensitive(solves.len() == 1);
+        if !has_selection {
+            return;
+        }
+        let text = if let [solve] = solves.as_slice() {
+            let number = self
+                .rows
+                .borrow()
+                .entries
+                .iter()
+                .find(|row| row.id == solve.id)
+                .map_or(0, |row| row.number);
+            format!(
+                "#{number}  ·  {}",
+                crate::core::time::format_solve(solve.time_ms, solve.penalty)
+            )
+        } else {
+            t(
+                MessageKey::ListSelected,
+                &[("count", Param::Number(solves.len() as f64))],
+            )
+        };
+        self.footer_info.set_label(&text);
     }
 }
