@@ -72,6 +72,8 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     let prefs = app.preferences.borrow().clone();
     let dialog = adw::PreferencesDialog::builder()
         .title(t0(MessageKey::PrefsTitle))
+        // Three short pages: search would only add a field nobody needs.
+        .search_enabled(false)
         .build();
 
     // ---- timer -------------------------------------------------------------
@@ -124,14 +126,18 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
         });
     }
 
+    // Stored in milliseconds — the timer's unit — but shown in seconds:
+    // "0.30 s" is how csTimer's own "time of keeping space down" reads, and
+    // what a cuber expects. The adjustment carries the conversion so the step
+    // stays 0.05 s.
     let hold = spin(
         MessageKey::PrefsHold,
         Some(MessageKey::PrefsHoldSubtitle),
-        MIN_HOLD_THRESHOLD_MS,
-        MAX_HOLD_THRESHOLD_MS,
-        HOLD_THRESHOLD_STEP_MS,
-        0,
-        prefs.hold_threshold_ms,
+        MIN_HOLD_THRESHOLD_MS / 1000.0,
+        MAX_HOLD_THRESHOLD_MS / 1000.0,
+        HOLD_THRESHOLD_STEP_MS / 1000.0,
+        2,
+        prefs.hold_threshold_ms / 1000.0,
     );
     {
         let app = app.slot.clone();
@@ -139,7 +145,7 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
             if let Some(app) = app.borrow().clone() {
                 {
                     let mut prefs = app.preferences.borrow_mut();
-                    prefs.hold_threshold_ms = row.value().round();
+                    prefs.hold_threshold_ms = (row.value() * 1000.0).round();
                 }
                 let prefs = app.preferences.borrow().clone();
                 app.state.set_preferences(prefs.clone());
@@ -179,8 +185,48 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     // ---- appearance --------------------------------------------------------
     let appearance_page = page(
         MessageKey::PrefsAppearanceTitle,
-        "applications-graphics-symbolic",
+        "preferences-desktop-appearance-symbolic",
     );
+
+    // ---- language ----------------------------------------------------------
+    // It leads the page rather than getting one of its own: language is the
+    // setting people look for first. The reminder is a toast on *this* dialog
+    // — a toast behind it would be unseen.
+    let language_group = adw::PreferencesGroup::builder()
+        .title(t0(MessageKey::PrefsLanguageGroup))
+        .description(t0(MessageKey::PrefsLanguageRestart))
+        .build();
+    let language = adw::ComboRow::builder()
+        .title(t0(MessageKey::PrefsLanguageRow))
+        .model(&gtk::StringList::new(&[
+            &t0(MessageKey::PrefsLanguageSystem),
+            &t0(MessageKey::PrefsLanguageEnglish),
+            &t0(MessageKey::PrefsLanguageChinese),
+        ]))
+        .selected(language_index(prefs.language))
+        .build();
+    {
+        let app = app.slot.clone();
+        let dialog = dialog.clone();
+        language.connect_selected_notify(move |row| {
+            if let Some(app) = app.borrow().clone() {
+                let language = LANGUAGES
+                    .get(row.selected() as usize)
+                    .copied()
+                    .unwrap_or(Language::System);
+                let unchanged = app.preferences.borrow().language == language;
+                if unchanged {
+                    return;
+                }
+                app.preferences.borrow_mut().language = language;
+                let prefs = app.preferences.borrow().clone();
+                app.state.set_preferences(prefs);
+                dialog.add_toast(adw::Toast::new(&t0(MessageKey::PrefsLanguageRestart)));
+            }
+        });
+    }
+    language_group.add(&language);
+    appearance_page.add(&language_group);
 
     let scheme_group = adw::PreferencesGroup::builder()
         .title(t0(MessageKey::PrefsSchemeGroup))
@@ -293,6 +339,8 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
                 return;
             };
             let text = pre_scramble.text().trim().to_string();
+            // The row shows what was stored, not the stray spaces around it.
+            pre_scramble.set_text(&text);
             if app.preferences.borrow().pre_scramble == text {
                 return;
             }
@@ -338,41 +386,6 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     scramble_page.add(&pre_scramble_group);
     scramble_page.add(&image_group);
     dialog.add(&scramble_page);
-
-    // ---- language: on the appearance page, as in the original ------------
-    let language_group = adw::PreferencesGroup::builder()
-        .title(t0(MessageKey::PrefsLanguageGroup))
-        .build();
-    let language = adw::ComboRow::builder()
-        .title(t0(MessageKey::PrefsLanguageRow))
-        .model(&gtk::StringList::new(&[
-            &t0(MessageKey::PrefsLanguageSystem),
-            &t0(MessageKey::PrefsLanguageEnglish),
-            &t0(MessageKey::PrefsLanguageChinese),
-        ]))
-        .selected(language_index(prefs.language))
-        .build();
-    {
-        let app = app.slot.clone();
-        language.connect_selected_notify(move |row| {
-            if let Some(app) = app.borrow().clone() {
-                let language = LANGUAGES
-                    .get(row.selected() as usize)
-                    .copied()
-                    .unwrap_or(Language::System);
-                {
-                    let mut prefs = app.preferences.borrow_mut();
-                    prefs.language = language;
-                }
-                let prefs = app.preferences.borrow().clone();
-                app.state.set_preferences(prefs);
-                app.toast_overlay
-                    .add_toast(adw::Toast::new(&t0(MessageKey::PrefsLanguageRestart)));
-            }
-        });
-    }
-    language_group.add(&language);
-    appearance_page.add(&language_group);
 
     dialog.present(Some(parent));
 }
