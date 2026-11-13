@@ -61,6 +61,60 @@
   color: @error_color;
 }
 
+/* ---- charts -------------------------------------------------------------
+ *
+ * The trend's colours are picked in `ui/charts.rs`; these swatches are the
+ * legend's copy of them, so the lines and the key cannot drift.
+ */
+.chart-swatch {
+  min-width: 14px;
+  min-height: 3px;
+  border-radius: 2px;
+}
+
+.chart-swatch.single {
+  background-color: alpha(@window_fg_color, 0.55);
+}
+
+.chart-swatch.ao5 {
+  background-color: #e01b24;
+}
+
+.chart-swatch.ao12 {
+  background-color: #1c71d8;
+}
+
+/* ---- stats cells and heat map -------------------------------------------
+ *
+ * Small text and dimming come from built-ins: caption and dim-label on the
+ * mean caption, numeric for tabular figures. Only the semibold stays a rule —
+ * no Adwaita class is 600.
+ */
+.stats-cell {
+  font-weight: 600;
+}
+
+.stats-cell.incomplete {
+  font-weight: 400;
+  color: alpha(@window_fg_color, 0.4);
+}
+
+/* Calendar heat map: empty days stay a faint card-coloured square, busy days
+ * step through the accent colour. The legend reuses the same classes so it
+ * cannot drift from the grid. */
+.heatmap-cell {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 3px;
+  background-color: alpha(@window_fg_color, 0.1);
+}
+
+.heatmap-cell.level-1 { background-color: alpha(@accent_bg_color, 0.35); }
+.heatmap-cell.level-2 { background-color: alpha(@accent_bg_color, 0.55); }
+.heatmap-cell.level-3 { background-color: alpha(@accent_bg_color, 0.75); }
+.heatmap-cell.level-4 { background-color: @accent_bg_color; }
+.heatmap-cell.future { background-color: transparent; }
+
 /* ---- stats strip --------------------------------------------------------
  *
  * Small secondary text comes from the built-in caption and dim-label classes.

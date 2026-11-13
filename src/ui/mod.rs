@@ -6,6 +6,7 @@
 //! toggle, type title, refresh, copy, image toggle, the app menu), and the
 //! lower area holds the timer and the scramble diagram.
 
+mod charts;
 mod font_size;
 #[path = "preferences.rs"]
 mod preferences_dialog;
