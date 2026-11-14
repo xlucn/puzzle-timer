@@ -67,14 +67,19 @@ pub fn open(
             MessageKey::ListEditTitle,
             &[("number", Param::Number(number as f64))],
         ))
-        .content_width(440)
+        .content_width(480)
         .build();
 
-    let header = adw::HeaderBar::new();
+    // Both title-button sides off: that is how a dialog does away with its
+    // own close button, leaving Cancel and Save as the only ways out.
+    let header = adw::HeaderBar::builder()
+        .show_start_title_buttons(false)
+        .show_end_title_buttons(false)
+        .build();
     let cancel = gtk::Button::with_label(&t0(MessageKey::CommonCancel));
     let save = gtk::Button::builder()
         .label(t0(MessageKey::CommonSave))
-        .css_classes(["suggested-action"])
+        .css_classes(["suggested-action", "text-button"])
         .build();
     header.pack_start(&cancel);
     header.pack_end(&save);
@@ -149,12 +154,14 @@ pub fn open(
     .enumerate()
     {
         // A toggle is addressed by name, so the save path survives the three
-        // being reordered by a future translation.
-        let label = t0(key).replace('_', "");
+        // being reordered by a future translation. The catalogs carry the
+        // mnemonics (Alt+O / Alt+2 / Alt+D), so the labels keep their
+        // underscores.
         group.add(
             adw::Toggle::builder()
-                .label(&label)
+                .label(t0(key))
                 .name(penalty_name(index))
+                .use_underline(true)
                 .build(),
         );
     }
@@ -226,8 +233,13 @@ pub fn open(
         });
     }
 
+    // Focus opens on Save: Cancel takes the start slot, and Return landing
+    // there would throw the edit away. The comment line is still reachable
+    // with Tab or its mnemonic, and Return resolves to Save from anywhere
+    // outside it — the entry itself keeps Enter.
+    dialog.set_default_widget(Some(&save));
+    dialog.set_focus(Some(&save));
     dialog.present(Some(parent));
-    comment.grab_focus();
 }
 
 fn penalty_name(index: usize) -> &'static str {
