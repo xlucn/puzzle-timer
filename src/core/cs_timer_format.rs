@@ -29,8 +29,9 @@
 //! the load-bearing half; a real csTimer export omits the `sessionN` count and
 //! derives it from the keys, so writing both is harmless.
 
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
 
+use super::json_number::to_value as json_number;
 use super::scramble_types::{SCRAMBLE_DEFAULT_TYPE, is_scramble_type};
 use super::session::{MAX_COMMENT_LENGTH, Solve};
 use super::session_library::MAX_NAME_LENGTH;
@@ -110,13 +111,6 @@ fn as_finite(value: Option<&Value>) -> Option<f64> {
 
 /// A number that prints like JavaScript's `JSON.stringify` does — `12345`,
 /// not `12345.0` — while keeping a fractional millisecond value intact.
-fn json_number(value: f64) -> Value {
-    if value.is_finite() && value.fract() == 0.0 && value.abs() < 9_007_199_254_740_992.0 {
-        return Value::from(value as i64);
-    }
-    Number::from_f64(value).map_or(Value::Null, Value::Number)
-}
-
 /// `0` / `2000` / `−1`, or `None` for an unknown marker (and a warning).
 fn read_penalty(value: Option<&Value>, warn: &mut dyn FnMut(String)) -> Option<Penalty> {
     let value = value?;

@@ -38,11 +38,45 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde_json::{Map, Value, json};
+use serde_json::Value;
 
 use crate::core::preferences::{PREFERENCES_FILE_VERSION, Preferences, normalize_preferences};
 use crate::core::session::{MAX_COMMENT_LENGTH, Solve};
 use crate::core::session_library::{MAX_NAME_LENGTH, SessionEntry};
+
+/// The index file's shape, written field by field so it reads exactly like
+/// v0.3.0's: `version` first. `json!` would sort the keys instead.
+#[derive(serde::Serialize)]
+struct IndexFile<'a> {
+    version: u64,
+    active: Option<&'a str>,
+    sessions: &'a [SessionEntry],
+}
+
+/// A session file: `{"version": 1, "solves": [...]}`.
+#[derive(serde::Serialize)]
+struct SessionFile<'a> {
+    version: u64,
+    solves: &'a [Solve],
+}
+
+/// The preferences file: `version` first, then the settings in their
+/// declaration order.
+#[derive(serde::Serialize)]
+struct PreferencesFile<'a> {
+    version: u32,
+    #[serde(flatten)]
+    preferences: &'a Preferences,
+}
+
+/// One JSON document, pretty-printed with the trailing newline every file
+/// this app writes ends with.
+fn document<T: serde::Serialize>(value: &T) -> String {
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(value).unwrap_or_default()
+    )
+}
 
 /// Bumped only when a session file's shape changes incompatibly.
 pub const SESSION_FILE_VERSION: u64 = 1;
@@ -338,15 +372,11 @@ impl Store {
     /// write means a crash right after deleting a session cannot leave a ghost
     /// entry behind.
     pub fn save_index(&self, sessions: &[SessionEntry], active_id: Option<&str>) {
-        let data = format!(
-            "{}\n",
-            serde_json::to_string_pretty(&json!({
-                "version": INDEX_FILE_VERSION,
-                "active": active_id,
-                "sessions": sessions,
-            }))
-            .unwrap_or_default()
-        );
+        let data = document(&IndexFile {
+            version: INDEX_FILE_VERSION,
+            active: active_id,
+            sessions,
+        });
         self.write_atomically(&self.index_path(), &data);
     }
 
@@ -402,15 +432,10 @@ impl Store {
     /// Write the preferences now. A few dozen bytes, changed only when the user
     /// moves a setting — nothing to debounce.
     pub fn save_preferences(&self, preferences: &Preferences) {
-        let mut object = match serde_json::to_value(preferences) {
-            Ok(Value::Object(object)) => object,
-            _ => Map::new(),
-        };
-        object.insert("version".into(), Value::from(PREFERENCES_FILE_VERSION));
-        let data = format!(
-            "{}\n",
-            serde_json::to_string_pretty(&Value::Object(object)).unwrap_or_default()
-        );
+        let data = document(&PreferencesFile {
+            version: PREFERENCES_FILE_VERSION,
+            preferences,
+        });
         self.write_atomically(&self.preferences_path(), &data);
     }
 
@@ -427,14 +452,10 @@ impl Store {
                 return;
             }
         };
-        let data = format!(
-            "{}\n",
-            serde_json::to_string_pretty(&json!({
-                "version": SESSION_FILE_VERSION,
-                "solves": solves,
-            }))
-            .unwrap_or_default()
-        );
+        let data = document(&SessionFile {
+            version: SESSION_FILE_VERSION,
+            solves,
+        });
         self.pending.insert(file, data);
     }
 
@@ -656,6 +677,8 @@ fn quarantine(file: &Path, why: &str) -> String {
 mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
+    use serde_json::json;
+
     use super::*;
     use crate::core::preferences::{ColorScheme, MAX_HOLD_THRESHOLD_MS};
     use crate::core::time::Penalty;
@@ -830,6 +853,40 @@ mod tests {
         let (_home, store) = store();
         store.save_index(&[SessionEntry::new("default", "Default")], Some("gone"));
         assert_eq!(store.load_index().active_id.as_deref(), Some("default"));
+    }
+
+    #[test]
+    fn writes_files_in_the_original_key_order_and_number_shape() {
+        let (_home, mut store) = store();
+
+        store.save_index(&[SessionEntry::new("default", "Default")], Some("default"));
+        let index = fs::read_to_string(store.index_path()).expect("index");
+        assert!(
+            index
+                .starts_with("{\n  \"version\": 1,\n  \"active\": \"default\",\n  \"sessions\": ["),
+            "got {index}"
+        );
+
+        store.schedule_save("default", &[solve(1)]);
+        store.flush();
+        let session =
+            fs::read_to_string(store.session_file_path("default").expect("path")).expect("session");
+        assert!(
+            session.starts_with(
+                "{\n  \"version\": 1,\n  \"solves\": [\n    {\n      \"id\": 1,\n      \"timeMs\": 1000,"
+            ),
+            "got {session}"
+        );
+        // Whole timestamps read like JavaScript's, not `1700000000001.0`.
+        assert!(!session.contains(".0"), "got {session}");
+
+        store.save_preferences(&Preferences::default());
+        let preferences = fs::read_to_string(store.preferences_path()).expect("prefs");
+        assert!(
+            preferences.starts_with("{\n  \"version\": 1,\n  \"holdThresholdMs\": 300,"),
+            "got {preferences}"
+        );
+        assert!(!preferences.contains(".0"), "got {preferences}");
     }
 
     #[test]

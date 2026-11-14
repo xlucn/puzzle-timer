@@ -11,7 +11,7 @@
 //! than taking the whole file down — one wrong number must not cost the user
 //! their settings.
 
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use serde_json::{Map, Value};
 
 use super::i18n::Language;
@@ -31,7 +31,7 @@ pub struct Preferences {
     /// How long the start key must be held before the timer arms — csTimer's
     /// "time of keeping space down", in milliseconds so the timer can use it
     /// directly (the dialog shows seconds).
-    #[serde(serialize_with = "serialize_milliseconds")]
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub hold_threshold_ms: f64,
     /// WCA inspection: the 15 s countdown before the solve starts.
     pub inspection: bool,
@@ -51,10 +51,13 @@ pub struct Preferences {
     /// tag resolved once at startup.
     pub language: Language,
     /// Multiplier on the timer readout's size (`src/core/layout.rs`).
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub timer_scale: f64,
     /// Multiplier on the scramble text: bigger text, fewer characters per line.
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub scramble_scale: f64,
     /// Multiplier on the scramble diagram's box.
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub diagram_scale: f64,
 }
 
@@ -91,16 +94,6 @@ impl Default for Preferences {
             scramble_scale: 1.0,
             diagram_scale: 1.0,
         }
-    }
-}
-
-/// Write a whole-millisecond value as an integer, so the file reads `300`, not
-/// `300.0` — the shape v0.3.0 wrote.
-fn serialize_milliseconds<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
-    if value.is_finite() && value.fract() == 0.0 && *value >= 0.0 {
-        serializer.serialize_u64(*value as u64)
-    } else {
-        serializer.serialize_f64(*value)
     }
 }
 
@@ -350,5 +343,11 @@ mod tests {
         assert!(text.contains("\"holdThresholdMs\":300"), "got {text}");
         assert!(text.contains("\"language\":\"system\""));
         assert!(text.contains("\"colorScheme\":\"system\""));
+
+        // The three multipliers are whole at 1, and v0.3.0 wrote them as `1`.
+        let value: Value = serde_json::from_str(&text).expect("JSON");
+        for key in ["timerScale", "scrambleScale", "diagramScale"] {
+            assert_eq!(value[key], json!(1), "{key} in {text}");
+        }
     }
 }

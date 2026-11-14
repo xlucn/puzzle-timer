@@ -30,12 +30,14 @@ pub struct Solve {
     /// Stable identity, unique within the session; never reused.
     pub id: u64,
     /// Measured time in milliseconds.
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub time_ms: f64,
     /// The scramble this solve was performed on (`""` if none was ready).
     pub scramble: String,
     /// Scramble type id, e.g. `"333"` (see `scramble_types`).
     pub scramble_type: String,
     /// Wall-clock time the solve finished, in ms since the epoch.
+    #[serde(serialize_with = "crate::core::json_number::serialize")]
     pub created_at_ms: f64,
     /// WCA-style result penalty; `None` means OK. Optional so session files
     /// written before penalties existed still load unchanged.

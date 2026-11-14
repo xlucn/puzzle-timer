@@ -3,6 +3,7 @@ pub mod calendar;
 pub mod charts;
 pub mod cs_timer_format;
 pub mod i18n;
+pub mod json_number;
 pub mod layout;
 pub mod preferences;
 pub mod records;
