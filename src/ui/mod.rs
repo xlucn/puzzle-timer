@@ -177,6 +177,8 @@ struct App {
     start_area_inset: Cell<i32>,
     /// Set when Ctrl+S asks for the menu while the sidebar has no anchor yet.
     pending_menu_popup: Cell<bool>,
+    /// The 16 ms frame while the readout has something to animate.
+    tick_source: RefCell<Option<glib::SourceId>>,
 }
 
 impl App {
@@ -188,8 +190,15 @@ impl App {
     }
 
     fn layout_now(&self) {
-        let width = self.window.width() as f64;
-        let height = self.window.height() as f64;
+        let mut width = self.window.width() as f64;
+        let mut height = self.window.height() as f64;
+        if width <= 0.0 || height <= 0.0 {
+            // Before the first allocation the size we *asked* for is the size
+            // that frame is given, so it stands in: laying out at the minimum
+            // would draw the timer small and jump once the window is mapped.
+            width = self.window.default_width() as f64;
+            height = self.window.default_height() as f64;
+        }
         if width <= 0.0 || height <= 0.0 {
             return;
         }
@@ -935,9 +944,48 @@ impl App {
     fn tick(&self) {
         let now = now_ms();
         self.timer.borrow_mut().update(now);
-        let snapshot = self.timer.borrow().snapshot(now);
+        self.render_frame();
+    }
+
+    /// What one frame shows: the readout, and whether the chrome hides.
+    fn render_frame(&self) {
+        let snapshot = self.timer.borrow().snapshot(now_ms());
         self.timer_view.render(&snapshot);
         self.apply_timer_focus(&snapshot);
+    }
+
+    /// The 16 ms frame only runs while it has something to animate: a hold in
+    /// progress, an inspection counting down, or a solve being timed. Every
+    /// other state is static — a cleared readout, an armed timer waiting for
+    /// the release — and does not need a frame.
+    fn needs_tick(&self) -> bool {
+        let snapshot = self.timer.borrow().snapshot(now_ms());
+        matches!(
+            snapshot.state,
+            TimerState::Holding | TimerState::Inspecting | TimerState::Running
+        ) || (snapshot.state == TimerState::Ready && snapshot.inspection_ms > 0.0)
+    }
+
+    /// Repaint once and keep the frame running only while it is needed.
+    fn ensure_ticking(&self) {
+        self.render_frame();
+        if self.tick_source.borrow().is_some() || !self.needs_tick() {
+            return;
+        }
+        let slot = self.slot.clone();
+        let id = glib::timeout_add_local(std::time::Duration::from_millis(TICK_MS), move || {
+            let Some(app) = slot.borrow().clone() else {
+                return glib::ControlFlow::Break;
+            };
+            app.tick();
+            if app.needs_tick() {
+                glib::ControlFlow::Continue
+            } else {
+                *app.tick_source.borrow_mut() = None;
+                glib::ControlFlow::Break
+            }
+        });
+        *self.tick_source.borrow_mut() = Some(id);
     }
 
     /// Arming, inspection and solving are the timer's own view: hide the
@@ -971,10 +1019,19 @@ impl App {
                 self.split.set_show_sidebar(false);
             }
         }
+        self.ensure_ticking();
     }
 
     fn key_up(&self, id: &str) {
         self.timer.borrow_mut().key_up(id, now_ms());
+        self.ensure_ticking();
+    }
+
+    /// The inspection toggle, from Preferences: the countdown may be running,
+    /// so this repaints and starts or stops the frame with it.
+    fn set_inspection(&self, enabled: bool) {
+        self.timer.borrow_mut().set_inspection(enabled, now_ms());
+        self.ensure_ticking();
     }
 
     fn start_mouse(&self) {
@@ -1346,6 +1403,7 @@ pub fn build_window(application: &adw::Application) {
         sidebar_was_shown: Cell::new(true),
         start_area_inset: Cell::new(-1),
         pending_menu_popup: Cell::new(false),
+        tick_source: RefCell::new(None),
     });
     *slot.borrow_mut() = Some(Rc::clone(&app));
 
@@ -1443,10 +1501,20 @@ pub fn build_window(application: &adw::Application) {
             with_app(&slot, |app| app.layout_now())
         });
     }
-    if let Some(surface) = window.surface() {
+    // The toplevel has no surface until it is realized, so the first layout
+    // hook can only be attached there — asking now (before present) finds
+    // `None` and would leave the window laid out at whatever the minimum gave
+    // until the user resized it.
+    {
         let slot = Rc::clone(&slot);
-        surface.connect_layout(move |_, _, _| {
-            with_app(&slot, |app| app.layout_now());
+        window.connect_realize(move |window| {
+            let Some(surface) = window.surface() else {
+                return;
+            };
+            let slot = Rc::clone(&slot);
+            surface.connect_layout(move |_, _, _| {
+                with_app(&slot, |app| app.layout_now());
+            });
         });
     }
 
@@ -1454,6 +1522,7 @@ pub fn build_window(application: &adw::Application) {
     app.after_session_change();
     app.start_scramble();
     app.layout_now();
+    app.ensure_ticking();
     app.toast_notices();
 
     // ---- result reader -----------------------------------------------------
@@ -1464,15 +1533,6 @@ pub fn build_window(application: &adw::Application) {
             while let Ok(answer) = results.recv().await {
                 with_app(&slot, |app| app.settle(answer));
             }
-        });
-    }
-
-    // ---- tick --------------------------------------------------------------
-    {
-        let slot = Rc::clone(&slot);
-        glib::timeout_add_local(std::time::Duration::from_millis(TICK_MS), move || {
-            with_app(&slot, |app| app.tick());
-            glib::ControlFlow::Continue
         });
     }
 

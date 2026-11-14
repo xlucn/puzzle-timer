@@ -100,9 +100,7 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
                 }
                 let prefs = app.preferences.borrow().clone();
                 app.state.set_preferences(prefs.clone());
-                app.timer
-                    .borrow_mut()
-                    .set_inspection(prefs.inspection, super::now_ms());
+                app.set_inspection(prefs.inspection);
             }
         });
     }
