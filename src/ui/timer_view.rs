@@ -63,6 +63,7 @@ impl TimerView {
             .spacing(2)
             .halign(gtk::Align::Center)
             .valign(gtk::Align::Center)
+            .hexpand(true)
             .vexpand(true)
             .build();
         widget.append(&label);
