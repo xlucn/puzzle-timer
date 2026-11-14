@@ -39,7 +39,9 @@ use crate::core::layout::{
 };
 use crate::core::preferences::{ColorScheme, Preferences};
 use crate::core::scramble_feed::{Request as ScrambleRequest, ScrambleFeed};
-use crate::core::scramble_types::{SCRAMBLE_DEFAULT_TYPE, scramble_length, scramble_type_title};
+use crate::core::scramble_types::{
+    SCRAMBLE_DEFAULT_TYPE, is_scramble_type, scramble_length, scramble_type_title,
+};
 use crate::core::session::{NewSolve, RemovedSolve, Solve};
 use crate::core::timer::{Timer, TimerConfig, TimerSnapshot, TimerState};
 use crate::platform::{audio, meta, random};
@@ -522,7 +524,11 @@ impl App {
             .find(|entry| entry.id == active)
             .and_then(|entry| entry.scramble_type.clone())
             .unwrap_or_else(|| SCRAMBLE_DEFAULT_TYPE.to_string());
-        self.set_type(&scramble_type);
+        // An id the catalogue does not have (a hand-edited index) leaves the
+        // type in force alone, exactly like the silent picker contract.
+        if is_scramble_type(&scramble_type) {
+            self.set_type(&scramble_type);
+        }
         // `set_type` is a no-op when the type did not change, but the header
         // still has to name it on the first run and after a rename.
         self.update_type_title();
