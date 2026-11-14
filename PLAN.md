@@ -1605,7 +1605,8 @@ asked whether it is the same widget doing the same thing. It mostly was — the
 scramble panel's ghost/pending/error rule, the options popover, the statistics
 page and its charts, the time formatter and the font-size provider already
 matched line for line — but eleven differences were real, and each is now a
-commit rather than a note:
+commit rather than a note (two more came out of the live checkpoint run, at
+the end of the list):
 
 - the window used the *measured* content width on its first pass, so the timer
   opened at the small size until the first resize (`ff9f2d5`), and the frame
@@ -1627,7 +1628,11 @@ commit rather than a note:
   two-level `Adw.NavigationSplitView` + `Adw.Sidebar` with its 540 px
   collapse (`40b75cb`);
 - a stored type id the catalogue does not know was adopted anyway (`ddceb71`);
-- the length spinner stepped by ten on PageUp/PageDown (`9fefe4d`).
+- the length spinner stepped by ten on PageUp/PageDown (`9fefe4d`);
+- recording a solve never reached disk until the window closed: the store
+  queued the bytes and nothing armed its debounce clock (`6b39bf7`);
+- a rewritten file had its keys sorted and its whole numbers printed `…​.0`,
+  which is not the shape v0.3.0 wrote (`1c9cc83`).
 
 Nothing from the audit is left open. The legacy `src/core/` list differs only
 by `calendar.rs` (the GLib date formatter's month names, which `platform/date`
