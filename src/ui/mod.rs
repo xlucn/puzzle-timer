@@ -355,12 +355,26 @@ impl App {
         }
         self.placed_diagram.set(Some(placement));
 
-        self.lower_area.remove(&self.timer_view.widget);
-        self.lower_area.remove(&self.diagram_dock);
+        // Only a child still in the grid may be removed from it: the narrow
+        // short layout leaves the dock unparented, and asking the grid to
+        // remove it again trips gtk_grid_remove's assertion.
+        for child in [
+            self.timer_view.widget.clone().upcast::<gtk::Widget>(),
+            self.diagram_dock.clone().upcast(),
+        ] {
+            if child
+                .parent()
+                .is_some_and(|parent| parent == self.lower_area)
+            {
+                self.lower_area.remove(&child);
+            }
+        }
+        self.lower_area.set_row_spacing(0);
         if placement == DiagramPlacement::Wide {
             self.lower_area.attach(&self.timer_view.widget, 0, 0, 1, 1);
             self.lower_area.attach(&self.diagram_dock, 1, 0, 1, 1);
         } else if placement == DiagramPlacement::TallNarrow {
+            self.lower_area.set_row_spacing(8);
             self.lower_area.attach(&self.timer_view.widget, 0, 0, 1, 1);
             self.lower_area.attach(&self.diagram_dock, 0, 1, 1, 1);
         } else {
@@ -1298,11 +1312,7 @@ pub fn build_window(application: &adw::Application) {
         .build();
 
     // ---- lower area --------------------------------------------------------
-    let lower_area = gtk::Grid::builder()
-        .row_spacing(8)
-        .hexpand(true)
-        .vexpand(true)
-        .build();
+    let lower_area = gtk::Grid::builder().hexpand(true).vexpand(true).build();
     lower_area.attach(&timer_view.widget, 0, 0, 1, 1);
     let diagram_dock = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
