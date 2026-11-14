@@ -524,6 +524,8 @@ impl App {
         prompt_name(
             &self.window,
             &t0(MessageKey::SessionNew),
+            &t0(MessageKey::CommonCreate),
+            &t0(MessageKey::SessionNewDescription),
             "",
             validate,
             move |name| {
@@ -562,6 +564,8 @@ impl App {
         prompt_name(
             &self.window,
             &t0(MessageKey::SessionRename),
+            &t0(MessageKey::CommonRename),
+            "",
             current,
             validate,
             move |name| {

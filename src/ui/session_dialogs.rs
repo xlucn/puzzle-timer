@@ -25,111 +25,89 @@ fn name_error_message(error: NameError) -> String {
 }
 
 /// Ask for a session name. `validate` decides whether the typed value may be
-/// accepted, so the dialog and the library can never disagree.
+/// accepted, so the dialog and the library can never disagree; the body shows
+/// the dialog's own explanation until a validation message replaces it.
 pub fn prompt_name(
     parent: &impl IsA<gtk::Widget>,
     heading: &str,
+    accept_label: &str,
+    body: &str,
     initial: &str,
     validate: NameValidator,
     on_accept: impl Fn(String) + 'static,
 ) {
-    let dialog = adw::Dialog::builder()
-        .title(heading)
-        .content_width(360)
-        .build();
-
-    let header = adw::HeaderBar::new();
-    let cancel = gtk::Button::with_label(&t0(MessageKey::CommonCancel));
-    let accept = gtk::Button::builder()
-        .label(t0(MessageKey::CommonSave))
-        .css_classes(["suggested-action"])
-        .sensitive(false)
-        .build();
-    header.pack_start(&cancel);
-    header.pack_end(&accept);
-
     let entry = gtk::Entry::builder()
         .text(initial)
-        .max_length(MAX_NAME_LENGTH as i32)
+        .placeholder_text(t0(MessageKey::SessionName))
+        // Enter submits: activates the dialog's default response instead of
+        // needing a trip to the buttons.
         .activates_default(true)
-        .hexpand(true)
-        .build();
-    let error = gtk::Label::builder()
-        .xalign(0.0)
-        .wrap(true)
-        .css_classes(["caption", "error"])
-        .visible(false)
+        .max_length(MAX_NAME_LENGTH as i32)
         .build();
 
-    let content = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(8)
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
+    let dialog = adw::AlertDialog::builder()
+        .heading(heading)
+        .body(body)
+        .extra_child(&entry)
         .build();
-    content.append(&entry);
-    content.append(&error);
-
-    let toolbar = adw::ToolbarView::new();
-    toolbar.add_top_bar(&header);
-    toolbar.set_content(Some(&content));
-    dialog.set_child(Some(&toolbar));
+    dialog.add_response("cancel", &t0(MessageKey::CommonCancel));
+    dialog.add_response("accept", accept_label);
+    dialog.set_response_appearance("accept", adw::ResponseAppearance::Suggested);
+    dialog.set_default_response(Some("accept"));
+    dialog.set_close_response("cancel");
 
     // Show why a name is unusable while it is typed — the library's own rule,
     // so the dialog cannot enable a value the library would refuse.
-    {
-        let accept = accept.clone();
-        let error = error.clone();
-        entry.connect_changed(move |entry| match validate(entry.text().as_str()) {
+    let body = body.to_string();
+    let sync = {
+        let dialog = dialog.clone();
+        let entry = entry.clone();
+        move || match validate(entry.text().as_str()) {
             None => {
-                accept.set_sensitive(true);
-                error.set_visible(false);
+                dialog.set_response_enabled("accept", true);
+                dialog.set_body(&body);
             }
             Some(reason) => {
-                accept.set_sensitive(false);
-                error.set_label(&name_error_message(reason));
-                error.set_visible(true);
+                dialog.set_response_enabled("accept", false);
+                dialog.set_body(&name_error_message(reason));
             }
-        });
-    }
-
+        }
+    };
     {
-        let dialog = dialog.clone();
-        cancel.connect_clicked(move |_| {
-            dialog.close();
-        });
+        let sync = sync.clone();
+        entry.connect_changed(move |_| sync());
     }
+    // The starting value needs the same pass: a new session opens empty, and
+    // accepting that would ask the library for a name it refuses.
+    sync();
 
     let on_accept: Rc<dyn Fn(String)> = Rc::new(on_accept);
     {
-        let dialog = dialog.clone();
         let entry = entry.clone();
         let on_accept = Rc::clone(&on_accept);
-        accept.connect_clicked(move |_| {
-            on_accept(entry.text().to_string());
-            dialog.close();
+        dialog.connect_response(None, move |_, response| {
+            if response == "accept" {
+                on_accept(entry.text().to_string());
+            }
         });
     }
-    wire_entry_activate(&entry, &dialog, &on_accept);
 
     dialog.present(Some(parent));
-    entry.grab_focus();
-}
-
-/// Enter in the entry accepts, like the button.
-fn wire_entry_activate(entry: &gtk::Entry, dialog: &adw::Dialog, on_accept: &Rc<dyn Fn(String)>) {
-    let dialog = dialog.clone();
-    let entry = entry.clone();
-    let on_accept = Rc::clone(on_accept);
-    entry.connect_activate(move |entry| {
-        if entry.text().trim().is_empty() {
-            return;
+    // The default response button claims focus on map, so the caret would
+    // land on the button instead of in the entry. Take it back after GTK's
+    // own focus pass, with the current name selected so typing replaces it.
+    let claim = {
+        let entry = entry.clone();
+        let initial = !initial.is_empty();
+        move || {
+            entry.grab_focus();
+            if initial {
+                entry.select_region(0, -1);
+            }
         }
-        on_accept(entry.text().to_string());
-        dialog.close();
-    });
+    };
+    claim();
+    glib::idle_add_local_once(claim);
 }
 
 /// Confirm deleting a session; `on_accept` runs for the destructive response.
