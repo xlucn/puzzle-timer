@@ -1598,6 +1598,41 @@ Three parity checks are green as of 2026-11-12:
 - Keyboard checkpoints under Xephyr: a space-hold solve records with its
   scramble, and Ctrl+N/S/M/E/T/,/?/O/Shift+S and F2 all reach their dialogs.
 
+**Parity audit (2026-11-13 → 14):** every file in `legacy:src/ui/` was read
+beside its `src/ui/` counterpart, one at a time, plus the pieces of `main.ts`
+that build the shell. "Green" had only meant *the feature exists*; the audit
+asked whether it is the same widget doing the same thing. It mostly was — the
+scramble panel's ghost/pending/error rule, the options popover, the statistics
+page and its charts, the time formatter and the font-size provider already
+matched line for line — but eleven differences were real, and each is now a
+commit rather than a note:
+
+- the window used the *measured* content width on its first pass, so the timer
+  opened at the small size until the first resize (`ff9f2d5`), and the frame
+  clock ran whether or not anything was moving (`ff9f2d5`);
+- renaming a session and creating one had two different prompts; they are the
+  same dialog with the same validation (`db64eb9`);
+- the session manager did not follow a switch made in the sidebar (`4253b2b`),
+  and the shortcut list was grouped by module instead of by the original's
+  order (`ce0953b`);
+- the solve editor opened on Cancel's neighbour at 440 px with no suggested
+  action and stripped the catalogs' Alt+O/2/D mnemonics (`a0be680`);
+- one generic toast stood in for the three store notices, and a session file
+  that failed on first touch — not at startup — said nothing (`baa8352`);
+- the main menu had three sections, no Statistics, an unnamed About and a
+  static Fullscreen label (`f1a4438`);
+- the readout asked to expand past its text and scored the inspection
+  countdown on one state too many (`c38160f`);
+- the type picker was one flat searchable list rather than the original's
+  two-level `Adw.NavigationSplitView` + `Adw.Sidebar` with its 540 px
+  collapse (`40b75cb`);
+- a stored type id the catalogue does not know was adopted anyway (`ddceb71`);
+- the length spinner stepped by ten on PageUp/PageDown (`9fefe4d`).
+
+Nothing from the audit is left open. The legacy `src/core/` list differs only
+by `calendar.rs` (the GLib date formatter's month names, which `platform/date`
+owns) and by tests moving next to their modules.
+
 **Measured scaffold (2026-11-11):** `cargo build --release` gives a
 **614 KiB** `puzzle-timer` (415 KiB stripped); the sweep binary is 952 KiB
 (754 KiB stripped) and links `libjavascriptcoregtk-6.0.so.1`. The full
