@@ -37,7 +37,7 @@ fn length_title(kind: ScrambleLengthKind) -> MessageKey {
 
 impl ScrambleOptions {
     pub fn new(on_length: impl Fn(u32) + 'static, on_fast: impl Fn(bool) + 'static) -> Rc<Self> {
-        let adjustment = gtk::Adjustment::new(1.0, 1.0, MAX_LENGTH, 1.0, 10.0, 0.0);
+        let adjustment = gtk::Adjustment::new(1.0, 1.0, MAX_LENGTH, 1.0, 0.0, 0.0);
         let length = adw::SpinRow::new(Some(&adjustment), 1.0, 0);
         length.set_numeric(true);
         let fast = adw::SwitchRow::builder()
