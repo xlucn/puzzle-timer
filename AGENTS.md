@@ -111,8 +111,8 @@ src/
 
 - **JSC is the default; V8 is the alternative.** Keep the choice inside
   `src/scramble/` (`ScrambleEngine` + `DefaultEngine`), never in `core/` or
-  `ui/`. JSC's win is the small executable — measured 614 KiB release,
-  415 KiB stripped, with the engine in the system library. V8's win is
+  `ui/`. JSC's win is the small executable — measured 2,758,944 B release,
+  1,982,432 B stripped, with the engine in the system library. V8's win is
   independence from `webkitgtk-6.0`.
 - The bundle is Closure-compiled ES5 and needs the Node-ish shim documented in
   RUST-PORT.md §3: `global`, `process`, `require`, `module`, `console`, plus

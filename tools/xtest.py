@@ -8,7 +8,7 @@ painted needs screenshots. Neither can be done from inside the app itself.
 
 The app must be running on X11/XWayland, not native Wayland:
 
-    GDK_BACKEND=x11 npm start
+    GDK_BACKEND=x11 cargo run
 
 Two traps found the hard way during M0 (recorded in PLAN.md §5) and handled
 here:

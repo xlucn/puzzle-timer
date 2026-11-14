@@ -6,9 +6,10 @@ A speed cubing timer, mainly targeting Linux and designed for GNOME desktop and 
 It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
 types. The UI is also inspired by csTimer, but designed to blend in with GNOME's design language.
 
-This app is currently in early development. In this early stage, the code is in TypeScript and is written with the help of AI agents.
+This app is currently in early development, and the code is written with the help of AI agents.
 
-The code will be ported to Rust or vala before hitting stable.
+Since 0.4.0 it is in Rust; the TypeScript version it replaced is on the `legacy` branch.
+A Vala version is planned later as a comparison.
 
 ![Puzzle Timer's main window](docs/main-window.png)
 
@@ -60,18 +61,20 @@ Here is what is done by me, at the current stage:
 
 ## Install
 
-(Again, plan to port to rust or vala. Only then will it be packaged. Now, only source code is available.)
+There are no packages yet, so the app is built from source. You need a Rust toolchain, `pkg-config`, and the development packages for GTK 4.24, libadwaita 1.9 and JavaScriptCore 6:
 
-You need `nodejs`, and install `node-gtk`'s dependencies as instructed [here](https://github.com/romgrk/node-gtk/) (mostly gtk packages, you probably already had it if running GNOME).
+- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf`
+- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config`
+- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config`
 
-Then clone or download this repo, and install needed nodejs packages:
+Then clone or download this repo, and build it:
+
 ```sh
-npm install
+cargo build --release
+./target/release/puzzle-timer
 ```
-And, start the app:
-```sh
-npm start
-```
+
+[BUILD.md](./BUILD.md) covers tests, the scramble sweep and the UI harness.
 
 ## Credits
 

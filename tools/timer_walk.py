@@ -2,7 +2,7 @@
 """
 Walk the timer through all five states and screenshot each one.
 
-    GDK_BACKEND=x11 npm start      # terminal 1
+    GDK_BACKEND=x11 cargo run      # terminal 1
     python3 tools/timer_walk.py    # terminal 2
 
 Writes PNGs to a temp directory (--out to override) and prints what each one

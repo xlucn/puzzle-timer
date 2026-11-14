@@ -2,13 +2,12 @@
 
 Helpers for driving the running app on a nested X server. **These are not
 part of `cargo test`** — unit tests cover `src/core/`, these cover the GTK
-layer. The v0.3.0 node-gtk probe suite (`.mjs`) lives on branch `legacy`;
-its probes are being ported to Rust during M18.
+layer. The v0.3.0 node-gtk probe suite (`.mjs`) stays on branch `legacy`.
 
 | File | What it does |
 |---|---|
 | `xtest.py` | Library + CLI: focus a window, press/hold/tap keys, click (aimed, then verified with `pointer`), hold and drag the pointer (`down`/`up`/`drag`), screenshot (`shot`/`rootshot`), list windows (`wins`) |
-| `timer_walk.py` | Walks the v0.3.0 timer through its states and captures each one; re-port with the UI |
+| `timer_walk.py` | Walks the timer through its states and captures each one |
 | `rust-embed/` | **Research only, not a UI harness**: runs `cstimer_module` inside six Rust JS engines and diffs all 206 scrambles against Node. Findings in `../RUST-PORT.md`; `rust-embed/run.sh` runs the fast engines (~40 s), `SLOW=1` adds the two interpreters (~11 min). Needs a Rust toolchain, not GTK |
 
 ## Requirements
@@ -92,16 +91,15 @@ crash.
 
 ## Keyboard walk
 
-The Rust UI's accelerators arrive with the UI port. Until then, drive the
-app with `xtest.py` and check state from logs or the store; the v0.3.0
-keyboard walk (Ctrl+S session menu, Ctrl+T statistics, Ctrl+M sessions,
-Ctrl+comma preferences, F11 fullscreen, Ctrl+Q quit) is on the `legacy`
-branch and is the target to re-establish.
+Drive the app with `xtest.py` and check state from logs or the store. The
+accelerators worth walking are Ctrl+S (session menu), Ctrl+T (statistics),
+Ctrl+M (sessions), Ctrl+, (preferences), F11 (fullscreen) and Ctrl+Q
+(quit); the full list is in the app's shortcut dialog, opened with Ctrl+?.
 
 ## Recipes
 
 ```sh
-# all timer states (v0.3.0; re-port with the Rust timer)
+# all timer states
 GDK_BACKEND=x11 cargo run &
 python3 tools/timer_walk.py --out /tmp/shots
 

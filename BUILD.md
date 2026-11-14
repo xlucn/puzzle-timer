@@ -5,111 +5,92 @@ Everything here assumes a source checkout. For what the app *is*, see the
 
 ## Prerequisites
 
-GTK ≥ 4.22 and libadwaita, plus their GObject-Introspection data. node-gtk
-talks to the libraries you actually have installed; 4.22 is where GTK ships
-its own SVG renderer (`Gtk.Svg`), which draws the scramble diagrams (no
-librsvg needed).
+- **Rust 1.85 or newer** (the crate uses edition 2024).
+- **GTK 4.24 or newer** and **libadwaita 1.9 or newer**, plus their development
+  files. The scramble diagrams are drawn with GTK's own SVG renderer
+  (`Gtk.Svg`), so librsvg is not needed.
+- **JavaScriptCore 6**, the engine that runs the vendored scramble module. On
+  most distributions it is part of the WebKit package.
+- **pkg-config**, which the Rust bindings use to find the libraries above.
 
-- **Fedora:** `sudo dnf install gtk4-devel libadwaita-devel gobject-introspection-devel`
-- **Debian/Ubuntu:** `sudo apt install libgtk-4-dev libadwaita-1-dev gobject-introspection`
-- **Arch:** `sudo pacman -S gtk4 libadwaita gobject-introspection`
-- **macOS (Homebrew):** `brew install gtk4 libadwaita gobject-introspection` — untested; the app has only been run on Linux.
+- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf`
+- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config`
+- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config`
 
-The `-dev`/`-devel` packages also ship the `.gir` files used to embed GNOME's
-API documentation into the generated TypeScript types (shown on hover in your
-editor).
+The distribution packages must be new enough to carry GTK 4.24, libadwaita 1.9
+and JavaScriptCore 6. Older releases cannot build the app. It has only been
+run on Linux.
 
-You also need **Node.js ≥ 20.6** (for the `gi:` import hooks).
-
-## Fresh install
-
-`package.json` carries an `allowScripts` allowlist for `node-gtk` and
-`esbuild`. Without it npm blocks their install scripts: `npm install` dies in
-`postinstall` with `MODULE_NOT_FOUND .../node-gtk/lib/native.js` and the app
-cannot start. The entries are version-pinned, so after bumping either
-dependency re-approve them:
+## Build and run
 
 ```sh
-npm install-scripts approve node-gtk
-npm install-scripts approve esbuild
+cargo build              # debug build: target/debug/puzzle-timer
+cargo run                # build and start it
+cargo build --release    # optimised build: target/release/puzzle-timer
 ```
 
-If the install is already broken and you only want the native binding back:
+In a source checkout the app adds `data/icons` to the icon theme, so the
+bundled symbolic icons appear without installing anything. A packaged build
+picks them up from `/usr/share/icons` instead.
+
+## Tests and checks
 
 ```sh
-(cd node_modules/node-gtk && npx node-pre-gyp install --fallback-to-build)
-npm run generate-types
+cargo test                              # the pure core: no display needed
+cargo fmt --all -- --check              # formatting
+cargo clippy --all-targets -- -D warnings
 ```
+
+`src/core/` is pure Rust, so the timer, statistics, sessions, layout and
+scramble-feed tests need neither a display server nor the scramble engine.
+
+The scramble boundary has its own health check:
+
+```sh
+cargo run --bin scramble_sweep          # every type through the real engine
+```
+
+It reports how many of the 206 scramble types it generated, how many images it
+drew and how many failed; expect `OK=206 empty=0 images=177 failures=0`.
+`--dump` prints only the scramble lines, which is how the engine's output is
+compared against the Node reference (see [RUST-PORT.md](./RUST-PORT.md)).
+
+## UI checks
+
+Unit tests stop at the widget boundary. To drive the real window, run the app
+on a nested X server and send it keys: [tools/README.md](./tools/README.md)
+has the recipe, the scripts and the traps.
+
+```sh
+Xephyr :99 -screen 1280x800 -ac -br &
+setsid bash -c 'DISPLAY=:99 GDK_BACKEND=x11 cargo run > /tmp/puzzle-timer.log 2>&1' &
+DISPLAY=:99 python3 tools/xtest.py --window "Puzzle Timer" \
+  tap ctrl+q sleep 0.5
+```
+
+Synthetic input on the live Wayland session needs a portal approval, so the
+nested display is the supported way to script a run.
 
 ## How it works
 
-Namespaces are imported with the `gi:` scheme, and their default export is the
-namespace object:
+The window is built with `gtk4-rs` and `libadwaita`; `src/main.rs` only starts
+the application and loads the stylesheet. `style.css` is compiled into the
+binary, so a stylesheet change needs a rebuild.
 
-```ts
-import Gtk from 'gi:Gtk-4.0'
-import Adw from 'gi:Adw-1'
-```
+The scramble module is vendored as a JavaScript file and evaluated in
+JavaScriptCore on a dedicated thread. The UI sends it plain requests and
+receives plain results; a slow scramble therefore never blocks the window. The
+engine sits behind a small trait in `src/scramble/`, so the V8 backend
+described in [RUST-PORT.md](./RUST-PORT.md) can replace it without touching the
+rest of the app.
 
-For those imports to resolve, node-gtk's loader hooks must be installed, which is
-why the app is run with `node --import node-gtk/register`. The `dev`/`start`
-scripts already include this (along with `tsx`, which runs the TypeScript without
-a separate build step). node-gtk integrates the GTK main loop with Node's event
-loop automatically.
-
-## Scripts
-
-| command                  | what it does                                                       |
-| ------------------------ | ----------------------------------------------------------------- |
-| `npm run dev`            | Run with live CSS reload — edit `style.css`, the window restyles, no restart. |
-| `npm run dev:app-reload` | Like `dev`, but also restarts the app when you edit `src/` (`node --watch`). |
-| `npm start`              | Run once without building.                                        |
-| `npm test`               | Vitest over `src/core/` and `src/platform/` — no display needed. |
-| `npm run build`          | Type-check and compile `src/` to `dist/` with `tsc`.             |
-| `npm run typecheck`      | Type-check only, no output.                                       |
-| `npm run generate-types` | (Re)generate TypeScript types for the GI namespaces you use.      |
-
-## TypeScript types
-
-Types are generated **on your machine** from the GObject-Introspection typelibs
-you have installed, so they match your actual library versions and node-gtk's
-runtime shape (camelCase methods, typed signals, nullability, …). They live in
-`node_modules/.node-gtk-types/` (git-ignored) and `tsconfig.json` points at them.
-
-The `postinstall` script regenerates them automatically. If you start using
-another library, add it to the `generate-types` script in `package.json` and
-re-run it:
-
-```jsonc
-// package.json
-"generate-types": "node-gtk generate-types Gtk-4.0 Adw-1"
-```
-
-```sh
-npm run generate-types
-```
-
-## Testing
-
-- **Unit:** `npm test` — pure-logic tests only (timer state machine, stats
-  math, sessions, scramble feed, store), co-located as `*.test.ts` next to
-  their sources. No display server required.
-- **UI:** [`tools/`](./tools/README.md) — scripted key/click injection
-  (`xtest.py`), a five-state timer walkthrough (`timer_walk.py`) and probes.
-  Run the app on a nested X server (`Xephyr :99`) so synthetic input needs no
-  portal approval and screenshots stay observable — that README documents the
-  traps (stale `XGetImage` frames, duplicate instances, auto-repeat).
-- **Headless scramble check:** `node --import tsx tools/scramble_probe.ts
-  --quiet` generates all 206 scramble types through the real worker; expect
-  `206/206 types generated`.
-- **Icon check:** `node --import tsx --import node-gtk/register
-  tools/icon_probe.mjs` resolves both icon names through the theme; expect
-  `ALL PASS`.
+Foreign libraries are found through `pkg-config` at build time and linked at
+runtime. That is why a package has to depend on the WebKit/JavaScriptCore
+library even though the executable itself is small.
 
 ## Learn more
 
-- [node-gtk](https://github.com/romgrk/node-gtk) — the bindings
-- [Importing libraries](https://github.com/romgrk/node-gtk/blob/master/doc/importing.md) — the `gi:` scheme and ESM details
+- [gtk-rs](https://gtk-rs.org/) and [The gtk-rs book](https://gtk-rs.org/gtk4-rs/stable/latest/book/)
 - [GTK 4 API reference](https://docs.gtk.org/gtk4/)
 - [libadwaita API reference](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/)
 - [Adwaita style classes](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/style-classes.html)

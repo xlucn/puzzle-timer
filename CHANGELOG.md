@@ -7,6 +7,25 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-14
+
+Puzzle Timer is now written in Rust. It looks and works as before, and is
+compatible with the data files from 0.3.0. So migration is seamless.
+
+There are no packages yet, so 0.4.0 is built from source. Keep only one
+version open at a time, because 0.3.0 and 0.4.0 use the same data files.
+
+### Changed
+
+- The app no longer needs Node.js or npm. Scrambles come from the same csTimer
+  module, embedded in the JavaScriptCore library that WebKit already provides.
+- Building from source uses Cargo and a Rust toolchain instead of npm.
+
+### Project
+
+- The TypeScript version is frozen on branch `legacy`; `main` carries the Rust
+  port, with the same module boundaries, ported tests and data format.
+
 ## [0.3.0] — 2026-11-10
 
 This release adds scramble options, a language choice, data import and export, charts, and a session manager.
@@ -178,7 +197,8 @@ As of this release, the app is much more polished and usable.
 - GTK 4 + libadwaita through node-gtk, written in TypeScript.
 - Hold Space and release to start, press to stop. Microsecond precision.
 
-[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/xlucn/puzzle-timer/tree/v0.4.0
 [0.3.0]: https://github.com/xlucn/puzzle-timer/tree/v0.3.0
 [0.2.1]: https://github.com/xlucn/puzzle-timer/tree/v0.2.1
 [0.2.0]: https://github.com/xlucn/puzzle-timer/tree/v0.2.0

@@ -1638,9 +1638,11 @@ Nothing from the audit is left open. The legacy `src/core/` list differs only
 by `calendar.rs` (the GLib date formatter's month names, which `platform/date`
 owns) and by tests moving next to their modules.
 
-**Measured scaffold (2026-11-11):** `cargo build --release` gives a
-**614 KiB** `puzzle-timer` (415 KiB stripped); the sweep binary is 952 KiB
-(754 KiB stripped) and links `libjavascriptcoregtk-6.0.so.1`. The full
+**Measured build (2026-11-14, `2cdf1fc`):** a clean `cargo build --release`
+gives a **2,758,944 B** `puzzle-timer` (1,982,432 B stripped); the sweep
+binary is 1,064,488 B (819,288 B stripped) and links
+`libjavascriptcoregtk-6.0.so.1`. The earlier 614 KiB figure was the bare
+scaffold, before the UI was ported. The full
 206-type sweep through the Rust bridge reports `generated OK=206 empty=0
 images=177 failures=0 total=206`. The JSC library's 139 MiB installed
 dependency is the trade-off M16 must weigh against a static V8 build; that

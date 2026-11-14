@@ -36,8 +36,9 @@ reason *"awkward fit for the JS scramble module"*. Two questions follow:
 **Recommendation: embed, don't port.** Reserve porting for the case where
 shipping a JS engine is itself unacceptable (§6). **Adopted for M18:** the
 Rust app embeds the vendored bundle in **JavaScriptCore**, the engine that
-costs one system library and a small binary (614 KiB release, 415 KiB
-stripped). The earlier V8-direct recommendation is kept as the **alternative**
+costs one system library and a small binary (2,758,944 B release, 1,982,432 B
+stripped at 0.4.0; the 614 KiB scaffold figure predates the UI port). The
+earlier V8-direct recommendation is kept as the **alternative**
 when a self-contained engine is worth the larger build and dependency
 surface; the app's engine sits behind `src/scramble/`'s `ScrambleEngine`, so
 the swap is local.
