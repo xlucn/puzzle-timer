@@ -15,13 +15,37 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Duration;
+
+use gtk4::glib;
 
 use crate::core::preferences::Preferences;
 use crate::core::session::{Session, Solve};
 use crate::core::session_library::{SessionEntry, SessionLibrary};
-use crate::platform::store::Store;
+use crate::platform::store::{SAVE_DELAY_MS, Store};
 
 pub type SharedSession = Rc<RefCell<Session>>;
+
+/// The debounce clock's pending tick, shared with the save listeners.
+type SaveClock = Rc<RefCell<Option<glib::SourceId>>>;
+
+/// Arm the store's write clock unless it is already running. The bytes were
+/// serialised by `schedule_save`, so a later edit cannot change what is
+/// written; cancelling and re-arming would only postpone the flush.
+fn arm_save(store: &Rc<RefCell<Store>>, clock: &SaveClock) {
+    if clock.borrow().is_some() {
+        return;
+    }
+    let store = Rc::clone(store);
+    let fired = Rc::clone(clock);
+    let id = glib::timeout_add_local_once(Duration::from_millis(SAVE_DELAY_MS), move || {
+        // One shot: the tick is spent. Dropping the id, not removing it — a
+        // source that has already run cannot be removed.
+        *fired.borrow_mut() = None;
+        store.borrow_mut().flush();
+    });
+    *clock.borrow_mut() = Some(id);
+}
 
 /// Which source a store notice came from. Each has its own headline toast;
 /// the detail is for stderr and never shown.
@@ -49,6 +73,8 @@ pub struct AppState {
     /// Where later notices go — a session file is toasted the first time it
     /// is opened, which may be long after startup.
     notice_sink: RefCell<Option<NoticeSink>>,
+    /// The pending debounced write, if one is queued.
+    save_clock: SaveClock,
 }
 
 impl AppState {
@@ -85,6 +111,7 @@ impl AppState {
             preferences: RefCell::new(loaded.preferences),
             notices: RefCell::new(notices),
             notice_sink: RefCell::new(None),
+            save_clock: Rc::new(RefCell::new(None)),
         })
     }
 
@@ -142,9 +169,11 @@ impl AppState {
         let session = Rc::new(RefCell::new(Session::new(loaded.solves)));
 
         let store = Rc::clone(&self.store);
+        let clock = Rc::clone(&self.save_clock);
         let save_id = id.to_string();
         session.borrow_mut().subscribe(move |_change, solves| {
             store.borrow_mut().schedule_save(&save_id, solves);
+            arm_save(&store, &clock);
         });
 
         self.sessions
@@ -160,9 +189,11 @@ impl AppState {
     pub fn seed_session(&self, id: &str, solves: Vec<Solve>) {
         let session = Rc::new(RefCell::new(Session::new(solves)));
         let store = Rc::clone(&self.store);
+        let clock = Rc::clone(&self.save_clock);
         let save_id = id.to_string();
         session.borrow_mut().subscribe(move |_change, solves| {
             store.borrow_mut().schedule_save(&save_id, solves);
+            arm_save(&store, &clock);
         });
         self.sessions.borrow_mut().insert(id.to_string(), session);
     }
@@ -203,8 +234,12 @@ impl AppState {
         self.store.borrow_mut().drop_pending(id);
     }
 
-    /// Write everything that is waiting, e.g. on window close.
+    /// Write everything that is waiting, e.g. on window close. The pending
+    /// tick is dropped first: the clock has nothing left to do.
     pub fn flush(&self) {
+        if let Some(id) = self.save_clock.borrow_mut().take() {
+            id.remove();
+        }
         self.store.borrow_mut().flush();
     }
 
