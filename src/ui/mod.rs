@@ -68,6 +68,16 @@ fn command_mask() -> gtk::gdk::ModifierType {
         | gtk::gdk::ModifierType::SUPER_MASK
 }
 
+/// The fullscreen menu item reads as an action, not a state: it names what
+/// pressing it does.
+fn fullscreen_menu_label(window: &impl IsA<gtk::Window>) -> String {
+    if window.is_fullscreen() {
+        t0(MessageKey::MenuExitFullscreen)
+    } else {
+        t0(MessageKey::MenuFullscreen)
+    }
+}
+
 fn modifier_key(key: gtk::gdk::Key) -> bool {
     use gtk::gdk::Key;
     key == Key::Shift_L
@@ -1465,14 +1475,14 @@ pub fn build_window(application: &adw::Application) {
 
     // ---- app menu ----------------------------------------------------------
     {
-        let menu = gtk::gio::Menu::new();
-        let app_section = gtk::gio::Menu::new();
-        app_section.append(
-            Some(&t0(MessageKey::MenuFullscreen)),
-            Some("app.fullscreen"),
+        // Four sections (Statistics, Data, application actions, then window
+        // actions); a section boundary is what draws the separator, so
+        // Fullscreen and Quit sit apart at the end.
+        let statistics_section = gtk::gio::Menu::new();
+        statistics_section.append(
+            Some(&t0(MessageKey::MenuStatistics)),
+            Some("app.statistics"),
         );
-        app_section.append(Some(&t0(MessageKey::MenuQuit)), Some("app.quit"));
-        menu.append_section(None, &app_section);
 
         let data_section = gtk::gio::Menu::new();
         data_section.append(
@@ -1483,16 +1493,56 @@ pub fn build_window(application: &adw::Application) {
             Some(&t0(MessageKey::MenuExportData)),
             Some("app.export-data"),
         );
-        menu.append_section(None, &data_section);
 
-        let help_section = gtk::gio::Menu::new();
-        help_section.append(Some(&t0(MessageKey::MenuAbout)), Some("app.about"));
-        menu.append_section(None, &help_section);
+        let application_section = gtk::gio::Menu::new();
+        application_section.append(
+            Some(&t0(MessageKey::MenuPreferences)),
+            Some("app.preferences"),
+        );
+        application_section.append(Some(&t0(MessageKey::MenuShortcuts)), Some("app.shortcuts"));
+        application_section.append(
+            Some(&t(
+                MessageKey::MenuAbout,
+                &[("name", Param::Text(&t0(MessageKey::AppName)))],
+            )),
+            Some("app.about"),
+        );
+
+        let window_section = gtk::gio::Menu::new();
+        // The label is the only state indicator: a checkable item would make
+        // GTK reserve a check column on every row of the menu.
+        window_section.append(
+            Some(&fullscreen_menu_label(&window)),
+            Some("app.fullscreen"),
+        );
+        window_section.append(Some(&t0(MessageKey::MenuQuit)), Some("app.quit"));
+
+        let menu = gtk::gio::Menu::new();
+        menu.append_section(None, &statistics_section);
+        menu.append_section(None, &data_section);
+        menu.append_section(None, &application_section);
+        menu.append_section(None, &window_section);
+
+        // F11 toggles both ways, so leaving fullscreen never depends on
+        // reaching this menu from the fullscreen view; the label follows the
+        // window either way.
+        {
+            let window_section = window_section.clone();
+            window.connect_notify_local(Some("fullscreened"), move |window, _| {
+                window_section.remove(0);
+                window_section.insert(
+                    0,
+                    Some(&fullscreen_menu_label(window)),
+                    Some("app.fullscreen"),
+                );
+            });
+        }
 
         let menu_button = gtk::MenuButton::builder()
             .icon_name("open-menu-symbolic")
             .tooltip_text(t0(MessageKey::MenuMain))
             .menu_model(&menu)
+            .primary(true)
             .css_classes(["flat"])
             .build();
         // `pack_end` prepends: the end box then reads image → Cancel → menu,
