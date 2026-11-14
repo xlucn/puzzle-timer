@@ -23,14 +23,32 @@ use crate::platform::store::Store;
 
 pub type SharedSession = Rc<RefCell<Session>>;
 
+/// Which source a store notice came from. Each has its own headline toast;
+/// the detail is for stderr and never shown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoticeKind {
+    /// The session index could not be read, and was rebuilt from the files.
+    SessionList,
+    /// One session file could not be read; the store moved it aside.
+    SessionFile,
+    /// The preferences could not be read; defaults are in use.
+    Settings,
+}
+
+/// Where a notice goes once the window can toast it.
+pub type NoticeSink = Rc<dyn Fn(NoticeKind)>;
+
 pub struct AppState {
     /// The store, shared with every session's save listener.
     store: Rc<RefCell<Store>>,
     library: RefCell<SessionLibrary>,
     sessions: RefCell<HashMap<String, SharedSession>>,
     preferences: RefCell<Preferences>,
-    /// Notes from the store, drained by the window into toasts/stderr.
-    notices: RefCell<Vec<String>>,
+    /// Notes from before the window could toast, drained by it once it can.
+    notices: RefCell<Vec<NoticeKind>>,
+    /// Where later notices go — a session file is toasted the first time it
+    /// is opened, which may be long after startup.
+    notice_sink: RefCell<Option<NoticeSink>>,
 }
 
 impl AppState {
@@ -41,8 +59,9 @@ impl AppState {
 
         let index = store.borrow().load_index();
         let mut notices = Vec::new();
-        if let Some(notice) = index.notice {
-            notices.push(notice);
+        if let Some(detail) = index.notice {
+            eprintln!("[store] {detail}");
+            notices.push(NoticeKind::SessionList);
         }
         let library = SessionLibrary::new(index.sessions, index.active_id.as_deref());
         if index.rebuilt {
@@ -54,8 +73,9 @@ impl AppState {
         }
 
         let loaded = store.borrow().load_preferences();
-        if let Some(notice) = loaded.notice {
-            notices.push(notice);
+        if let Some(detail) = loaded.notice {
+            eprintln!("[store] {detail}");
+            notices.push(NoticeKind::Settings);
         }
 
         Rc::new(Self {
@@ -64,7 +84,24 @@ impl AppState {
             sessions: RefCell::new(HashMap::new()),
             preferences: RefCell::new(loaded.preferences),
             notices: RefCell::new(notices),
+            notice_sink: RefCell::new(None),
         })
+    }
+
+    /// Where notices go once the window exists. Anything the store reports
+    /// after this is delivered at once; the startup ones are already queued.
+    pub fn set_notice_sink(&self, sink: NoticeSink) {
+        *self.notice_sink.borrow_mut() = Some(sink);
+    }
+
+    /// Log a notice and hand it to the window, or queue it while there is no
+    /// window to toast in yet.
+    fn report(&self, kind: NoticeKind, detail: String) {
+        eprintln!("[store] {detail}");
+        match self.notice_sink.borrow().clone() {
+            Some(sink) => sink(kind),
+            None => self.notices.borrow_mut().push(kind),
+        }
     }
 
     pub fn store(&self) -> Rc<RefCell<Store>> {
@@ -99,8 +136,8 @@ impl AppState {
         }
 
         let loaded = self.store.borrow().load_session(id);
-        if let Some(notice) = loaded.notice {
-            self.notices.borrow_mut().push(notice);
+        if let Some(detail) = loaded.notice {
+            self.report(NoticeKind::SessionFile, detail);
         }
         let session = Rc::new(RefCell::new(Session::new(loaded.solves)));
 
@@ -171,8 +208,8 @@ impl AppState {
         self.store.borrow_mut().flush();
     }
 
-    /// Take the queued store notices.
-    pub fn take_notices(&self) -> Vec<String> {
+    /// Take the notices queued before the window was ready.
+    pub fn take_notices(&self) -> Vec<NoticeKind> {
         std::mem::take(&mut self.notices.borrow_mut())
     }
 }

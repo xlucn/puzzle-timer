@@ -49,7 +49,7 @@ use self::scramble_options::ScrambleOptions;
 use self::scramble_panel::ScramblePanel;
 use self::session_dialogs::prompt_name;
 use self::sidebar::SessionMenu;
-use self::state::AppState;
+use self::state::{AppState, NoticeKind};
 use self::stats_strip::StatsStrip;
 use self::timer_view::TimerView;
 use self::times_list::TimesList;
@@ -1048,16 +1048,27 @@ impl App {
         }
     }
 
+    /// Report the store's notices: each source has its own headline toast,
+    /// and the detail has already gone to stderr. The sink makes every later
+    /// one — a session file opened for the first time — toast when it happens.
     fn toast_notices(&self) {
-        let notices = self.state.take_notices();
-        if notices.is_empty() {
-            return;
+        let slot = self.slot.clone();
+        self.state.set_notice_sink(Rc::new(move |kind| {
+            with_app(&slot, |app| app.toast_notice(kind));
+        }));
+        for kind in self.state.take_notices() {
+            self.toast_notice(kind);
         }
-        for notice in &notices {
-            eprintln!("[store] {notice}");
-        }
-        self.toast_overlay
-            .add_toast(adw::Toast::new(&t0(MessageKey::ToastSessionFileUnreadable)));
+    }
+
+    fn toast_notice(&self, kind: NoticeKind) {
+        let key = match kind {
+            NoticeKind::SessionList => MessageKey::ToastSessionListUnreadable,
+            NoticeKind::SessionFile => MessageKey::ToastSessionFileUnreadable,
+            NoticeKind::Settings => MessageKey::ToastSettingsUnreadable,
+        };
+        let toast = adw::Toast::builder().title(t0(key)).timeout(10).build();
+        self.toast_overlay.add_toast(toast);
     }
 
     fn about(&self) {
