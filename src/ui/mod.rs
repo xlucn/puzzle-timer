@@ -179,6 +179,8 @@ struct App {
     pending_menu_popup: Cell<bool>,
     /// The 16 ms frame while the readout has something to animate.
     tick_source: RefCell<Option<glib::SourceId>>,
+    /// The session manager while it is open: Ctrl+M and the button toggle it.
+    manager_dialog: RefCell<Option<adw::Dialog>>,
 }
 
 impl App {
@@ -1404,6 +1406,7 @@ pub fn build_window(application: &adw::Application) {
         start_area_inset: Cell::new(-1),
         pending_menu_popup: Cell::new(false),
         tick_source: RefCell::new(None),
+        manager_dialog: RefCell::new(None),
     });
     *slot.borrow_mut() = Some(Rc::clone(&app));
 

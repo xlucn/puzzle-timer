@@ -25,14 +25,27 @@ const DROP_TARGET_CLASS: &str = "session-drop-target";
 /// The dialog's own rebuild, filled in after the closure exists.
 type RebuildSlot = Rc<std::cell::RefCell<Option<Rc<dyn Fn()>>>>;
 
+/// Open the manager, or close it when it is already up — the button and
+/// Ctrl+M are the same toggle.
 pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
+    if let Some(dialog) = app.manager_dialog.borrow_mut().take() {
+        dialog.close();
+        return;
+    }
+
     let dialog = adw::Dialog::builder()
         .title(t0(MessageKey::SessionManagerTitle))
         .content_width(420)
         .content_height(480)
+        .width_request(300)
+        .height_request(220)
         .build();
 
     let header = adw::HeaderBar::new();
+    header.set_title_widget(Some(&adw::WindowTitle::new(
+        &t0(MessageKey::SessionManagerTitle),
+        "",
+    )));
 
     let page = adw::PreferencesPage::new();
     let group = adw::PreferencesGroup::new();
@@ -75,24 +88,53 @@ pub fn open(parent: &impl IsA<gtk::Widget>, app: &App) {
     }
     header.pack_start(&new);
 
-    let close = gtk::Button::builder()
-        .icon_name("window-close-symbolic")
-        .tooltip_text(t0(MessageKey::CommonCancel))
-        .css_classes(["flat"])
-        .build();
-    {
-        let dialog = dialog.clone();
-        close.connect_clicked(move |_| {
-            dialog.close();
-        });
-    }
-    header.pack_end(&close);
-
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
     toolbar.set_content(Some(&page));
     dialog.set_child(Some(&toolbar));
 
+    // Every library change rebuilds the rows, coalesced into one idle pass: a
+    // change made while a row is handling a click must not rebuild that row
+    // underneath it. Switching lands here too, so the check mark follows.
+    let alive = Rc::new(std::cell::Cell::new(true));
+    let queued = Rc::new(std::cell::Cell::new(false));
+    let listener = {
+        let holder = Rc::clone(&holder);
+        let alive = Rc::clone(&alive);
+        let queued = Rc::clone(&queued);
+        app.state.with_library(|library| {
+            library.subscribe(move |_, _, _| {
+                if !alive.get() || queued.replace(true) {
+                    return;
+                }
+                let holder = Rc::clone(&holder);
+                let alive = Rc::clone(&alive);
+                let queued = Rc::clone(&queued);
+                glib::idle_add_local_once(move || {
+                    queued.set(false);
+                    if alive.get()
+                        && let Some(render) = holder.borrow().clone()
+                    {
+                        render();
+                    }
+                });
+            })
+        })
+    };
+    {
+        let state = Rc::clone(&app.state);
+        let alive = Rc::clone(&alive);
+        let slot = app.slot.clone();
+        dialog.connect_closed(move |_| {
+            alive.set(false);
+            state.with_library(|library| library.unsubscribe(listener));
+            slot.borrow_mut().as_ref().inspect(|app| {
+                app.manager_dialog.borrow_mut().take();
+            });
+        });
+    }
+
+    *app.manager_dialog.borrow_mut() = Some(dialog.clone());
     dialog.present(Some(parent));
 }
 
