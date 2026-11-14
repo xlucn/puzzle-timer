@@ -64,7 +64,6 @@ impl TimerView {
             .halign(gtk::Align::Center)
             .valign(gtk::Align::Center)
             .vexpand(true)
-            .hexpand(true)
             .build();
         widget.append(&label);
         widget.append(&hint);
@@ -102,10 +101,7 @@ impl TimerView {
     pub fn render(&self, snapshot: &TimerSnapshot) {
         let in_inspection = snapshot.state == TimerState::Inspecting
             || (snapshot.inspection_ms > 0.0
-                && matches!(
-                    snapshot.state,
-                    TimerState::Holding | TimerState::Ready | TimerState::InspectionReady
-                ));
+                && matches!(snapshot.state, TimerState::Holding | TimerState::Ready));
 
         let text = if in_inspection {
             format_inspection(snapshot.inspection_ms)
