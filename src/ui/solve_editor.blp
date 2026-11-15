@@ -1,0 +1,63 @@
+using Gtk 4.0;
+using Adw 1;
+
+// The shell of the solve editor: what is structural only. Every string comes
+// from the typed catalogs in `solve_editor.rs`, and the two rows that depend on
+// the solve (date, scramble) are inserted between the time and penalty rows at
+// open time.
+
+Adw.Dialog solve_editor {
+  content-width: 480;
+
+  Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Gtk.Button cancel {}
+
+      [end]
+      Gtk.Button save {
+        styles ["suggested-action", "text-button"]
+      }
+    }
+
+    Gtk.ScrolledWindow {
+      hscrollbar-policy: never;
+      propagate-natural-height: true;
+      vexpand: true;
+
+      Gtk.Box {
+        orientation: vertical;
+        margin-top: 6;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Gtk.ListBox rows {
+          selection-mode: none;
+          styles ["boxed-list"]
+
+          Adw.ActionRow time_row {
+            [suffix]
+            Gtk.Label time_label {
+              valign: center;
+              styles ["title-2", "numeric"]
+            }
+          }
+
+          Adw.ActionRow penalty_row {
+            [suffix]
+            Adw.ToggleGroup group {
+              valign: center;
+            }
+          }
+
+          Adw.EntryRow comment {}
+        }
+      }
+    }
+  }
+}
