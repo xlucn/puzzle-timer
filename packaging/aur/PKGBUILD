@@ -13,7 +13,7 @@
 # the target machine and quietly fall back to English.
 
 pkgname=puzzle-timer-git
-pkgver=0.4.0
+pkgver=0.4.0.r14.g2526067
 pkgrel=1
 pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer (development version)"
 arch=('x86_64')
@@ -33,14 +33,13 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "$pkgname"
-  # The version lives in Cargo.toml, which is the only place the app reads it
-  # from; the commit count keeps every build sorting above the previous one and
-  # the hash says which tree it is.
-  local version
-  version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
-  printf '%s.r%s.g%s\n' "$version" \
-    "$(git rev-list --count HEAD)" \
-    "$(git rev-parse --short=7 HEAD)"
+  # The tag carries a leading `v`, which pacman would sort below the bare
+  # number (`vercmp v0.4.0 0.4.0` is -1), so it is dropped before the
+  # `<tag>.r<count>.g<hash>` form is built. `--tags` keeps a lightweight tag
+  # working; the fallback covers a clone with no tags at all.
+  git describe --long --tags 2>/dev/null |
+    sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' ||
+    printf 'r%s.%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {

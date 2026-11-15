@@ -1447,10 +1447,13 @@ is reviewed with the code and copied to the AUR repository at submission. The
 AUR's own `.SRCINFO` is generated when it is needed
 (`makepkg --printsrcinfo > .SRCINFO`) and deliberately not tracked here.
 
-- `source=("$pkgname::git+$url.git#branch=main")`; `pkgver()` reads the
-  version from `Cargo.toml` — the one place the app itself reads it — and
-  appends `.r<commit count>.g<hash>`, so every build sorts above the last and
-  the package says which tree it came from.
+- `source=("$pkgname::git+$url.git#branch=main")`; `pkgver()` turns
+  `git describe --long --tags` into `<tag>.r<count>.g<hash>` — the usual VCS
+  form — and strips the tag's leading `v`, because pacman sorts
+  `v0.4.0.r14.g2526067` *below* `0.4.0` (`vercmp` gives -1) and an AUR helper
+  would then keep offering the same build as an update. The `r<count>` keeps
+  every commit sorting above the one before; the fallback covers a clone with
+  no tags.
 - `depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')` — the last one provides
   `libjavascriptcoregtk-6.0`. That is the price of embedding the scramble
   engine without shipping V8: **measured 138.6 MiB installed** on top of
@@ -1480,8 +1483,9 @@ AUR's own `.SRCINFO` is generated when it is needed
 
 **Measured 2026-11-16** (a -git build at `d745f10`, Arch's rust
 1.99.1/gtk4 4.24.1/libadwaita 1.10.0/webkitgtk-6.0 2.54.2): `pkgver`
-`0.4.0.r246.gd745f10`, a 1,971,360 B stripped binary and an 868 KiB
-`.pkg.tar.zst`, with `usr/bin/puzzle-timer`, the entry, the five icons and
+`0.4.0.r246.gd745f10` under the first `pkgver()` (commit count from the root),
+1,971,360 B stripped binary, 868 KiB `.pkg.tar.zst`, with
+`usr/bin/puzzle-timer`, the entry, the five icons and
 `usr/share/locale/zh_CN/LC_MESSAGES/puzzle-timer.mo`. The binary contains
 `/usr/share/locale` and no build directory. `namcap` reports only
 implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
@@ -1489,7 +1493,9 @@ hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
 `xprop` on the installed window gave
 `_GTK_APPLICATION_ID=io.github.xlucn.PuzzleTimer` and
 `WM_CLASS="puzzle-timer"`, which is the pair the entry name and
-`StartupWMClass` follow.
+`StartupWMClass` follow. The `git describe` form now in the file yields
+`0.4.0.r14.g2526067` at HEAD (`r14` counts commits since `v0.4.0`) and
+`vercmp` puts it one above `0.4.0`.
 
 **Checkpoint for the user:** build the recipe (with the GitHub source) and
 install it — `makepkg -si` in `packaging/aur`, after removing the earlier
