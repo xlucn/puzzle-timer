@@ -1406,7 +1406,7 @@ package.
 **Blockers, both deliberate:**
 
 - **M18 must reach parity first.** A package is the port's first release, not
-  a parallel product.
+  a parallel product. **Cleared 2026-11-14** (`v0.4.0`).
 - **The repo must be public at tag time.** `makepkg` fetches every `source=()`
   entry over plain HTTP, so `github.com/xlucn/puzzle-timer` as it stands is
   unbuildable for anyone without SSH keys. Make that call before submitting,
@@ -1489,7 +1489,12 @@ in general: an **aarch64 `apk`** for postmarketOS/Alpine (Nura edge).
 **Checkpoint for the user:** `apk add` the built package, launch from outside
 the source tree, and repeat the touch checklist.
 
-### M18 — scheduled (Rust port)
+### M18 — landed 2026-11-14 (Rust port, `v0.4.0`)
+
+Landed as `v0.4.0` on 2026-11-14: every exit criterion below was measured,
+the tag is cut, and `main` carries the Rust app. One post-release fix
+(`b9449f0`) puts touch back in charge of the timer whatever `mouseStart`
+says; the release candidate had tied both to the option.
 
 Opened 2026-11-10 by user call: **the node-gtk/TypeScript stage is temporary;
 the app is ported to Rust in `main`, and the v0.3.0 tree is frozen on branch
@@ -2306,13 +2311,13 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M18 (Rust port) is current — M12 landed 2026-11-10 and `v0.3.0` was cut
-  the same day.** The v0.3.0 tree is frozen on branch `legacy`; `main` is the
-  Rust port. The scramble type control carries the length, the pre-scramble
+- **M18 (Rust port) landed 2026-11-14 and `v0.4.0` was cut the same day;
+  M16 (AUR) is next.** The v0.3.0 tree is frozen on branch `legacy`; `main`
+  is the Rust port. The scramble type control carries the length, the pre-scramble
   (a preference through the module's `preScr` global) and the fast 4x4
   switch, the UI reads English or Chinese through typed catalogs, a csTimer
   file imports into sessions and exports back out, and Statistics has Summary
-  and Charts tabs. **The queue is M18 → M16 (AUR) → M17 (Alpine) → M19 (Vala
+  and Charts tabs. **The queue is M16 (AUR) → M17 (Alpine) → M19 (Vala
   comparison).** M13 is out of the queue: it landed 2026-10-22 as `v0.1.0`;
   M14 (touch input) joined it on 2026-10-23, M7 (size preferences) on
   2026-10-28, and M15 (phone verdict) on 2026-10-31.
