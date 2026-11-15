@@ -13,6 +13,7 @@ distilled from [PLAN.md](./PLAN.md), which remains the historical record
 | JavaScriptCore 6 | Runs the bundle from the system library, so the executable stays small; V8 is the documented alternative |
 | One scramble thread | One 4×4 WCA scramble takes about a second — it must never run on the UI thread |
 | `cargo test` over pure core modules | The timer state machine and the statistics math are testable without a display server |
+| `Meson` around Cargo | Installs the binary, the desktop file and the icons; Cargo keeps the dependencies, the features and the version |
 
 ## The boundary that shapes everything
 

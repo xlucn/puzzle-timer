@@ -12,6 +12,8 @@ Everything here assumes a source checkout. For what the app *is*, see the
 - **JavaScriptCore 6**, the engine that runs the vendored scramble module. On
   most distributions it is part of the WebKit package.
 - **pkg-config**, which the Rust bindings use to find the libraries above.
+- **Meson 1.1 or newer** and **Ninja**, only to install the app; `cargo build`
+  and `cargo run` do not need them.
 
 - **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf`
 - **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config`
@@ -32,6 +34,41 @@ cargo build --release    # optimised build: target/release/puzzle-timer
 In a source checkout the app adds `data/icons` to the icon theme, so the
 bundled symbolic icons appear without installing anything. A packaged build
 picks them up from `/usr/share/icons` instead.
+
+## Install with Meson
+
+Meson puts the binary, the launcher entry and the icons where the session looks
+for them; Cargo still compiles, and Meson only supplies the paths.
+
+```sh
+meson setup builddir --prefix=~/.local --buildtype=release
+meson install -C builddir
+```
+
+`~/.local/bin` has to be in `PATH`; `~/.local/share` already is. Leave out
+`--prefix` for the system default, or add `--destdir` to stage the files into a
+package root instead of the running system. Without `--buildtype=release` you
+get the debug profile, which is what a bare `meson setup builddir` builds.
+
+The install step is the only one that needs Meson, and it runs
+`cargo build --locked`, so `Cargo.lock` decides the dependency versions. The
+verification probe (`scramble_sweep`) stays a `cargo` target.
+
+### Uninstalling
+
+```sh
+ninja -C builddir uninstall
+```
+
+This reads the build directory's install log and deletes exactly the files the
+install step wrote, so it must be the same build directory that installed them;
+`meson compile` does not know the target, `ninja` does. The shared icon and
+desktop-database caches stay behind — they belong to the whole system, not to
+this app.
+
+Your solves, sessions and preferences are in `~/.local/share/puzzle-timer`
+(`$XDG_DATA_HOME/puzzle-timer`) and are left alone on purpose. Remove that
+directory only when you want the data gone too.
 
 ## Tests and checks
 
