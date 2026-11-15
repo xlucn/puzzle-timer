@@ -36,9 +36,12 @@ cutover and describe the Rust app; keep them in step by hand, not generated.
 6. **Data compatibility is not optional.** The Rust app uses the same XDG
    paths, JSON schema, atomic-write, quarantine and undo rules as v0.3.0. A
    user upgrading from `0.3.0` must keep every solve.
-7. **i18n is typed catalogs, not gettext.** `en` is the source of truth and
-   every other locale must be exhaustive, so a missing key is a compile
-   error, never a raw key on screen. No bare user-visible literals.
+7. **i18n is gettext over one English msgid table.** `src/locales/en.rs` is
+   the source of truth and its values *are* the msgids; `po/*.po` translate
+   them, `msgfmt` compiles them, and `tests/i18n_catalogs.rs` proves every key
+   is translated with its placeholders intact. gettext falls back to the
+   msgid, so a missing translation must fail a test, never reach the screen.
+   No bare user-visible literals.
 8. **One version, one place**: `Cargo.toml` via
    `env!("CARGO_PKG_VERSION")`; the About dialog parses its release notes from
    `CHANGELOG.md`.
@@ -129,8 +132,19 @@ src/
 
 ## i18n
 
-- Catalogs are Rust modules with an exhaustive key set; `en` is the source of
-  truth. Port the v0.3.0 keys and placeholders, not new wording.
+- `src/locales/en.rs` holds the English values and they are the msgids;
+  `po/*.po` translate them, and each `.po` header's `Plural-Forms` decides
+  which form a count takes. `tests/i18n_catalogs.rs` is the completeness
+  guarantee. Port the v0.3.0 keys and placeholders, not new wording.
+- `cargo run --bin i18n_pot` rewrites `po/puzzle-timer.pot` from `en.rs`;
+  `msgmerge --update po/<lang>.po po/puzzle-timer.pot` folds the result into a
+  translation. Never edit the English in a `.po`.
+- The lookup is `platform::i18n` (`setlocale`, `bindtextdomain`, `LANGUAGE`,
+  installed into `core::i18n`); `core` stays free of libc and `.mo` files.
+  `build.rs` compiles `po/*.po` into `OUT_DIR/locale`, Meson installs
+  `$localedir` and bakes it in — `msgfmt` is therefore a build prerequisite.
+- Two keys with the same English share one translation: gettext identifies a
+  message by its text. Disambiguating takes a `msgctxt`, not a second file.
 - `Adw.AboutDialog` release notes are an **AppStream description**: only
   `<p>`, `<ul>`/`<ol>` with `<li>`, `<em>`, `<code>`; an unknown element aborts
   the dialog. Escape user data.
@@ -173,6 +187,9 @@ src/
   `cargo build --locked --bin puzzle-timer`. `builddir/` is gitignored.
 - `cargo run --bin scramble_sweep` — all 206 types through the real JSC
   bridge; expect `206/206` and 177 images.
+- `cargo run --bin i18n_pot` — rewrite `po/puzzle-timer.pot` from the English
+  catalog after adding or rewording a string; then `msgmerge` it into each
+  `po/*.po`.
 - `tools/rust-embed/run.sh` — the engine research harness (Node, deno, V8,
   JSC, optionally QuickJS/boa/libnode). It is a probe, not a dependency.
 - Node/npm commands belong to the `legacy` branch only; don't add them back.

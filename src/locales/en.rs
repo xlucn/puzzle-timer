@@ -1,13 +1,18 @@
 //! English catalog: the source of truth for every user-visible string.
 //!
-//! Keys are dotted by area (`menu.*`, `prefs.*`, `stats.*`). A value is either
-//! plain text or a plural (`one`/`other`) resolved from the caller's `count`
-//! param ([`crate::core::i18n`]). Placeholders are `{name}` and are filled by
-//! `t(key, params)`.
+//! A value is either plain text or a plural (`one`/`other`) whose form comes
+//! from the caller's `count` param ([`crate::core::i18n`]). Placeholders are
+//! `{name}` and are filled by `t(key, params)`.
+//!
+//! This table is also the gettext msgid table: `cargo run --bin i18n_pot`
+//! writes `po/puzzle-timer.pot` from it, and `po/*.po` translate those exact
+//! strings. Two keys with the same English therefore share one translation —
+//! gettext identifies a message by its text, not by our key.
 //!
 //! Everything here is written for the user; timestamps stay numeric and are
 //! built in `src/core/time.rs`, not translated. The 206 scramble type names
-//! stay English on purpose; the 44 category names are translated below.
+//! stay English on purpose; the 44 category names are msgids too, translated
+//! in the same catalogs.
 
 use crate::core::i18n::{Message, MessageKey};
 
@@ -292,62 +297,3 @@ pub fn message(key: MessageKey) -> Message {
         }
     }
 }
-
-/// Scramble category names, keyed by the catalogue's own name.
-pub const GROUP_NAMES: &[(&str, &str)] = &[
-    ("WCA", "WCA"),
-    ("3x3x3", "3x3x3"),
-    ("3x3x3 CFOP", "3x3x3 CFOP"),
-    ("3x3x3 Roux", "3x3x3 Roux"),
-    ("3x3x3 Mehta", "3x3x3 Mehta"),
-    ("2x2x2", "2x2x2"),
-    ("4x4x4", "4x4x4"),
-    ("4x4x4 Yau/Hoya", "4x4x4 Yau/Hoya"),
-    ("5x5x5", "5x5x5"),
-    ("6x6x6", "6x6x6"),
-    ("7x7x7", "7x7x7"),
-    ("Clock", "Clock"),
-    ("Megaminx", "Megaminx"),
-    ("Pyraminx", "Pyraminx"),
-    ("Skewb", "Skewb"),
-    ("Square-1", "Square-1"),
-    (
-        "FTO (Face-Turning Octahedron)",
-        "FTO (Face-Turning Octahedron)",
-    ),
-    ("15 puzzle", "15 puzzle"),
-    ("8 puzzle", "8 puzzle"),
-    ("LxMxN", "LxMxN"),
-    ("Gear Cube", "Gear Cube"),
-    ("Kilominx", "Kilominx"),
-    ("Gigaminx", "Gigaminx"),
-    ("Crazy Puzzle", "Crazy Puzzle"),
-    ("Cmetrick", "Cmetrick"),
-    ("Helicopter Cube", "Helicopter Cube"),
-    ("Redi Cube", "Redi Cube"),
-    ("Dino Cube", "Dino Cube"),
-    ("Ivy cube", "Ivy cube"),
-    ("Master Pyraminx", "Master Pyraminx"),
-    ("Pyraminx Crystal", "Pyraminx Crystal"),
-    ("Siamese Cube", "Siamese Cube"),
-    ("Square", "Square"),
-    ("Super Floppy", "Super Floppy"),
-    ("UFO", "UFO"),
-    ("Icosahedron", "Icosahedron"),
-    ("3x3x3 subsets", "3x3x3 subsets"),
-    ("Bandaged Cube", "Bandaged Cube"),
-    ("Relays", "Relays"),
-    ("1x1x1", "1x1x1"),
-    ("-1x-1x-1", "-1x-1x-1"),
-    ("1x1x2", "1x1x2"),
-    ("LOL", "LOL"),
-    ("Derrick Eide", "Derrick Eide"),
-];
-
-/// The four higher classes the type picker's sidebar groups categories under.
-pub const SECTION_NAMES: &[(&str, &str)] = &[
-    ("WCA", "WCA"),
-    ("Other", "Other"),
-    ("Special", "Special"),
-    ("Jokes", "Jokes"),
-];

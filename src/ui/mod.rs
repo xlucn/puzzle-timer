@@ -59,7 +59,7 @@ use gtk4::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use crate::core::i18n::{MessageKey, Param, resolve_language, set_locale, t, t_group, t0};
+use crate::core::i18n::{MessageKey, Param, t, t_group, t0};
 use crate::core::layout::{
     BREAKPOINTS, ContentSize, DiagramPlacement, START_AREA_INSET_PX, SizeScales, layout_for,
 };

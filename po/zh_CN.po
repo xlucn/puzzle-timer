@@ -1,0 +1,1018 @@
+# Simplified Chinese translation for Puzzle Timer.
+#
+# The msgids are the English text in src/locales/en.rs, plus the scramble
+# group and section names from src/core/scramble_types.rs. This file is
+# distributed under the same licence as the package, GPL-3.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: puzzle-timer\n"
+"Language: zh_CN\n"
+"PO-Revision-Date: 2026-11-15 00:00+0800\n"
+"Last-Translator: Puzzle Timer contributors\n"
+"Language-Team: none\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/locales/en.rs:22
+msgid "Puzzle Timer"
+msgstr "Puzzle Timer"
+
+#: src/locales/en.rs:23
+msgid "A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\nScrambles are provided by the cstimer_module package, part of the csTimer project (GPL-3.0).\nWritten with the assistance of AI/LLM tools."
+msgstr "一款原生 GTK4 魔方速拧计时器，灵感来自csTimer。\n打乱由 csTimer 项目的 cstimer_module 提供（GPL-3.0）。\n开发过程中使用了 AI/LLM 工具辅助。"
+
+#: src/locales/en.rs:26
+msgid "Built with"
+msgstr "使用以下项目构建"
+
+#: src/locales/en.rs:27
+msgid "Cancel"
+msgstr "取消"
+
+#: src/locales/en.rs:28
+msgid "Create"
+msgstr "新建"
+
+#: src/locales/en.rs:29
+msgid "Delete"
+msgstr "删除"
+
+#: src/locales/en.rs:30
+msgid "Rename"
+msgstr "重命名"
+
+#: src/locales/en.rs:31
+msgid "Save"
+msgstr "保存"
+
+#: src/locales/en.rs:32
+msgid "Undo"
+msgstr "撤销"
+
+#: src/locales/en.rs:33
+msgid "Main menu"
+msgstr "主菜单"
+
+#: src/locales/en.rs:34
+#: src/locales/en.rs:184
+msgid "Statistics"
+msgstr "统计"
+
+#: src/locales/en.rs:35
+msgid "Fullscreen"
+msgstr "全屏"
+
+#: src/locales/en.rs:36
+msgid "Exit Fullscreen"
+msgstr "退出全屏"
+
+#: src/locales/en.rs:37
+#: src/locales/en.rs:87
+msgid "Preferences"
+msgstr "首选项"
+
+#: src/locales/en.rs:38
+#: src/locales/en.rs:260
+msgid "Keyboard Shortcuts"
+msgstr "键盘快捷键"
+
+#: src/locales/en.rs:39
+#: src/locales/en.rs:286
+msgid "Quit"
+msgstr "退出"
+
+#: src/locales/en.rs:40
+msgid "Cancel the inspection (Esc)"
+msgstr "中断观察（Esc）"
+
+#: src/locales/en.rs:41
+msgid "Show solve list"
+msgstr "显示成绩列表"
+
+#: src/locales/en.rs:42
+msgid "About {name}"
+msgstr "关于 {name}"
+
+#: src/locales/en.rs:43
+msgid "Import from csTimer…"
+msgstr "从 csTimer 导入…"
+
+#: src/locales/en.rs:44
+msgid "Export to csTimer…"
+msgstr "导出到 csTimer…"
+
+#: src/locales/en.rs:45
+msgid "Hold Space or touch to start"
+msgstr "按住空格或触摸屏幕开始"
+
+#: src/locales/en.rs:46
+msgid "Keep holding…"
+msgstr "继续按住…"
+
+#: src/locales/en.rs:47
+msgid "Release to start"
+msgstr "松开开始"
+
+#: src/locales/en.rs:48
+msgid "Release to inspect"
+msgstr "松开进入观察"
+
+#: src/locales/en.rs:49
+msgid "Inspection — Space starts, Esc cancels"
+msgstr "观察中 — 空格开始，Esc 取消"
+
+#: src/locales/en.rs:50
+msgid "Press any key or tap to stop"
+msgstr "按任意键或轻触停止"
+
+#: src/locales/en.rs:51
+msgid "Generating scramble…"
+msgstr "正在生成打乱…"
+
+#: src/locales/en.rs:52
+msgid "Scramble diagram"
+msgstr "打乱图案"
+
+#: src/locales/en.rs:53
+msgid "New scramble"
+msgstr "刷新打乱"
+
+#: src/locales/en.rs:54
+msgid "Copy the scramble (Ctrl+C)"
+msgstr "复制打乱（Ctrl+C）"
+
+#: src/locales/en.rs:55
+msgid "Scramble copied"
+msgstr "已复制打乱"
+
+#: src/locales/en.rs:56
+#: src/locales/en.rs:130
+msgid "Show the scramble image"
+msgstr "显示打乱图案"
+
+#: src/locales/en.rs:57
+msgid "Scramble type"
+msgstr "打乱类型"
+
+#: src/locales/en.rs:58
+msgid "Choose the scramble type"
+msgstr "选择打乱类型"
+
+#: src/locales/en.rs:59
+msgid "Scramble options"
+msgstr "打乱选项"
+
+#: src/locales/en.rs:60
+msgid "Category"
+msgstr "分类"
+
+#: src/locales/en.rs:61
+msgid "Fast scramble"
+msgstr "快速打乱"
+
+#: src/locales/en.rs:62
+#: src/locales/en.rs:127
+msgid "Moves"
+msgstr "步数"
+
+#: src/locales/en.rs:63
+msgid "Number of scrambles"
+msgstr "打乱数量"
+
+#: src/locales/en.rs:64
+msgid "Number of cubes"
+msgstr "魔方数量"
+
+#: src/locales/en.rs:65
+msgid "Scramble failed: {reason}"
+msgstr "打乱失败：{reason}"
+
+#: src/locales/en.rs:66
+#: src/locales/en.rs:287
+msgid "Import from csTimer"
+msgstr "从 csTimer 导入"
+
+#: src/locales/en.rs:67
+msgid "Import"
+msgstr "导入"
+
+#: src/locales/en.rs:68
+#: src/locales/en.rs:288
+msgid "Export to csTimer"
+msgstr "导出到 csTimer"
+
+#: src/locales/en.rs:69
+msgid "csTimer data"
+msgstr "csTimer 数据"
+
+#: src/locales/en.rs:70
+msgid "Export"
+msgstr "导出"
+
+#: src/locales/en.rs:71
+msgid "{count} session"
+msgid_plural "{count} sessions"
+msgstr[0] "{count} 个会话"
+
+#: src/locales/en.rs:75
+#: src/locales/en.rs:195
+msgid "{count} solve"
+msgid_plural "{count} solves"
+msgstr[0] "{count} 次成绩"
+
+#: src/locales/en.rs:79
+msgid "Imported {sessions}, {solves}."
+msgstr "已导入 {sessions}，共 {solves}。"
+
+#: src/locales/en.rs:80
+msgid "{count} warning — see the log"
+msgid_plural "{count} warnings — see the log"
+msgstr[0] "{count} 条警告 — 详见日志"
+
+#: src/locales/en.rs:84
+msgid "Import failed"
+msgstr "导入失败"
+
+#: src/locales/en.rs:85
+msgid "Exported to {name}"
+msgstr "已导出到 {name}"
+
+#: src/locales/en.rs:86
+msgid "Export failed"
+msgstr "导出失败"
+
+#: src/locales/en.rs:88
+#: src/locales/en.rs:114
+#: src/locales/en.rs:261
+msgid "Timer"
+msgstr "计时器"
+
+#: src/locales/en.rs:89
+msgid "Starting a solve"
+msgstr "开始一次复原"
+
+#: src/locales/en.rs:90
+msgid "WCA inspection"
+msgstr "WCA 观察"
+
+#: src/locales/en.rs:91
+msgid "Show a 15-second count down before the solve starts"
+msgstr "开始前显示 15 秒倒计时"
+
+#: src/locales/en.rs:94
+msgid "Inspection sound cues"
+msgstr "观察提示音"
+
+#: src/locales/en.rs:95
+msgid "If enabled, first beep at 8 s, second at 12 s"
+msgstr "启用后，第 8 秒响一声，第 12 秒响第二声"
+
+#: src/locales/en.rs:98
+msgid "Hold time"
+msgstr "按住时长阈值"
+
+#: src/locales/en.rs:99
+msgid "How long Space must be held to start the timer"
+msgstr "启动计时器需要按住空格的时间"
+
+#: src/locales/en.rs:102
+msgid "Mouse control"
+msgstr "鼠标控制"
+
+#: src/locales/en.rs:103
+msgid "Control the timer with the mouse"
+msgstr "通过鼠标点击控制计时器"
+
+#: src/locales/en.rs:104
+msgid "Appearance"
+msgstr "外观"
+
+#: src/locales/en.rs:105
+msgid "Colour scheme"
+msgstr "配色方案"
+
+#: src/locales/en.rs:106
+msgid "Theme"
+msgstr "主题"
+
+#: src/locales/en.rs:107
+#: src/locales/en.rs:133
+msgid "Follow system"
+msgstr "跟随系统"
+
+#: src/locales/en.rs:108
+msgid "Light"
+msgstr "浅色"
+
+#: src/locales/en.rs:109
+msgid "Dark"
+msgstr "深色"
+
+#: src/locales/en.rs:110
+msgid "Sizes"
+msgstr "尺寸"
+
+#: src/locales/en.rs:111
+msgid "Scale the timer, the scramble text and the image."
+msgstr "缩放计时器、打乱文本和图案。"
+
+#: src/locales/en.rs:115
+msgid "Size of the timer digits"
+msgstr "计时数字的大小"
+
+#: src/locales/en.rs:116
+msgid "Scramble text"
+msgstr "打乱文本"
+
+#: src/locales/en.rs:117
+msgid "Size of the scramble above the timer"
+msgstr "计时器上方打乱文字的大小"
+
+#: src/locales/en.rs:120
+msgid "Scramble image"
+msgstr "打乱图案"
+
+#: src/locales/en.rs:121
+msgid "Size of the scramble picture"
+msgstr "打乱图片的大小"
+
+#: src/locales/en.rs:122
+#: src/locales/en.rs:163
+#: src/locales/en.rs:262
+msgid "Scramble"
+msgstr "打乱"
+
+#: src/locales/en.rs:123
+msgid "Pre-scramble"
+msgstr "预打乱"
+
+#: src/locales/en.rs:124
+msgid "Moves applied to the scramble diagram, e.g. y or z2."
+msgstr "应用于打乱图案的步骤，例如 y 或 z2。"
+
+#: src/locales/en.rs:128
+msgid "Image"
+msgstr "图案"
+
+#: src/locales/en.rs:129
+msgid "Show the picture of the scramble."
+msgstr "显示打乱的图片。"
+
+#: src/locales/en.rs:131
+#: src/locales/en.rs:132
+msgid "Language"
+msgstr "语言"
+
+#: src/locales/en.rs:134
+msgid "English"
+msgstr "English"
+
+#: src/locales/en.rs:135
+msgid "中文"
+msgstr "中文"
+
+#: src/locales/en.rs:136
+msgid "Restart to apply the language"
+msgstr "重启以应用语言"
+
+#: src/locales/en.rs:137
+msgid "Session"
+msgstr "会话"
+
+#: src/locales/en.rs:138
+msgid "New session (Ctrl+N)"
+msgstr "新建会话（Ctrl+N）"
+
+#: src/locales/en.rs:139
+#: src/locales/en.rs:279
+msgid "New session"
+msgstr "新建会话"
+
+#: src/locales/en.rs:140
+msgid "Each session keeps its own list of solves."
+msgstr "每个会话保存自己的成绩列表。"
+
+#: src/locales/en.rs:143
+msgid "Session name"
+msgstr "会话名称"
+
+#: src/locales/en.rs:144
+#: src/locales/en.rs:159
+msgid "Rename session"
+msgstr "重命名会话"
+
+#: src/locales/en.rs:145
+msgid "Delete “{name}”?"
+msgstr "删除“{name}”？"
+
+#: src/locales/en.rs:146
+msgid "This cannot be undone."
+msgstr "此操作无法撤销。"
+
+#: src/locales/en.rs:147
+msgid "{count} solve will be removed. This cannot be undone."
+msgid_plural "{count} solves will be removed. This cannot be undone."
+msgstr[0] "{count} 条成绩将被删除。此操作无法撤销。"
+
+#: src/locales/en.rs:151
+msgid "Rename…"
+msgstr "重命名…"
+
+#: src/locales/en.rs:152
+msgid "Delete…"
+msgstr "删除…"
+
+#: src/locales/en.rs:153
+msgid "A session needs a name."
+msgstr "会话需要一个名称。"
+
+#: src/locales/en.rs:154
+msgid "Names are up to {count} characters."
+msgstr "名称最多 {count} 个字符。"
+
+#: src/locales/en.rs:155
+msgid "A session with that name already exists."
+msgstr "已存在同名会话。"
+
+#: src/locales/en.rs:156
+#: src/locales/en.rs:264
+msgid "Sessions"
+msgstr "会话"
+
+#: src/locales/en.rs:157
+msgid "Manage sessions"
+msgstr "管理会话"
+
+#: src/locales/en.rs:158
+msgid "Current session"
+msgstr "当前会话"
+
+#: src/locales/en.rs:160
+msgid "Delete session"
+msgstr "删除会话"
+
+#: src/locales/en.rs:161
+msgid "Drag to reorder"
+msgstr "拖动以排序"
+
+#: src/locales/en.rs:162
+msgid "Time"
+msgstr "时间"
+
+#: src/locales/en.rs:164
+msgid "Date"
+msgstr "日期"
+
+#: src/locales/en.rs:165
+#: src/locales/en.rs:193
+msgid "No solves yet"
+msgstr "还没有成绩"
+
+#: src/locales/en.rs:166
+msgid "Finish a solve and it will appear here."
+msgstr "完成一次复原后，成绩会显示在这里。"
+
+#: src/locales/en.rs:167
+msgid "Edit the selected solve — penalty and comment (Ctrl+E)"
+msgstr "编辑所选成绩 — 罚时和备注（Ctrl+E）"
+
+#: src/locales/en.rs:170
+msgid "Edit"
+msgstr "编辑"
+
+#: src/locales/en.rs:171
+msgid "Delete the selected solve(s) (Delete)"
+msgstr "删除所选成绩（Delete）"
+
+#: src/locales/en.rs:172
+#: src/locales/en.rs:269
+msgid "Copy the scramble"
+msgstr "复制打乱"
+
+#: src/locales/en.rs:173
+msgid "Copy the date"
+msgstr "复制日期"
+
+#: src/locales/en.rs:174
+msgid "Penalty"
+msgstr "罚时"
+
+#: src/locales/en.rs:175
+msgid "_OK"
+msgstr "_OK"
+
+#: src/locales/en.rs:176
+msgid "+_2"
+msgstr "+_2"
+
+#: src/locales/en.rs:177
+msgid "_DNF"
+msgstr "_DNF"
+
+#: src/locales/en.rs:178
+msgid "Comment"
+msgstr "备注"
+
+#: src/locales/en.rs:179
+msgid "Edit solve #{number}"
+msgstr "编辑成绩 #{number}"
+
+#: src/locales/en.rs:180
+msgid "{count} selected"
+msgid_plural "{count} selected"
+msgstr[0] "已选 {count} 条"
+
+#: src/locales/en.rs:185
+msgid "Single"
+msgstr "单次"
+
+#: src/locales/en.rs:186
+msgid "mo3"
+msgstr "mo3"
+
+#: src/locales/en.rs:187
+msgid "ao5"
+msgstr "ao5"
+
+#: src/locales/en.rs:188
+msgid "ao12"
+msgstr "ao12"
+
+#: src/locales/en.rs:189
+msgid "Any"
+msgstr "任意"
+
+#: src/locales/en.rs:190
+msgid "Current"
+msgstr "当前"
+
+#: src/locales/en.rs:191
+msgid "Best"
+msgstr "最佳"
+
+#: src/locales/en.rs:192
+msgid "Target"
+msgstr "目标"
+
+#: src/locales/en.rs:194
+msgid "Session mean"
+msgstr "会话平均"
+
+#: src/locales/en.rs:199
+msgid "{count} of {total} counted"
+msgstr "计入 {count}/{total}"
+
+#: src/locales/en.rs:200
+msgid "{count} DNF"
+msgid_plural "{count} DNFs"
+msgstr[0] "DNF {count} 次"
+
+#: src/locales/en.rs:204
+msgid "ao50"
+msgstr "ao50"
+
+#: src/locales/en.rs:205
+msgid "ao100"
+msgstr "ao100"
+
+#: src/locales/en.rs:206
+msgid "ao1000"
+msgstr "ao1000"
+
+#: src/locales/en.rs:207
+msgid "Spread"
+msgstr "离散"
+
+#: src/locales/en.rs:208
+msgid "Worst"
+msgstr "最慢"
+
+#: src/locales/en.rs:209
+msgid "Range"
+msgstr "极差"
+
+#: src/locales/en.rs:210
+msgid "σ"
+msgstr "σ"
+
+#: src/locales/en.rs:211
+msgid "Total time"
+msgstr "总用时"
+
+#: src/locales/en.rs:212
+msgid "Summary"
+msgstr "概览"
+
+#: src/locales/en.rs:213
+msgid "Charts"
+msgstr "图表"
+
+#: src/locales/en.rs:214
+msgid "Personal bests"
+msgstr "个人最佳"
+
+#: src/locales/en.rs:215
+msgid "Only improvements count. Each row shows when it was set and how long it stood."
+msgstr "个人记录历史，包括创造时间和保持时长。"
+
+#: src/locales/en.rs:218
+msgid "No record yet"
+msgstr "尚未产生纪录"
+
+#: src/locales/en.rs:219
+msgid "still standing"
+msgstr "仍在保持"
+
+#: src/locales/en.rs:220
+msgid "Set {date}"
+msgstr "创造于 {date}"
+
+#: src/locales/en.rs:221
+msgid "Set at #{number}"
+msgstr "创造于第 {number} 次"
+
+#: src/locales/en.rs:222
+msgid "held {count} day"
+msgid_plural "held {count} days"
+msgstr[0] "保持 {count} 天"
+
+#: src/locales/en.rs:226
+msgid "broken the same day"
+msgstr "当天即被刷新"
+
+#: src/locales/en.rs:227
+msgid "{count} older improvement not shown"
+msgid_plural "{count} older improvements not shown"
+msgstr[0] "另有 {count} 次更早的刷新未显示"
+
+#: src/locales/en.rs:231
+msgid "held {count} solve"
+msgid_plural "held {count} solves"
+msgstr[0] "保持 {count} 次成绩"
+
+#: src/locales/en.rs:235
+msgid "Solves"
+msgstr "成绩数"
+
+#: src/locales/en.rs:236
+msgid "Today"
+msgstr "今天"
+
+#: src/locales/en.rs:237
+msgid "Last 7 days"
+msgstr "最近 7 天"
+
+#: src/locales/en.rs:238
+msgid "Last 30 days"
+msgstr "最近 30 天"
+
+#: src/locales/en.rs:239
+msgid "{count} active day"
+msgid_plural "{count} active days"
+msgstr[0] "活跃 {count} 天"
+
+#: src/locales/en.rs:243
+msgid "Current streak"
+msgstr "当前连续"
+
+#: src/locales/en.rs:244
+msgid "Longest streak"
+msgstr "最长连续"
+
+#: src/locales/en.rs:245
+msgid "{count} day"
+msgid_plural "{count} days"
+msgstr[0] "{count} 天"
+
+#: src/locales/en.rs:249
+msgid "Active days"
+msgstr "活跃天数"
+
+#: src/locales/en.rs:250
+msgid "Solves per active day"
+msgstr "活跃日平均次数"
+
+#: src/locales/en.rs:251
+msgid "Best day"
+msgstr "最佳一天"
+
+#: src/locales/en.rs:252
+msgid "Solves without a date"
+msgstr "没有日期的成绩"
+
+#: src/locales/en.rs:253
+msgid "Time distribution"
+msgstr "时间分布"
+
+#: src/locales/en.rs:254
+msgid "Time trend"
+msgstr "时间趋势"
+
+#: src/locales/en.rs:255
+msgid "Overview"
+msgstr "概览"
+
+#: src/locales/en.rs:256
+msgid "Recent days"
+msgstr "最近几天"
+
+#: src/locales/en.rs:257
+msgid "Less"
+msgstr "少"
+
+#: src/locales/en.rs:258
+msgid "More"
+msgstr "多"
+
+#: src/locales/en.rs:259
+msgid "No solves"
+msgstr "没有成绩"
+
+#: src/locales/en.rs:263
+msgid "Solve list"
+msgstr "成绩列表"
+
+#: src/locales/en.rs:265
+msgid "General"
+msgstr "通用"
+
+#: src/locales/en.rs:266
+msgid "Data"
+msgstr "数据"
+
+#: src/locales/en.rs:267
+msgid "Start and stop the timer"
+msgstr "开始和停止计时器"
+
+#: src/locales/en.rs:268
+msgid "Cancel the inspection countdown"
+msgstr "取消观察倒计时"
+
+#: src/locales/en.rs:270
+msgid "Show or hide the sidebar"
+msgstr "显示或隐藏侧边栏"
+
+#: src/locales/en.rs:271
+msgid "Hide the drawer"
+msgstr "隐藏抽屉"
+
+#: src/locales/en.rs:272
+msgid "Delete the selected solves"
+msgstr "删除所选成绩"
+
+#: src/locales/en.rs:273
+msgid "Clear the penalty of the newest solve"
+msgstr "清除最新成绩的罚时"
+
+#: src/locales/en.rs:274
+msgid "Give the newest solve +2"
+msgstr "给最新成绩 +2"
+
+#: src/locales/en.rs:275
+msgid "Mark the newest solve DNF"
+msgstr "将最新成绩标记为 DNF"
+
+#: src/locales/en.rs:276
+msgid "Edit the selected (or newest) solve"
+msgstr "编辑所选（或最新）成绩"
+
+#: src/locales/en.rs:277
+msgid "Open the session menu"
+msgstr "打开会话菜单"
+
+#: src/locales/en.rs:278
+msgid "Session manager"
+msgstr "会话管理器"
+
+#: src/locales/en.rs:280
+msgid "Rename the active session"
+msgstr "重命名当前会话"
+
+#: src/locales/en.rs:281
+msgid "Delete the active session"
+msgstr "删除当前会话"
+
+#: src/locales/en.rs:282
+msgid "Open the statistics dialog"
+msgstr "打开统计对话框"
+
+#: src/locales/en.rs:283
+msgid "Open the keyboard reference"
+msgstr "打开键盘快捷键参考"
+
+#: src/locales/en.rs:284
+msgid "Open preferences"
+msgstr "打开首选项"
+
+#: src/locales/en.rs:285
+msgid "Toggle fullscreen"
+msgstr "切换全屏"
+
+#: src/locales/en.rs:289
+msgid "Solve deleted"
+msgid_plural "{count} solves deleted"
+msgstr[0] "已删除 {count} 条成绩"
+
+#: src/locales/en.rs:293
+msgid "Session file could not be read"
+msgstr "无法读取成绩文件"
+
+#: src/locales/en.rs:294
+msgid "Session list could not be read"
+msgstr "无法读取成绩列表"
+
+#: src/locales/en.rs:295
+msgid "Settings could not be read — defaults are in use"
+msgstr "无法读取设置 — 正在使用默认值"
+
+#: src/core/scramble_types.rs
+#: src/core/scramble_types.rs
+msgid "WCA"
+msgstr "WCA"
+
+#: src/core/scramble_types.rs
+msgid "3x3x3"
+msgstr "3阶"
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 CFOP"
+msgstr "3阶 CFOP"
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 Roux"
+msgstr "3阶 Roux"
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 Mehta"
+msgstr "3阶 Mehta"
+
+#: src/core/scramble_types.rs
+msgid "2x2x2"
+msgstr "2阶"
+
+#: src/core/scramble_types.rs
+msgid "4x4x4"
+msgstr "4阶"
+
+#: src/core/scramble_types.rs
+msgid "4x4x4 Yau/Hoya"
+msgstr "4阶 Yau/Hoya"
+
+#: src/core/scramble_types.rs
+msgid "5x5x5"
+msgstr "5阶"
+
+#: src/core/scramble_types.rs
+msgid "6x6x6"
+msgstr "6阶"
+
+#: src/core/scramble_types.rs
+msgid "7x7x7"
+msgstr "7阶"
+
+#: src/core/scramble_types.rs
+msgid "Clock"
+msgstr "时钟"
+
+#: src/core/scramble_types.rs
+msgid "Megaminx"
+msgstr "五魔方"
+
+#: src/core/scramble_types.rs
+msgid "Pyraminx"
+msgstr "金字塔"
+
+#: src/core/scramble_types.rs
+msgid "Skewb"
+msgstr "斜转"
+
+#: src/core/scramble_types.rs
+msgid "Square-1"
+msgstr "SQ1"
+
+#: src/core/scramble_types.rs
+msgid "FTO (Face-Turning Octahedron)"
+msgstr "FTO（转面八面体）"
+
+#: src/core/scramble_types.rs
+msgid "15 puzzle"
+msgstr "15 滑块"
+
+#: src/core/scramble_types.rs
+msgid "8 puzzle"
+msgstr "8 滑块"
+
+#: src/core/scramble_types.rs
+msgid "LxMxN"
+msgstr "LxMxN"
+
+#: src/core/scramble_types.rs
+msgid "Gear Cube"
+msgstr "齿轮魔方"
+
+#: src/core/scramble_types.rs
+msgid "Kilominx"
+msgstr "Kilominx"
+
+#: src/core/scramble_types.rs
+msgid "Gigaminx"
+msgstr "Gigaminx"
+
+#: src/core/scramble_types.rs
+msgid "Crazy Puzzle"
+msgstr "疯狂魔方"
+
+#: src/core/scramble_types.rs
+msgid "Cmetrick"
+msgstr "Cmetrick"
+
+#: src/core/scramble_types.rs
+msgid "Helicopter Cube"
+msgstr "直升机魔方"
+
+#: src/core/scramble_types.rs
+msgid "Redi Cube"
+msgstr "Redi 魔方"
+
+#: src/core/scramble_types.rs
+msgid "Dino Cube"
+msgstr "恐龙魔方"
+
+#: src/core/scramble_types.rs
+msgid "Ivy cube"
+msgstr "常春藤魔方"
+
+#: src/core/scramble_types.rs
+msgid "Master Pyraminx"
+msgstr "大师金字塔"
+
+#: src/core/scramble_types.rs
+msgid "Pyraminx Crystal"
+msgstr "水晶金字塔"
+
+#: src/core/scramble_types.rs
+msgid "Siamese Cube"
+msgstr "连体魔方"
+
+#: src/core/scramble_types.rs
+msgid "Square"
+msgstr "Square"
+
+#: src/core/scramble_types.rs
+msgid "Super Floppy"
+msgstr "超级 Floppy"
+
+#: src/core/scramble_types.rs
+msgid "UFO"
+msgstr "UFO"
+
+#: src/core/scramble_types.rs
+msgid "Icosahedron"
+msgstr "二十面体"
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 subsets"
+msgstr "3x3x3 子集"
+
+#: src/core/scramble_types.rs
+msgid "Bandaged Cube"
+msgstr "捆绑魔方"
+
+#: src/core/scramble_types.rs
+msgid "Relays"
+msgstr "接力"
+
+#: src/core/scramble_types.rs
+msgid "1x1x1"
+msgstr "1x1x1"
+
+#: src/core/scramble_types.rs
+msgid "-1x-1x-1"
+msgstr "-1x-1x-1"
+
+#: src/core/scramble_types.rs
+msgid "1x1x2"
+msgstr "1x1x2"
+
+#: src/core/scramble_types.rs
+msgid "LOL"
+msgstr "LOL"
+
+#: src/core/scramble_types.rs
+msgid "Derrick Eide"
+msgstr "Derrick Eide"
+
+#: src/core/scramble_types.rs
+msgid "Other"
+msgstr "其他"
+
+#: src/core/scramble_types.rs
+msgid "Special"
+msgstr "训练"
+
+#: src/core/scramble_types.rs
+msgid "Jokes"
+msgstr "玩笑"
+

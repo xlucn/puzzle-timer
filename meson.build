@@ -19,8 +19,10 @@ gnome = import('gnome')
 
 bindir = get_option('prefix') / get_option('bindir')
 datadir = get_option('prefix') / get_option('datadir')
+localedir = get_option('prefix') / get_option('localedir')
 
 subdir('data')
+subdir('po')
 subdir('src')
 
 # The icon cache and the desktop database are what make the launcher entry and

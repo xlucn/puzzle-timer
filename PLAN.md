@@ -72,11 +72,11 @@ packaging the temporary Node runtime was only ever a stopgap.
   would take an upstream change or a re-implementation of the case-filter
   tables. Independent of every other milestone; evidence and design calls in
   §6.
-- **M9 — i18n (landed 2026-11-06).** A `t()` over typed catalogs
-  (`src/locales/en.ts` is the source of truth, `zh-CN.ts` is
-  `Record<keyof typeof en, …>` so the compiler lists every missing
-  translation), a `language` preference (`system | en | zh-CN`, restart to
-  apply), and `Intl` for dates and counts.
+- **M9 — i18n (landed 2026-11-06, gettext since 2026-11-15).** A `t()` over
+  gettext catalogs: `src/locales/en.rs` is the source of truth and its values
+  are the msgids, `po/*.po` translate them, and a test proves completeness.
+  A `language` preference (`system | en | zh-CN`, restart to apply); counts
+  take the form the `.po` header's plural rule asks for.
 - **M10 — csTimer-compatible import/export (landed 2026-11-06).** One JSON
   codec, both directions (was "dropped as not needed" on 2026-09-30;
   reinstated by decision 2026-10-05). Format evidence in §5, decisions 11–12
@@ -297,19 +297,24 @@ src/
     doing it; `stringExpression.ts` stays for the searchable dropdowns
     (shrink_demo A/A2).
 
-11. **i18n — catalogs are TypeScript modules, not JSON files.**
-    `src/locales/en.ts` exports the message table `as const`; every other
-    locale is typed `Record<keyof typeof en, Message>`, so an untranslated or
-    misspelled key is a **compile error** rather than a raw key rendered in
-    the UI. It also keeps `src/core/` pure (rule 1): no `fs`, no JSON loader,
-    and `t()` is unit-testable by setting the locale and asserting. Plurals
-    go through `Intl.PluralRules` (`one`/`other` for English, `other` only for
-    Chinese). The runtime is a module-level locale plus `t(key, params?)` in
-    `src/core/i18n.ts` — deliberately *not* a translator object threaded
-    through every widget factory, which would touch every call site for no
-    testability gain. The language lives in `Preferences` and applies at
-    **startup**: headers and menus are built once, so changing it shows a
-    "restart to apply" toast instead of a live re-render.
+11. **i18n — gettext over one English msgid table.**
+    `src/locales/en.rs` exports the message table, and those values *are* the
+    msgids: `po/*.po` translate them, `msgfmt` compiles them, `build.rs` runs
+    it during `cargo build`. The lookup is installed into `src/core/i18n.rs`
+    from `src/platform/i18n.rs` (`setlocale`, `bindtextdomain`, `LANGUAGE`),
+    so `core/` stays pure (rule 1): no libc, no `.mo`, and `t()` is
+    unit-testable with a stand-in lookup. Completeness moves from the compiler
+    to `tests/i18n_catalogs.rs` — every key translated, no placeholder lost,
+    template in step — because gettext's fallback to the msgid would otherwise
+    ship English. Each `.po` header's `Plural-Forms` decides the form of a
+    count, which hand-written plural matches cannot do for a language with
+    more than two. The runtime is still a module-level lookup plus
+    `t(key, params)`, deliberately *not* a translator object threaded through
+    every widget factory (that would touch every call site for no testability
+    gain). The language lives in `Preferences` and applies at **startup**:
+    headers and menus are built once, so changing it shows a "restart to
+    apply" toast instead of a live re-render. English duplicates share a
+    translation — gettext identifies a message by its text, not by our key.
 
 12. **csTimer file compatibility — a pure codec, and what the export must
     contain.** Parsing and serialising live in `src/core/csTimerFormat.ts`
@@ -1258,6 +1263,20 @@ sections are translated, the ~209 type names stay English.
 `tools/i18n_probe.mjs` builds the timer, Preferences and the shortcuts dialog
 under `zh-CN` and reads the labels back from the widget tree.
 
+**Migrated to gettext 2026-11-15.** The typed Rust catalogs were correct for
+two languages and wrong for the third: adding one meant porting the whole
+table, and `one`/`other` was all any plural could be. `src/locales/en.rs` is
+now the msgid table, `po/zh_CN.po` carries the Chinese, and the `.po`
+header's `Plural-Forms` picks the form — so Polish or Russian would be a
+`.po`, not a `match`. `tests/i18n_catalogs.rs` replaces the compiler's
+exhaustiveness check: every key translated, no placeholder lost, template in
+step with `en.rs`. `cargo run --bin i18n_pot` writes
+`po/puzzle-timer.pot`; `msgmerge` folds it into each translation. Costs: one
+build prerequisite (`msgfmt`), one new module (`src/platform/i18n.rs`, which
+owns `setlocale`/`bindtextdomain`/`LANGUAGE` so `core/` stays pure), and the
+loss of per-key translations for identical English — `Sessions`, `Moves`
+and `{count} solve` each folded to the one reading that fits both uses.
+
 **Checkpoint for the user:** switch Language to 中文, restart, read back the
 sidebar app menu, the app-functions menu, Preferences and Statistics.
 
@@ -1522,7 +1541,7 @@ own comparison milestone (M19) rather than a coin flip now.
 | core | pure Rust modules, no GTK/JSC/IO; `cargo test` |
 | persistence | `serde_json` + the existing atomic-write rules and XDG paths |
 | CSPRNG | OS entropy (`getrandom` or `/dev/urandom`) |
-| i18n | typed Rust catalogs (the TS `Record<keyof en, Message>` guarantee ported; no gettext) |
+| i18n | gettext: English msgids in `src/locales/en.rs`, `po/*.po` catalogs, `msgfmt` at build time |
 | charts | `gtk4::DrawingArea` + `cairo` |
 | audio | spawn the same `pw-play`/`paplay`/gst/`aplay` fallback |
 | build | Cargo; one binary plus `data/` (desktop file and icons); the stylesheet and changelog are embedded |

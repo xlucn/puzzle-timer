@@ -1,0 +1,4 @@
+# The text domain is `puzzle-timer`, which is why `po/meson.build` installs
+# each catalog as `puzzle-timer.mo`; the source `LINGUAS` is also what
+# `build.rs` walks for a plain `cargo build`.
+zh_CN

@@ -1,0 +1,1026 @@
+# The message template for Puzzle Timer.
+#
+# Generated from the English catalog: `cargo run --bin i18n_pot`.
+# Edit the English values in src/locales/en.rs, not this file, and merge the
+# result into a translation with
+# `msgmerge --update po/<language>.po po/puzzle-timer.pot`.
+msgid ""
+msgstr ""
+"Project-Id-Version: puzzle-timer\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/locales/en.rs:22
+msgid "Puzzle Timer"
+msgstr ""
+
+#: src/locales/en.rs:23
+msgid "A native GTK4 speedcubing timer, inspired by csTimer by Shuang Chen.\nScrambles are provided by the cstimer_module package, part of the csTimer project (GPL-3.0).\nWritten with the assistance of AI/LLM tools."
+msgstr ""
+
+#: src/locales/en.rs:26
+msgid "Built with"
+msgstr ""
+
+#: src/locales/en.rs:27
+msgid "Cancel"
+msgstr ""
+
+#: src/locales/en.rs:28
+msgid "Create"
+msgstr ""
+
+#: src/locales/en.rs:29
+msgid "Delete"
+msgstr ""
+
+#: src/locales/en.rs:30
+msgid "Rename"
+msgstr ""
+
+#: src/locales/en.rs:31
+msgid "Save"
+msgstr ""
+
+#: src/locales/en.rs:32
+msgid "Undo"
+msgstr ""
+
+#: src/locales/en.rs:33
+msgid "Main menu"
+msgstr ""
+
+#: src/locales/en.rs:34
+#: src/locales/en.rs:184
+msgid "Statistics"
+msgstr ""
+
+#: src/locales/en.rs:35
+msgid "Fullscreen"
+msgstr ""
+
+#: src/locales/en.rs:36
+msgid "Exit Fullscreen"
+msgstr ""
+
+#: src/locales/en.rs:37
+#: src/locales/en.rs:87
+msgid "Preferences"
+msgstr ""
+
+#: src/locales/en.rs:38
+#: src/locales/en.rs:260
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: src/locales/en.rs:39
+#: src/locales/en.rs:286
+msgid "Quit"
+msgstr ""
+
+#: src/locales/en.rs:40
+msgid "Cancel the inspection (Esc)"
+msgstr ""
+
+#: src/locales/en.rs:41
+msgid "Show solve list"
+msgstr ""
+
+#: src/locales/en.rs:42
+msgid "About {name}"
+msgstr ""
+
+#: src/locales/en.rs:43
+msgid "Import from csTimer…"
+msgstr ""
+
+#: src/locales/en.rs:44
+msgid "Export to csTimer…"
+msgstr ""
+
+#: src/locales/en.rs:45
+msgid "Hold Space or touch to start"
+msgstr ""
+
+#: src/locales/en.rs:46
+msgid "Keep holding…"
+msgstr ""
+
+#: src/locales/en.rs:47
+msgid "Release to start"
+msgstr ""
+
+#: src/locales/en.rs:48
+msgid "Release to inspect"
+msgstr ""
+
+#: src/locales/en.rs:49
+msgid "Inspection — Space starts, Esc cancels"
+msgstr ""
+
+#: src/locales/en.rs:50
+msgid "Press any key or tap to stop"
+msgstr ""
+
+#: src/locales/en.rs:51
+msgid "Generating scramble…"
+msgstr ""
+
+#: src/locales/en.rs:52
+msgid "Scramble diagram"
+msgstr ""
+
+#: src/locales/en.rs:53
+msgid "New scramble"
+msgstr ""
+
+#: src/locales/en.rs:54
+msgid "Copy the scramble (Ctrl+C)"
+msgstr ""
+
+#: src/locales/en.rs:55
+msgid "Scramble copied"
+msgstr ""
+
+#: src/locales/en.rs:56
+#: src/locales/en.rs:130
+msgid "Show the scramble image"
+msgstr ""
+
+#: src/locales/en.rs:57
+msgid "Scramble type"
+msgstr ""
+
+#: src/locales/en.rs:58
+msgid "Choose the scramble type"
+msgstr ""
+
+#: src/locales/en.rs:59
+msgid "Scramble options"
+msgstr ""
+
+#: src/locales/en.rs:60
+msgid "Category"
+msgstr ""
+
+#: src/locales/en.rs:61
+msgid "Fast scramble"
+msgstr ""
+
+#: src/locales/en.rs:62
+#: src/locales/en.rs:127
+msgid "Moves"
+msgstr ""
+
+#: src/locales/en.rs:63
+msgid "Number of scrambles"
+msgstr ""
+
+#: src/locales/en.rs:64
+msgid "Number of cubes"
+msgstr ""
+
+#: src/locales/en.rs:65
+msgid "Scramble failed: {reason}"
+msgstr ""
+
+#: src/locales/en.rs:66
+#: src/locales/en.rs:287
+msgid "Import from csTimer"
+msgstr ""
+
+#: src/locales/en.rs:67
+msgid "Import"
+msgstr ""
+
+#: src/locales/en.rs:68
+#: src/locales/en.rs:288
+msgid "Export to csTimer"
+msgstr ""
+
+#: src/locales/en.rs:69
+msgid "csTimer data"
+msgstr ""
+
+#: src/locales/en.rs:70
+msgid "Export"
+msgstr ""
+
+#: src/locales/en.rs:71
+msgid "{count} session"
+msgid_plural "{count} sessions"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:75
+#: src/locales/en.rs:195
+msgid "{count} solve"
+msgid_plural "{count} solves"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:79
+msgid "Imported {sessions}, {solves}."
+msgstr ""
+
+#: src/locales/en.rs:80
+msgid "{count} warning — see the log"
+msgid_plural "{count} warnings — see the log"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:84
+msgid "Import failed"
+msgstr ""
+
+#: src/locales/en.rs:85
+msgid "Exported to {name}"
+msgstr ""
+
+#: src/locales/en.rs:86
+msgid "Export failed"
+msgstr ""
+
+#: src/locales/en.rs:88
+#: src/locales/en.rs:114
+#: src/locales/en.rs:261
+msgid "Timer"
+msgstr ""
+
+#: src/locales/en.rs:89
+msgid "Starting a solve"
+msgstr ""
+
+#: src/locales/en.rs:90
+msgid "WCA inspection"
+msgstr ""
+
+#: src/locales/en.rs:91
+msgid "Show a 15-second count down before the solve starts"
+msgstr ""
+
+#: src/locales/en.rs:94
+msgid "Inspection sound cues"
+msgstr ""
+
+#: src/locales/en.rs:95
+msgid "If enabled, first beep at 8 s, second at 12 s"
+msgstr ""
+
+#: src/locales/en.rs:98
+msgid "Hold time"
+msgstr ""
+
+#: src/locales/en.rs:99
+msgid "How long Space must be held to start the timer"
+msgstr ""
+
+#: src/locales/en.rs:102
+msgid "Mouse control"
+msgstr ""
+
+#: src/locales/en.rs:103
+msgid "Control the timer with the mouse"
+msgstr ""
+
+#: src/locales/en.rs:104
+msgid "Appearance"
+msgstr ""
+
+#: src/locales/en.rs:105
+msgid "Colour scheme"
+msgstr ""
+
+#: src/locales/en.rs:106
+msgid "Theme"
+msgstr ""
+
+#: src/locales/en.rs:107
+#: src/locales/en.rs:133
+msgid "Follow system"
+msgstr ""
+
+#: src/locales/en.rs:108
+msgid "Light"
+msgstr ""
+
+#: src/locales/en.rs:109
+msgid "Dark"
+msgstr ""
+
+#: src/locales/en.rs:110
+msgid "Sizes"
+msgstr ""
+
+#: src/locales/en.rs:111
+msgid "Scale the timer, the scramble text and the image."
+msgstr ""
+
+#: src/locales/en.rs:115
+msgid "Size of the timer digits"
+msgstr ""
+
+#: src/locales/en.rs:116
+msgid "Scramble text"
+msgstr ""
+
+#: src/locales/en.rs:117
+msgid "Size of the scramble above the timer"
+msgstr ""
+
+#: src/locales/en.rs:120
+msgid "Scramble image"
+msgstr ""
+
+#: src/locales/en.rs:121
+msgid "Size of the scramble picture"
+msgstr ""
+
+#: src/locales/en.rs:122
+#: src/locales/en.rs:163
+#: src/locales/en.rs:262
+msgid "Scramble"
+msgstr ""
+
+#: src/locales/en.rs:123
+msgid "Pre-scramble"
+msgstr ""
+
+#: src/locales/en.rs:124
+msgid "Moves applied to the scramble diagram, e.g. y or z2."
+msgstr ""
+
+#: src/locales/en.rs:128
+msgid "Image"
+msgstr ""
+
+#: src/locales/en.rs:129
+msgid "Show the picture of the scramble."
+msgstr ""
+
+#: src/locales/en.rs:131
+#: src/locales/en.rs:132
+msgid "Language"
+msgstr ""
+
+#: src/locales/en.rs:134
+msgid "English"
+msgstr ""
+
+#: src/locales/en.rs:135
+msgid "中文"
+msgstr ""
+
+#: src/locales/en.rs:136
+msgid "Restart to apply the language"
+msgstr ""
+
+#: src/locales/en.rs:137
+msgid "Session"
+msgstr ""
+
+#: src/locales/en.rs:138
+msgid "New session (Ctrl+N)"
+msgstr ""
+
+#: src/locales/en.rs:139
+#: src/locales/en.rs:279
+msgid "New session"
+msgstr ""
+
+#: src/locales/en.rs:140
+msgid "Each session keeps its own list of solves."
+msgstr ""
+
+#: src/locales/en.rs:143
+msgid "Session name"
+msgstr ""
+
+#: src/locales/en.rs:144
+#: src/locales/en.rs:159
+msgid "Rename session"
+msgstr ""
+
+#: src/locales/en.rs:145
+msgid "Delete “{name}”?"
+msgstr ""
+
+#: src/locales/en.rs:146
+msgid "This cannot be undone."
+msgstr ""
+
+#: src/locales/en.rs:147
+msgid "{count} solve will be removed. This cannot be undone."
+msgid_plural "{count} solves will be removed. This cannot be undone."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:151
+msgid "Rename…"
+msgstr ""
+
+#: src/locales/en.rs:152
+msgid "Delete…"
+msgstr ""
+
+#: src/locales/en.rs:153
+msgid "A session needs a name."
+msgstr ""
+
+#: src/locales/en.rs:154
+msgid "Names are up to {count} characters."
+msgstr ""
+
+#: src/locales/en.rs:155
+msgid "A session with that name already exists."
+msgstr ""
+
+#: src/locales/en.rs:156
+#: src/locales/en.rs:264
+msgid "Sessions"
+msgstr ""
+
+#: src/locales/en.rs:157
+msgid "Manage sessions"
+msgstr ""
+
+#: src/locales/en.rs:158
+msgid "Current session"
+msgstr ""
+
+#: src/locales/en.rs:160
+msgid "Delete session"
+msgstr ""
+
+#: src/locales/en.rs:161
+msgid "Drag to reorder"
+msgstr ""
+
+#: src/locales/en.rs:162
+msgid "Time"
+msgstr ""
+
+#: src/locales/en.rs:164
+msgid "Date"
+msgstr ""
+
+#: src/locales/en.rs:165
+#: src/locales/en.rs:193
+msgid "No solves yet"
+msgstr ""
+
+#: src/locales/en.rs:166
+msgid "Finish a solve and it will appear here."
+msgstr ""
+
+#: src/locales/en.rs:167
+msgid "Edit the selected solve — penalty and comment (Ctrl+E)"
+msgstr ""
+
+#: src/locales/en.rs:170
+msgid "Edit"
+msgstr ""
+
+#: src/locales/en.rs:171
+msgid "Delete the selected solve(s) (Delete)"
+msgstr ""
+
+#: src/locales/en.rs:172
+#: src/locales/en.rs:269
+msgid "Copy the scramble"
+msgstr ""
+
+#: src/locales/en.rs:173
+msgid "Copy the date"
+msgstr ""
+
+#: src/locales/en.rs:174
+msgid "Penalty"
+msgstr ""
+
+#: src/locales/en.rs:175
+msgid "_OK"
+msgstr ""
+
+#: src/locales/en.rs:176
+msgid "+_2"
+msgstr ""
+
+#: src/locales/en.rs:177
+msgid "_DNF"
+msgstr ""
+
+#: src/locales/en.rs:178
+msgid "Comment"
+msgstr ""
+
+#: src/locales/en.rs:179
+msgid "Edit solve #{number}"
+msgstr ""
+
+#: src/locales/en.rs:180
+msgid "{count} selected"
+msgid_plural "{count} selected"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:185
+msgid "Single"
+msgstr ""
+
+#: src/locales/en.rs:186
+msgid "mo3"
+msgstr ""
+
+#: src/locales/en.rs:187
+msgid "ao5"
+msgstr ""
+
+#: src/locales/en.rs:188
+msgid "ao12"
+msgstr ""
+
+#: src/locales/en.rs:189
+msgid "Any"
+msgstr ""
+
+#: src/locales/en.rs:190
+msgid "Current"
+msgstr ""
+
+#: src/locales/en.rs:191
+msgid "Best"
+msgstr ""
+
+#: src/locales/en.rs:192
+msgid "Target"
+msgstr ""
+
+#: src/locales/en.rs:194
+msgid "Session mean"
+msgstr ""
+
+#: src/locales/en.rs:199
+msgid "{count} of {total} counted"
+msgstr ""
+
+#: src/locales/en.rs:200
+msgid "{count} DNF"
+msgid_plural "{count} DNFs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:204
+msgid "ao50"
+msgstr ""
+
+#: src/locales/en.rs:205
+msgid "ao100"
+msgstr ""
+
+#: src/locales/en.rs:206
+msgid "ao1000"
+msgstr ""
+
+#: src/locales/en.rs:207
+msgid "Spread"
+msgstr ""
+
+#: src/locales/en.rs:208
+msgid "Worst"
+msgstr ""
+
+#: src/locales/en.rs:209
+msgid "Range"
+msgstr ""
+
+#: src/locales/en.rs:210
+msgid "σ"
+msgstr ""
+
+#: src/locales/en.rs:211
+msgid "Total time"
+msgstr ""
+
+#: src/locales/en.rs:212
+msgid "Summary"
+msgstr ""
+
+#: src/locales/en.rs:213
+msgid "Charts"
+msgstr ""
+
+#: src/locales/en.rs:214
+msgid "Personal bests"
+msgstr ""
+
+#: src/locales/en.rs:215
+msgid "Only improvements count. Each row shows when it was set and how long it stood."
+msgstr ""
+
+#: src/locales/en.rs:218
+msgid "No record yet"
+msgstr ""
+
+#: src/locales/en.rs:219
+msgid "still standing"
+msgstr ""
+
+#: src/locales/en.rs:220
+msgid "Set {date}"
+msgstr ""
+
+#: src/locales/en.rs:221
+msgid "Set at #{number}"
+msgstr ""
+
+#: src/locales/en.rs:222
+msgid "held {count} day"
+msgid_plural "held {count} days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:226
+msgid "broken the same day"
+msgstr ""
+
+#: src/locales/en.rs:227
+msgid "{count} older improvement not shown"
+msgid_plural "{count} older improvements not shown"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:231
+msgid "held {count} solve"
+msgid_plural "held {count} solves"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:235
+msgid "Solves"
+msgstr ""
+
+#: src/locales/en.rs:236
+msgid "Today"
+msgstr ""
+
+#: src/locales/en.rs:237
+msgid "Last 7 days"
+msgstr ""
+
+#: src/locales/en.rs:238
+msgid "Last 30 days"
+msgstr ""
+
+#: src/locales/en.rs:239
+msgid "{count} active day"
+msgid_plural "{count} active days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:243
+msgid "Current streak"
+msgstr ""
+
+#: src/locales/en.rs:244
+msgid "Longest streak"
+msgstr ""
+
+#: src/locales/en.rs:245
+msgid "{count} day"
+msgid_plural "{count} days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:249
+msgid "Active days"
+msgstr ""
+
+#: src/locales/en.rs:250
+msgid "Solves per active day"
+msgstr ""
+
+#: src/locales/en.rs:251
+msgid "Best day"
+msgstr ""
+
+#: src/locales/en.rs:252
+msgid "Solves without a date"
+msgstr ""
+
+#: src/locales/en.rs:253
+msgid "Time distribution"
+msgstr ""
+
+#: src/locales/en.rs:254
+msgid "Time trend"
+msgstr ""
+
+#: src/locales/en.rs:255
+msgid "Overview"
+msgstr ""
+
+#: src/locales/en.rs:256
+msgid "Recent days"
+msgstr ""
+
+#: src/locales/en.rs:257
+msgid "Less"
+msgstr ""
+
+#: src/locales/en.rs:258
+msgid "More"
+msgstr ""
+
+#: src/locales/en.rs:259
+msgid "No solves"
+msgstr ""
+
+#: src/locales/en.rs:263
+msgid "Solve list"
+msgstr ""
+
+#: src/locales/en.rs:265
+msgid "General"
+msgstr ""
+
+#: src/locales/en.rs:266
+msgid "Data"
+msgstr ""
+
+#: src/locales/en.rs:267
+msgid "Start and stop the timer"
+msgstr ""
+
+#: src/locales/en.rs:268
+msgid "Cancel the inspection countdown"
+msgstr ""
+
+#: src/locales/en.rs:270
+msgid "Show or hide the sidebar"
+msgstr ""
+
+#: src/locales/en.rs:271
+msgid "Hide the drawer"
+msgstr ""
+
+#: src/locales/en.rs:272
+msgid "Delete the selected solves"
+msgstr ""
+
+#: src/locales/en.rs:273
+msgid "Clear the penalty of the newest solve"
+msgstr ""
+
+#: src/locales/en.rs:274
+msgid "Give the newest solve +2"
+msgstr ""
+
+#: src/locales/en.rs:275
+msgid "Mark the newest solve DNF"
+msgstr ""
+
+#: src/locales/en.rs:276
+msgid "Edit the selected (or newest) solve"
+msgstr ""
+
+#: src/locales/en.rs:277
+msgid "Open the session menu"
+msgstr ""
+
+#: src/locales/en.rs:278
+msgid "Session manager"
+msgstr ""
+
+#: src/locales/en.rs:280
+msgid "Rename the active session"
+msgstr ""
+
+#: src/locales/en.rs:281
+msgid "Delete the active session"
+msgstr ""
+
+#: src/locales/en.rs:282
+msgid "Open the statistics dialog"
+msgstr ""
+
+#: src/locales/en.rs:283
+msgid "Open the keyboard reference"
+msgstr ""
+
+#: src/locales/en.rs:284
+msgid "Open preferences"
+msgstr ""
+
+#: src/locales/en.rs:285
+msgid "Toggle fullscreen"
+msgstr ""
+
+#: src/locales/en.rs:289
+msgid "Solve deleted"
+msgid_plural "{count} solves deleted"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/locales/en.rs:293
+msgid "Session file could not be read"
+msgstr ""
+
+#: src/locales/en.rs:294
+msgid "Session list could not be read"
+msgstr ""
+
+#: src/locales/en.rs:295
+msgid "Settings could not be read — defaults are in use"
+msgstr ""
+
+#: src/core/scramble_types.rs
+#: src/core/scramble_types.rs
+msgid "WCA"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "3x3x3"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 CFOP"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 Roux"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 Mehta"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "2x2x2"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "4x4x4"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "4x4x4 Yau/Hoya"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "5x5x5"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "6x6x6"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "7x7x7"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Clock"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Megaminx"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Pyraminx"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Skewb"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Square-1"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "FTO (Face-Turning Octahedron)"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "15 puzzle"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "8 puzzle"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "LxMxN"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Gear Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Kilominx"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Gigaminx"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Crazy Puzzle"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Cmetrick"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Helicopter Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Redi Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Dino Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Ivy cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Master Pyraminx"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Pyraminx Crystal"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Siamese Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Square"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Super Floppy"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "UFO"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Icosahedron"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "3x3x3 subsets"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Bandaged Cube"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Relays"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "1x1x1"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "-1x-1x-1"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "1x1x2"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "LOL"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Derrick Eide"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Other"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Special"
+msgstr ""
+
+#: src/core/scramble_types.rs
+msgid "Jokes"
+msgstr ""
+

@@ -6,11 +6,7 @@ use super::*;
 pub fn build_window(application: &adw::Application) {
     let state = AppState::load();
     let preferences = state.preferences();
-    let system_tag = glib::language_names()
-        .first()
-        .map(|name| name.to_string())
-        .unwrap_or_default();
-    set_locale(resolve_language(preferences.language, &system_tag).tag());
+    crate::platform::i18n::init(preferences.language);
     apply_color_scheme(preferences.color_scheme);
 
     let window = adw::ApplicationWindow::builder()

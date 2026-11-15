@@ -20,6 +20,12 @@ path = "src/main.rs"
 name = "scramble_sweep"
 path = "src/bin/scramble_sweep.rs"
 
+# Writes po/puzzle-timer.pot from the English catalog; a maintenance tool, not
+# part of the app.
+[[bin]]
+name = "i18n_pot"
+path = "src/bin/i18n_pot.rs"
+
 # JSC is the default engine: the executable links the system library and stays
 # small. A V8 backend (the `v8` crate) is the alternative; see src/scramble/.
 [dependencies]
