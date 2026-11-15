@@ -1066,14 +1066,16 @@ impl App {
         self.ensure_ticking();
     }
 
-    fn start_mouse(&self) {
-        if self.preferences.borrow().mouse_start {
+    /// A press on the start target. Touch always starts the timer; the mouse
+    /// is opt-in so a stray click cannot arm a solve.
+    fn start_press(&self, touch: bool) {
+        if touch || self.preferences.borrow().mouse_start {
             self.key_down(START_KEY);
         }
     }
 
-    fn end_mouse(&self) {
-        if self.preferences.borrow().mouse_start {
+    fn end_press(&self, touch: bool) {
+        if touch || self.preferences.borrow().mouse_start {
             self.key_up(START_KEY);
         }
     }
@@ -1658,17 +1660,30 @@ fn install_keys(app: &Rc<App>, start_target: &gtk::Box) {
     gesture.set_button(1);
     {
         let slot = Rc::clone(&app.slot);
-        gesture.connect_pressed(move |_, _, _, _| {
-            with_app(&slot, |app| app.start_mouse());
+        gesture.connect_pressed(move |gesture, _, _, _| {
+            let touch = is_touch(gesture);
+            with_app(&slot, |app| app.start_press(touch));
         });
     }
     {
         let slot = Rc::clone(&app.slot);
-        gesture.connect_released(move |_, _, _, _| {
-            with_app(&slot, |app| app.end_mouse());
+        gesture.connect_released(move |gesture, _, _, _| {
+            let touch = is_touch(gesture);
+            with_app(&slot, |app| app.end_press(touch));
         });
     }
     start_target.add_controller(gesture);
+}
+
+/// A touch screen or a pen always drives the timer; the mouse and a
+/// touchpad's buttons follow the `mouseStart` preference.
+fn is_touch(gesture: &gtk::GestureClick) -> bool {
+    gesture.current_event_device().is_some_and(|device| {
+        matches!(
+            device.source(),
+            gtk::gdk::InputSource::Touchscreen | gtk::gdk::InputSource::Pen
+        )
+    })
 }
 
 fn install_actions(app: &Rc<App>, application: &adw::Application) {
