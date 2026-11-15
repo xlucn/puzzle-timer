@@ -1,6 +1,9 @@
 # Rust build output
 /target/
 
+# Meson build directory
+/builddir/
+
 # Leftovers from the v0.3.0 node-gtk tree (see branch `legacy`)
 /node_modules/
 /dist/

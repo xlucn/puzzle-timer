@@ -167,6 +167,10 @@ src/
 - `cargo run` — the app.
 - `cargo build --release` — the package binary.
 - `cargo fmt` and `cargo clippy --all-targets -- -D warnings` after a change.
+- `meson setup builddir --prefix=~/.local --buildtype=release` then
+  `meson install -C builddir` — the install path (binary, desktop file,
+  icons). Meson never compiles anything itself: `src/meson.build` runs
+  `cargo build --locked --bin puzzle-timer`. `builddir/` is gitignored.
 - `cargo run --bin scramble_sweep` — all 206 types through the real JSC
   bridge; expect `206/206` and 177 images.
 - `tools/rust-embed/run.sh` — the engine research harness (Node, deno, V8,
