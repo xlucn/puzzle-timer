@@ -36,7 +36,7 @@ src/
 │   ├── scramble_types.rs   206-type catalogue + group/section structure (data-driven)
 │   ├── scramble_feed.rs    prefetch state machine: type switch / advance / ready
 │   ├── layout.rs        every size threshold and the adaptive-layout rules
-│   ├── i18n.rs          catalog lookup, plural selection, locale resolution
+│   ├── i18n.rs          keys, English msgids, the installed lookup, interpolation
 │   ├── preferences.rs   Preferences shape, defaults, per-field validation
 │   └── json_number.rs   numbers written the way v0.3.0 wrote them
 ├── scramble/
@@ -51,14 +51,15 @@ src/
 │   ├── date.rs          locale-aware dates through GLib
 │   └── meta.rs          version/license/URLs from Cargo.toml, changelog embedded
 ├── locales/
-│   ├── en.rs            source-of-truth catalog and the scramble group/section names
-│   └── zh_cn.rs         complete Chinese catalog, typed against en.rs
+│   └── en.rs            the English msgid table: every user-visible string
 └── ui/                  GTK widgets — the only place that imports gtk4/libadwaita
 ```
 
 `style.css` sits at the repository root and is compiled in. `vendor/` holds the
 scramble bundle. `data/` holds the hicolor icon tree (full-colour and symbolic)
-and `puzzle-timer.desktop`. `docs/` holds the README's screenshot:
+and `puzzle-timer.desktop`. `po/` holds the gettext catalogs: `LINGUAS` lists
+the languages, `puzzle-timer.pot` is generated from `locales/en.rs`, and each
+`.po` is hand-maintained. `docs/` holds the README's screenshot:
 documentation, not something an install ships.
 
 Three rules fall out of this split, and they are the ones most worth not
@@ -158,12 +159,14 @@ breaking:
 - **One version, one place.** The app version comes from `Cargo.toml` via
   `env!("CARGO_PKG_VERSION")`, never a literal. The About dialog parses its
   release notes from the embedded `CHANGELOG.md`.
-- **i18n is typed catalogs, not gettext.** `src/core/i18n.rs` holds a
-  module-level locale and `t()`; `src/locales/en.rs` is the source of truth
-  and `zh_cn.rs` is an exhaustive map, so a missing translation is a compile
-  error. The `language` preference is resolved once, before any widget is
-  built, because catalogs are read while widgets are constructed; changing it
-  needs a restart.
+- **i18n is gettext over one English table.** `src/locales/en.rs` holds every
+  English string and those strings *are* the msgids; `po/*.po` translate them,
+  `msgfmt` compiles them, and the lookup is installed into `core` at startup,
+  so `core` stays free of libc and files. The `.po` header's plural rule picks
+  the form of a count, and the `language` preference is applied before any
+  widget is built, so changing it needs a restart. Completeness is
+  `tests/i18n_catalogs.rs`, not the compiler: gettext would quietly fall back
+  to English.
 
 ## csTimer compatibility
 

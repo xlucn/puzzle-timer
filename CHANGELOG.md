@@ -15,6 +15,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Touch screen support when mouse control is disabled.
 
+### Changed
+
+- Using po files for translations.
+
 ## [0.4.0] — 2026-11-14
 
 Puzzle Timer is now written in Rust. It looks and works as before, and is

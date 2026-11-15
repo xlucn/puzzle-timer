@@ -14,10 +14,14 @@ Everything here assumes a source checkout. For what the app *is*, see the
 - **pkg-config**, which the Rust bindings use to find the libraries above.
 - **Meson 1.1 or newer** and **Ninja**, only to install the app; `cargo build`
   and `cargo run` do not need them.
+- **blueprint-compiler**, which turns `src/ui/*.blp` into the `.ui` the build
+  embeds; Cargo runs it, so a plain `cargo build` needs it too.
+- **gettext** (`msgfmt`), which compiles the catalogs in `po/` into the `.mo`
+  the app reads; Cargo runs it as well.
 
-- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf`
-- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config`
-- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config`
+- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext`
+- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext`
+- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext`
 
 The distribution packages must be new enough to carry GTK 4.24, libadwaita 1.9
 and JavaScriptCore 6. Older releases cannot build the app. It has only been
@@ -34,6 +38,25 @@ cargo build --release    # optimised build: target/release/puzzle-timer
 In a source checkout the app adds `data/icons` to the icon theme, so the
 bundled symbolic icons appear without installing anything. A packaged build
 picks them up from `/usr/share/icons` instead.
+
+## Translations
+
+The English strings in `src/locales/en.rs` are the message ids, and `po/` holds
+one gettext catalog per language. `msgfmt` compiles them during `cargo build`,
+and Meson installs the result under `$prefix/share/locale`.
+
+To work on a translation, edit its `.po` (any gettext editor will do). To start
+a new one:
+
+```sh
+msginit --locale=de --input=po/puzzle-timer.pot --output-file=po/de.po
+# add `de` to po/LINGUAS
+```
+
+A new language is also a code change with visible strings of its own: a
+`Language` variant in `src/core/i18n.rs`, its label in the preferences dialog,
+and its entry in the language picker. `cargo test` fails when a catalog is
+missing a string or a placeholder.
 
 ## Install with Meson
 
