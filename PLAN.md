@@ -2351,6 +2351,13 @@ Evidence:
 
 ### The last landed milestones
 
+- **M18 landed 2026-11-14 — the Rust port, `v0.4.0`.** What a cold session
+  needs: `main` is Rust (gtk4 0.11 / libadwaita 0.9, JSC 6 behind
+  `src/scramble/`), `legacy` is frozen at v0.3.0, and §6 M18 has the parity
+  audit, the measured build and the exit criteria; `RUST-PORT.md` has the
+  engine evidence. The data files are v0.3.0's, unchanged, and the sweep is
+  `206/206` with 177 images. One post-release fix (`b9449f0`) put touch back
+  in charge of the timer whatever `mouseStart` says.
 - **M15 landed 2026-10-31 — phone runtime verdict: viable.** What a cold
   session needs: tested on a Nura edge phone (postmarketOS/Alpine, musl,
   aarch64, Phosh/Phoc) from the committed tree at `7d9a1a4` (`v0.2.0` plus

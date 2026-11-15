@@ -12,8 +12,8 @@ Docs: **[PLAN.md](./PLAN.md)** (plan, decisions, measurements — it is large:
 **[RUST-PORT.md](./RUST-PORT.md)** (engine evidence and the port surface) ·
 **[CHANGELOG.md](./CHANGELOG.md)** · **[CONTRIBUTING.md](./CONTRIBUTING.md)**
 (comment, prose and changelog policy; it applies to agents too) ·
-`BUILD.md`, `DESIGN.md` and `README.md` still describe v0.3.0 and need a
-hand-written update at the cutover — don't rewrite them unprompted.
+`BUILD.md`, `DESIGN.md` and `README.md` were rewritten by hand at the 0.4.0
+cutover and describe the Rust app; keep them in step by hand, not generated.
 
 ## Invariants (cited by number — keep the numbering stable)
 
