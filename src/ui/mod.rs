@@ -226,11 +226,16 @@ pub fn load_css() {
     provider.load_from_string(include_str!("../../style.css"));
 
     if let Some(display) = gtk::gdk::Display::default() {
-        // In a source checkout the icons are beside `src/`; a packaged build
-        // picks them up from `/usr/share/icons` through the normal theme path.
-        let dev_icons = concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons");
-        if std::path::Path::new(dev_icons).is_dir() {
-            gtk::IconTheme::for_display(&display).add_search_path(dev_icons);
+        // In a source checkout the icons are beside `src/`. A release build
+        // never reads that path: a packaged binary takes its icons from
+        // `/usr/share/icons` like any other app, and keeping the build
+        // directory out of the executable is what keeps a package free of it.
+        #[cfg(debug_assertions)]
+        {
+            let dev_icons = concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons");
+            if std::path::Path::new(dev_icons).is_dir() {
+                gtk::IconTheme::for_display(&display).add_search_path(dev_icons);
+            }
         }
 
         gtk::style_context_add_provider_for_display(
