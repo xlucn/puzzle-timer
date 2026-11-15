@@ -90,12 +90,13 @@ packaging the temporary Node runtime was only ever a stopgap.
   and `src/js/stats/distribution.js` (GPL — port the math, not the DOM), and
   `Gtk.DrawingArea` + Cairo line/bar drawing in `ui/charts.ts`. Stats already
   live in `core/`, so the charts are rendering-only on top.
-- **M16 — AUR package (Rust).** `packaging/aur/PKGBUILD`: the M18 Rust binary
-  built with `cargo build --release --locked`, one executable plus `data/`
-  and the licence, depending on the system JavaScriptCore. No Node, no
-  node-gyp, no ABI-specific binding, no launcher that has to `cd` first.
-  **Landed 2026-11-16**; pushing it to the AUR is the user's step. The
-  dependency trade-off and the next tag's delta are in §6.
+- **M16 — AUR package (Rust).** `packaging/aur/PKGBUILD` for
+  **`puzzle-timer-git`**, tracking `main` and built through Meson so the
+  desktop entry, icons and gettext catalogs install with it, depending on the
+  system JavaScriptCore. No Node, no node-gyp, no ABI-specific binding, no
+  launcher that has to `cd` first. **Landed 2026-11-16**; pushing it to the
+  AUR is the user's step, and a release package is the next tag's job. The
+  dependency trade-off is in §6.
 - **M17 — postmarketOS/Alpine package (attached by M15; Rust).** The same
   Rust binary as an aarch64 `apk` for the phone M15 proved, built against
   Alpine's Rust, GTK4 and libadwaita. Not Flatpak, deb or AppStream; M16's
@@ -605,7 +606,7 @@ M0–M6 log closes the section. A number never moves: only the queue does.
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" — **landed 2026-10-31: viable; M17 attached** |
-| **M16** | AUR package: PKGBUILD around the Rust binary, system JavaScriptCore, one executable plus the desktop file and icons | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree — **landed 2026-11-16; pushing to the AUR is the user's step** |
+| **M16** | AUR package: `puzzle-timer-git` PKGBUILD tracking `main`, system JavaScriptCore, Meson install of binary, entry, icons and catalogs | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree — **landed 2026-11-16; pushing to the AUR is the user's step** |
 | **M17** | postmarketOS/Alpine `apk` package: aarch64, `dist/` + runtime deps, node-gtk built against the phone's GTK/libadwaita | `apk add` installs it and the launcher starts from outside the source tree |
 
 **Post-MVP backlog:** stackmat (§1), then packaging beyond M16/M17 (Flatpak,
@@ -1438,66 +1439,65 @@ package.
   unbuildable for anyone without SSH keys. **Cleared 2026-11-16**: the tag
   tarball answers 200 to an unauthenticated GET.
 
-**The recipe** is `packaging/aur/PKGBUILD`, kept in the source tree so it is
-reviewed with the code and copied to the AUR repository at submission. The
+**The recipe** is `packaging/aur/PKGBUILD` for **`puzzle-timer-git`**, which
+tracks `main`; a release package (`puzzle-timer`) is the next-tag job: the
+same recipe with a literal `pkgver`, a release-tarball `source=` and a
+checksum, instead of `pkgver()` and `SKIP`. It lives in the source tree so it
+is reviewed with the code and copied to the AUR repository at submission. The
 AUR's own `.SRCINFO` is generated when it is needed
 (`makepkg --printsrcinfo > .SRCINFO`) and deliberately not tracked here.
 
+- `source=("$pkgname::git+$url.git#branch=main")`; `pkgver()` reads the
+  version from `Cargo.toml` — the one place the app itself reads it — and
+  appends `.r<commit count>.g<hash>`, so every build sorts above the last and
+  the package says which tree it came from.
 - `depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')` — the last one provides
   `libjavascriptcoregtk-6.0`. That is the price of embedding the scramble
   engine without shipping V8: **measured 138.6 MiB installed** on top of
   gtk4's 54.0 MiB and libadwaita's 5.3 MiB, so a GNOME box already has it
   (Epiphany, Help) and a bare one pays it once. A V8 static build stays the
   alternative if that trade is ever wrong.
-- `makedepends=('cargo' 'rust' 'pkgconf')`; `build()` is
-  `cargo build --release --locked --bin puzzle-timer`. No node-gyp, no
-  prebuilds, no Node ABI pin, no launcher that has to `cd` first.
-- `package()` installs one executable under `/usr/bin`, the licence, the
-  desktop entry and all three icon directories (`scalable/apps`,
-  `symbolic/apps`, `scalable/actions` — the three action icons are what the
-  list's drag handle and order buttons need). The entry is installed as
-  `io.github.xlucn.PuzzleTimer.desktop`, the application id, because the
-  shell pairs a window with a `.desktop` file by that name; the first install
-  showed the generic icon, which is what put `tests/desktop_entry.rs` around
-  the naming. The stylesheet, the changelog and the scramble module are
-  embedded in the binary, so there is no runtime data path to get wrong.
+- `makedepends=('rust' 'pkgconf' 'meson' 'git' 'gettext'
+  'blueprint-compiler')`: `rust` brings cargo, `git` is what a VCS source
+  needs, and gettext plus blueprint-compiler are the two steps `build.rs` runs
+  before Cargo compiles.
+- `build()`/`package()` are `meson setup --buildtype=release --prefix=/usr` +
+  `meson compile` + `DESTDIR="$pkgdir" meson install -C build`. Meson owns
+  every path the package installs — binary, desktop entry, all three icon
+  directories, the licence and the gettext catalogs — and it bakes the prefix
+  into the binary so `$prefix/share/locale` is found at runtime. A bare
+  `cargo build` would leave the binary reading `OUT_DIR` and quietly stay
+  English, which is why the -git package does not use one.
+- The entry lands as `io.github.xlucn.PuzzleTimer.desktop`, the application
+  id, because the shell pairs a window with a `.desktop` file by that name;
+  the first install showed the generic icon, which is what put
+  `tests/desktop_entry.rs` around the naming. `provides`/`conflicts` on
+  `puzzle-timer` keep it from being installed beside the release package.
 - The app's data directory and JSON schema do not move: a user upgrading from
   `0.3.0` keeps every solve.
+- `check()` is deliberately empty: `cargo test` needs a second compile and the
+  suite already gates the release workflow on every tag.
 
-**Measured 2026-11-16** (`makepkg -f`, Arch's rust/gtk4 4.24.1/libadwaita
-1.10.0/webkitgtk-6.0 2.54.2): 51.9 s to compile the crate graph, a
-1,963,136 B stripped binary and an 860 KiB `.pkg.tar.zst`. `namcap` reports
-only implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
+**Measured 2026-11-16** (a -git build at `d745f10`, Arch's rust
+1.99.1/gtk4 4.24.1/libadwaita 1.10.0/webkitgtk-6.0 2.54.2): `pkgver`
+`0.4.0.r246.gd745f10`, a 1,971,360 B stripped binary and an 868 KiB
+`.pkg.tar.zst`, with `usr/bin/puzzle-timer`, the entry, the five icons and
+`usr/share/locale/zh_CN/LC_MESSAGES/puzzle-timer.mo`. The binary contains
+`/usr/share/locale` and no build directory. `namcap` reports only
+implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
 hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
 `xprop` on the installed window gave
 `_GTK_APPLICATION_ID=io.github.xlucn.PuzzleTimer` and
 `WM_CLASS="puzzle-timer"`, which is the pair the entry name and
 `StartupWMClass` follow.
 
-**Two notes for the next tag**, because `v0.4.0`'s tarball predates the
-Meson, gettext and Blueprint work:
-
-- `v0.4.0` embeds its build directory in a dev-only icon search path, so this
-  one package carries a harmless `reference to $srcdir` warning. **Fixed on
-  `main`** — the checkout icon path is now `#[cfg(debug_assertions)]`, so a
-  release build does not contain it at all. Its desktop entry also predates
-  `StartupWMClass`, so X11 taskbars that match by class rather than by
-  `_GTK_APPLICATION_ID` still resolve it to the binary name; GNOME does not
-  care.
-- At the next tag the recipe gains `meson`, `gettext` and
-  `blueprint-compiler` in `makedepends`, `build()` becomes `meson setup
-  --buildtype=release --prefix=/usr` + `meson compile`, and `package()` is
-  `DESTDIR="$pkgdir" meson install -C build` — which installs the catalogs to
-  `/usr/share/locale` and bakes that path in, where a bare `cargo build` would
-  leave the binary reading `OUT_DIR` and fall back to English. The manual
-  icon/licence lines then go away, because `data/meson.build` and
-  `po/meson.build` already own those paths.
-
-**Checkpoint for the user:** `makepkg -si` in `packaging/aur` (again — the
-first install predates the entry rename), launch `/usr/bin/puzzle-timer` from
-a directory that is not the source tree, and confirm the window's icon in the
-dash or taskbar, a scramble, 中文 after a restart, and `0.4.0` in About. Then
-create the AUR repository, copy `PKGBUILD` into it, generate `.SRCINFO` with
+**Checkpoint for the user:** build the recipe (with the GitHub source) and
+install it — `makepkg -si` in `packaging/aur`, after removing the earlier
+`puzzle-timer` install, because the new package conflicts with it. Then launch
+`/usr/bin/puzzle-timer` from a directory that is not the source tree and check
+four things: the window's icon in the dash or taskbar, a scramble, 中文 after a
+restart, and `0.4.0` in About. Finally create the AUR repository, copy
+`PKGBUILD` into it, generate `.SRCINFO` with
 `makepkg --printsrcinfo > .SRCINFO` and push.
 
 ### M17 — scheduled (postmarketOS/Alpine package, Rust)

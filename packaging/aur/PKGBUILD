@@ -5,50 +5,51 @@
 # `.SRCINFO` is generated when it is needed (`makepkg --printsrcinfo >
 # .SRCINFO`) and is not part of the source tree.
 #
-# There is no prepare() or build.rs step: the stylesheet, the changelog and the
-# vendored scramble module are embedded in the executable at compile time. The
-# only files that land on disk are the binary, the desktop entry, the icon set
-# and the licence.
-#
-# v0.4.0 predates the Meson install, so the files are listed here by hand.
-# The next tag builds through Meson and this recipe loses those lines.
+# The package tracks `main` and builds through Meson, which is the project's
+# own install path: Meson places the binary, the desktop entry, the icon set
+# and the gettext catalogs where a session looks for them, and bakes the
+# install prefix in so the binary finds `$prefix/share/locale` at runtime. A
+# `cargo build` on its own would read a build directory that does not exist on
+# the target machine and quietly fall back to English.
 
-pkgname=puzzle-timer
+pkgname=puzzle-timer-git
 pkgver=0.4.0
 pkgrel=1
-pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
+pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer (development version)"
 arch=('x86_64')
 url="https://github.com/xlucn/puzzle-timer"
 license=('GPL-3.0-or-later')
-# webkitgtk-6.0 is what ships libjavascriptcoregtk-6.0: the scramble module runs
-# in the system JSC instead of a Rust-linked V8, which keeps the binary at a
-# couple of megabytes and makes this the one heavy dependency.
+# webkitgtk-6.0 is what ships libjavascriptcoregtk-6.0: the scramble module
+# runs in the system JSC instead of a Rust-linked V8, which keeps the binary
+# at a couple of megabytes and makes this the one heavy dependency.
 depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')
-makedepends=('cargo' 'rust' 'pkgconf')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('4003fa908c63fc36995b5abae657b69b1e3f0b4b483a4854cdb81d9224326a89')
+# rust provides cargo; gettext compiles the catalogs and blueprint-compiler
+# the solve editor's template, both during `cargo build`.
+makedepends=('rust' 'pkgconf' 'meson' 'git' 'gettext' 'blueprint-compiler')
+provides=('puzzle-timer')
+conflicts=('puzzle-timer')
+source=("$pkgname::git+$url.git#branch=main")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  # The version lives in Cargo.toml, which is the only place the app reads it
+  # from; the commit count keeps every build sorting above the previous one and
+  # the hash says which tree it is.
+  local version
+  version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+  printf '%s.r%s.g%s\n' "$version" \
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=7 HEAD)"
+}
 
 build() {
-  cd "$pkgname-$pkgver"
-  cargo build --release --locked --bin "$pkgname"
+  cd "$pkgname"
+  meson setup build --buildtype=release --prefix=/usr
+  meson compile -C build
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-
-  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-
-  # The launcher is named after the application id the window exports, which
-  # is how the shell pairs them (a window with no matching entry shows a
-  # generic icon). v0.4.0's file is still called puzzle-timer.desktop and lacks
-  # StartupWMClass; the name here is what matters, and the X11 key arrives
-  # with the next tag.
-  install -Dm644 "data/puzzle-timer.desktop" \
-    "$pkgdir/usr/share/applications/io.github.xlucn.PuzzleTimer.desktop"
-
-  local icons="$pkgdir/usr/share/icons/hicolor"
-  install -Dm644 -t "$icons/scalable/apps" data/icons/hicolor/scalable/apps/*.svg
-  install -Dm644 -t "$icons/symbolic/apps" data/icons/hicolor/symbolic/apps/*.svg
-  install -Dm644 -t "$icons/scalable/actions" data/icons/hicolor/scalable/actions/*.svg
+  cd "$pkgname"
+  DESTDIR="$pkgdir" meson install -C build
 }
