@@ -1,0 +1,74 @@
+# Release binaries: one tarball per tag, plus a checksum.
+#
+# The app needs libadwaita 1.9, which the Ubuntu runner images do not have, so
+# the build runs in Arch (rolling, so it carries the newest GTK). The payload
+# is what Meson installs under /usr — binary, desktop file, icons and gettext
+# catalogs — which is why this goes through Meson instead of a bare
+# `cargo build`: the installed binary looks for its catalogs in
+# /usr/share/locale, and a lone binary would silently stay English.
+#
+# The version lives in Cargo.toml only (AGENTS.md invariant 8), so the tag is
+# checked against it rather than used as a source of truth.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tarball:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install the build dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed \
+            git rust gtk4 libadwaita webkitgtk-6.0 pkgconf \
+            blueprint-compiler gettext meson ninja binutils
+
+      - uses: actions/checkout@v4
+
+      - name: Read the version and check it against the tag
+        id: version
+        run: |
+          version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Cargo.toml says $version"
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            if [ "v$version" != "${GITHUB_REF_NAME}" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match Cargo.toml's $version"
+              exit 1
+            fi
+          fi
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build and stage an install tree
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          meson setup builddir --buildtype=release --prefix=/usr
+          DESTDIR="$PWD/stage/puzzle-timer-$version" meson install -C builddir
+          strip --strip-unneeded "stage/puzzle-timer-$version/usr/bin/puzzle-timer"
+
+      - name: Package
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          tar -C stage -czf "puzzle-timer-$version-x86_64.tar.gz" "puzzle-timer-$version"
+          sha256sum puzzle-timer-"$version"-x86_64.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attach the tarball to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            puzzle-timer-*.tar.gz
+            SHA256SUMS
+          generate_release_notes: true
