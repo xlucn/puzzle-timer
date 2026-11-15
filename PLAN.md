@@ -90,12 +90,12 @@ packaging the temporary Node runtime was only ever a stopgap.
   and `src/js/stats/distribution.js` (GPL — port the math, not the DOM), and
   `Gtk.DrawingArea` + Cairo line/bar drawing in `ui/charts.ts`. Stats already
   live in `core/`, so the charts are rendering-only on top.
-- **M16 — AUR package (Rust).** A PKGBUILD for the M18 Rust binary: `cargo
-  build --release`, one executable, and the existing `data/`, `style.css`,
-  `CHANGELOG.md` and licence. No Node, no node-gyp, no ABI-specific binding,
-  no launcher that has to `cd` first. **Blocked on M18** and, as before, on
-  the repo being public at tag time; the draft plan and the dependency
-  trade-off are in §6.
+- **M16 — AUR package (Rust).** `packaging/aur/PKGBUILD`: the M18 Rust binary
+  built with `cargo build --release --locked`, one executable plus `data/`
+  and the licence, depending on the system JavaScriptCore. No Node, no
+  node-gyp, no ABI-specific binding, no launcher that has to `cd` first.
+  **Landed 2026-11-16**; pushing it to the AUR is the user's step. The
+  dependency trade-off and the next tag's delta are in §6.
 - **M17 — postmarketOS/Alpine package (attached by M15; Rust).** The same
   Rust binary as an aarch64 `apk` for the phone M15 proved, built against
   Alpine's Rust, GTK4 and libadwaita. Not Flatpak, deb or AppStream; M16's
@@ -605,7 +605,7 @@ M0–M6 log closes the section. A number never moves: only the queue does.
 | **M13** | Release readiness: version from `package.json`, CHANGELOG, `Adw.AboutDialog` with the right licence and credits, AI-assistance disclosure, user-first README, icon, public name | `git tag v0.x.y` on a repo a stranger can clone and run |
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" — **landed 2026-10-31: viable; M17 attached** |
-| **M16** | AUR package: PKGBUILD precompiling with Arch's `typescript`, shipping `dist/` + the two npm runtime deps only | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree |
+| **M16** | AUR package: PKGBUILD around the Rust binary, system JavaScriptCore, one executable plus the desktop file and icons | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree — **landed 2026-11-16; pushing to the AUR is the user's step** |
 | **M17** | postmarketOS/Alpine `apk` package: aarch64, `dist/` + runtime deps, node-gtk built against the phone's GTK/libadwaita | `apk add` installs it and the launcher starts from outside the source tree |
 
 **Post-MVP backlog:** stackmat (§1), then packaging beyond M16/M17 (Flatpak,
@@ -1414,7 +1414,7 @@ solves; the bars should track the spread of times, and the gray/red/blue
 lines the singles, ao5 and ao12 over solve order. Scroll down for the heat
 map, now at the bottom of the same tab.
 
-### M16 — scheduled (AUR package, Rust)
+### M16 — landed 2026-11-16 (AUR package, Rust)
 
 Opened 2026-10-06 as the one exception to the packaging line in §1. The
 package was originally the node-gtk tree; **since M18 (2026-11-10) it packages
@@ -1428,66 +1428,58 @@ package.
   a parallel product. **Cleared 2026-11-14** (`v0.4.0`).
 - **The repo must be public at tag time.** `makepkg` fetches every `source=()`
   entry over plain HTTP, so `github.com/xlucn/puzzle-timer` as it stands is
-  unbuildable for anyone without SSH keys. Make that call before submitting,
-  not at submission.
+  unbuildable for anyone without SSH keys. **Cleared 2026-11-16**: the tag
+  tarball answers 200 to an unauthenticated GET.
 
-**What the package is now:**
+**The recipe** is `packaging/aur/PKGBUILD` (+ its generated `.SRCINFO`), kept
+in the source tree so it is reviewed with the code and copied to the AUR
+repository at submission.
 
 - `depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')` — the last one provides
   `libjavascriptcoregtk-6.0`. That is the price of embedding the scramble
-  engine without shipping V8: on a GNOME box `webkitgtk-6.0` is usually
-  already installed (Help/Epiphany use it), but a bare system pays ~139 MiB.
-  Measure it at M16; a V8 static build is the alternative if that trade is
-  wrong.
+  engine without shipping V8: **measured 138.6 MiB installed** on top of
+  gtk4's 54.0 MiB and libadwaita's 5.3 MiB, so a GNOME box already has it
+  (Epiphany, Help) and a bare one pays it once. A V8 static build stays the
+  alternative if that trade is ever wrong.
 - `makedepends=('cargo' 'rust' 'pkgconf')`; `build()` is
-  `cargo build --release --locked`. No `node-gyp`, no prebuilds, no Node ABI
-  pin, no launcher that has to `cd` first.
-- `source=()` is the GitHub tag tarball, as before. `cargo` fetches the crate
-  graph at build time; if Arch review asks for everything in `source=()`, use
-  `cargo vendor` and add that tarball.
-- `package()` installs one executable under `/usr/bin`, plus `LICENSE`, the
-  desktop file and both icon trees. The stylesheet and the changelog are
-  embedded in the binary (`include_str!`), so there is no runtime data path to
-  get wrong.
+  `cargo build --release --locked --bin puzzle-timer`. No node-gyp, no
+  prebuilds, no Node ABI pin, no launcher that has to `cd` first.
+- `package()` installs one executable under `/usr/bin`, the licence, the
+  desktop file and all three icon directories (`scalable/apps`,
+  `symbolic/apps`, `scalable/actions` — the three action icons are what the
+  list's drag handle and order buttons need). The stylesheet, the changelog
+  and the scramble module are embedded in the binary, so there is no runtime
+  data path to get wrong.
 - The app's data directory and JSON schema do not move: a user upgrading from
   `0.3.0` keeps every solve.
 
-**Draft PKGBUILD shape** (re-measure before submitting):
+**Measured 2026-11-16** (`makepkg -f`, Arch's rust/gtk4 4.24.1/libadwaita
+1.10.0/webkitgtk-6.0 2.54.2): 51.9 s to compile the crate graph, a
+1,963,136 B stripped binary and an 860 KiB `.pkg.tar.zst`. `namcap` reports
+only implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
+hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
 
-```bash
-pkgname=puzzle-timer
-pkgver=0.4.0
-pkgrel=1
-pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
-arch=('x86_64')
-url="https://github.com/xlucn/puzzle-timer"
-license=('GPL-3.0-or-later')
-depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')
-makedepends=('cargo' 'rust' 'pkgconf')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-b2sums=('…')
+**Two notes for the next tag**, because `v0.4.0`'s tarball predates the
+Meson, gettext and Blueprint work:
 
-build() {
-  cd "$pkgname-$pkgver"
-  cargo build --release --locked
-}
+- `v0.4.0` embeds its build directory in a dev-only icon search path, so this
+  one package carries a harmless `reference to $srcdir` warning. **Fixed on
+  `main`** — the checkout icon path is now `#[cfg(debug_assertions)]`, so a
+  release build does not contain it at all.
+- At the next tag the recipe gains `meson`, `gettext` and
+  `blueprint-compiler` in `makedepends`, `build()` becomes `meson setup
+  --buildtype=release --prefix=/usr` + `meson compile`, and `package()` is
+  `DESTDIR="$pkgdir" meson install -C build` — which installs the catalogs to
+  `/usr/share/locale` and bakes that path in, where a bare `cargo build` would
+  leave the binary reading `OUT_DIR` and fall back to English. The manual
+  icon/licence lines then go away, because `data/meson.build` and
+  `po/meson.build` already own those paths.
 
-package() {
-  cd "$pkgname-$pkgver"
-  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "data/$pkgname.desktop" \
-    "$pkgdir/usr/share/applications/$pkgname.desktop"
-  install -Dm644 "data/icons/hicolor/scalable/apps/$pkgname.svg" \
-    "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
-  install -Dm644 "data/icons/hicolor/symbolic/apps/$pkgname-symbolic.svg" \
-    "$pkgdir/usr/share/icons/hicolor/symbolic/apps/$pkgname-symbolic.svg"
-}
-```
-
-**Checkpoint for the user:** `makepkg -si`, launch `/usr/bin/puzzle-timer`
-from a directory that is not the source tree, generate a scramble, and confirm
-the About dialog reports `0.4.0`.
+**Checkpoint for the user:** `makepkg -si` in `packaging/aur`, launch
+`/usr/bin/puzzle-timer` from a directory that is not the source tree,
+generate a scramble, switch the language to 中文 (restart), and confirm the
+About dialog reports `0.4.0`. Then create the AUR repository, copy
+`PKGBUILD` and `.SRCINFO` to it and push.
 
 ### M17 — scheduled (postmarketOS/Alpine package, Rust)
 
@@ -2331,13 +2323,15 @@ Evidence:
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
 - **M18 (Rust port) landed 2026-11-14 and `v0.4.0` was cut the same day;
-  M16 (AUR) is next.** The v0.3.0 tree is frozen on branch `legacy`; `main`
-  is the Rust port. The scramble type control carries the length, the pre-scramble
-  (a preference through the module's `preScr` global) and the fast 4x4
-  switch, the UI reads English or Chinese through typed catalogs, a csTimer
-  file imports into sessions and exports back out, and Statistics has Summary
-  and Charts tabs. **The queue is M16 (AUR) → M17 (Alpine) → M19 (Vala
-  comparison).** M13 is out of the queue: it landed 2026-10-22 as `v0.1.0`;
+  M16 (AUR) is next in the sense that its recipe landed 2026-11-16 and only
+  needs to be pushed to the AUR.** The v0.3.0 tree is frozen on branch
+  `legacy`; `main` is the Rust port. The scramble type control carries the
+  length, the pre-scramble (a preference through the module's `preScr`
+  global) and the fast 4x4 switch, the UI reads English or Chinese through
+  gettext catalogs, a csTimer file imports into sessions and exports back
+  out, and Statistics has Summary and Charts tabs. **The queue is
+  M17 (Alpine) → M19 (Vala comparison).** M13 is out of the queue: it landed
+  2026-10-22 as `v0.1.0`;
   M14 (touch input) joined it on 2026-10-23, M7 (size preferences) on
   2026-10-28, and M15 (phone verdict) on 2026-10-31.
   Numbers are stable identifiers, not queue positions (§6). Nothing was
@@ -2352,11 +2346,11 @@ Evidence:
   `properties`/`sessionN` findings in §5 (decision 12). Open before M10: a
   sanitized real csTimer export file would be the golden fixture — without
   one, the codec is only tested against my reading of csTimer's source.
-  **M16 (AUR) is blocked on two things**, written into its §6 block: M18 must
-  reach parity first, and the repo must be **public at tag time** —
-  `makepkg` fetches over plain HTTP, so the sources must be public. The
-  `v0.1.0` tag was the other one, and it is cut. The rewritten Rust
-  PKGBUILD, its dependency trade-off and its checkpoint live there.
+  **M16 (AUR) needed two things**, written into its §6 block: M18 had to reach
+  parity first, and the repo had to be **public at tag time** — `makepkg`
+  fetches over plain HTTP, so the sources must be public. Both cleared on
+  2026-11-16, the same day the recipe landed in `packaging/aur/`; what is left
+  is creating the AUR repository and pushing `PKGBUILD` + `.SRCINFO`.
   Open before M8 and M9: nothing — M8's one open question (whether the
   bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
   its own block. Probes that gate M10 and M12 (`Gtk.FileDialog` async

@@ -1,0 +1,44 @@
+# Maintainer: Lu Xu
+#
+# This is the AUR repository's content, kept in the source tree so the recipe
+# is reviewed next to the code it packages; the AUR repo itself is just
+# PKGBUILD plus .SRCINFO, which `makepkg --printsrcinfo` regenerates.
+#
+# There is no prepare() or build.rs step: the stylesheet, the changelog and the
+# vendored scramble module are embedded in the executable at compile time. The
+# only files that land on disk are the binary, the desktop entry, the icon set
+# and the licence.
+
+pkgname=puzzle-timer
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Native GTK4/libadwaita speedcubing timer in the spirit of csTimer"
+arch=('x86_64')
+url="https://github.com/xlucn/puzzle-timer"
+license=('GPL-3.0-or-later')
+# webkitgtk-6.0 is what ships libjavascriptcoregtk-6.0: the scramble module runs
+# in the system JSC instead of a Rust-linked V8, which keeps the binary at a
+# couple of megabytes and makes this the one heavy dependency.
+depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')
+makedepends=('cargo' 'rust' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('4003fa908c63fc36995b5abae657b69b1e3f0b4b483a4854cdb81d9224326a89')
+
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --release --locked --bin "$pkgname"
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "data/$pkgname.desktop" \
+    "$pkgdir/usr/share/applications/$pkgname.desktop"
+
+  local icons="$pkgdir/usr/share/icons/hicolor"
+  install -Dm644 -t "$icons/scalable/apps" data/icons/hicolor/scalable/apps/*.svg
+  install -Dm644 -t "$icons/symbolic/apps" data/icons/hicolor/symbolic/apps/*.svg
+  install -Dm644 -t "$icons/scalable/actions" data/icons/hicolor/scalable/actions/*.svg
+}
