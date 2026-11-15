@@ -1,13 +1,17 @@
 # Maintainer: Lu Xu
 #
 # This is the AUR repository's content, kept in the source tree so the recipe
-# is reviewed next to the code it packages; the AUR repo itself is just
-# PKGBUILD plus .SRCINFO, which `makepkg --printsrcinfo` regenerates.
+# is reviewed next to the code it packages. Only the PKGBUILD lives here:
+# `.SRCINFO` is generated when it is needed (`makepkg --printsrcinfo >
+# .SRCINFO`) and is not part of the source tree.
 #
 # There is no prepare() or build.rs step: the stylesheet, the changelog and the
 # vendored scramble module are embedded in the executable at compile time. The
 # only files that land on disk are the binary, the desktop entry, the icon set
 # and the licence.
+#
+# v0.4.0 predates the Meson install, so the files are listed here by hand.
+# The next tag builds through Meson and this recipe loses those lines.
 
 pkgname=puzzle-timer
 pkgver=0.4.0
@@ -34,8 +38,14 @@ package() {
 
   install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "data/$pkgname.desktop" \
-    "$pkgdir/usr/share/applications/$pkgname.desktop"
+
+  # The launcher is named after the application id the window exports, which
+  # is how the shell pairs them (a window with no matching entry shows a
+  # generic icon). v0.4.0's file is still called puzzle-timer.desktop and lacks
+  # StartupWMClass; the name here is what matters, and the X11 key arrives
+  # with the next tag.
+  install -Dm644 "data/puzzle-timer.desktop" \
+    "$pkgdir/usr/share/applications/io.github.xlucn.PuzzleTimer.desktop"
 
   local icons="$pkgdir/usr/share/icons/hicolor"
   install -Dm644 -t "$icons/scalable/apps" data/icons/hicolor/scalable/apps/*.svg

@@ -751,15 +751,21 @@ is name-only for the same reason.
     repo. The file also still lacks a `repository` field and still carries the
     scaffold's placeholder `description`, both of which the repo now makes
     easy to fill in.
-  - **App id — settled 2026-10-19.**
+  - **App id — settled 2026-10-19, corrected 2026-11-16.**
     `'com.oliver.cstimergtk'` → `'io.github.xlucn.PuzzleTimer'`, the
     `io.github.<owner>.<App>` convention for a project with no domain of its
     own, which the Flathub app ids cited above already follow. It is the
-    GApplication id and the `WM_CLASS`, and it is **not** the About
-    `applicationIcon` or the `.desktop` filename — both are the icon name
-    `puzzle-timer`. The installed launcher's window association is a
-    checkpoint for M16: if GNOME does not pair the window with
-    `puzzle-timer.desktop`, the fix is a `StartupWMClass` key.
+    GApplication id, and it is **not** the About `applicationIcon` or the icon
+    name — both are `puzzle-timer`. **The original note called it the
+    `WM_CLASS` and kept the `.desktop` filename as `puzzle-timer.desktop`;
+    both were wrong**, and the first install showed it: the window exports
+    `_GTK_APPLICATION_ID=io.github.xlucn.PuzzleTimer` (measured with `xprop`
+    on the installed binary) and the Wayland app id is the same, while
+    `WM_CLASS` is the binary name `puzzle-timer`. A shell pairs a window with
+    the `.desktop` file **of the application id**, so the entry is now
+    `io.github.xlucn.PuzzleTimer.desktop`; `StartupWMClass=puzzle-timer`
+    covers X11 taskbars that match by class instead. `Icon=` still says
+    `puzzle-timer`, which is what the theme lookup uses either way.
   - **XDG data dir — renamed once, before publishing.** `APP_DIR` is
     `'puzzle-timer'` and the sessions live in `~/.local/share/puzzle-timer`.
     There is no migration code because nothing has ever been installed from
@@ -799,7 +805,8 @@ is name-only for the same reason.
   - **Plumbing — landed 2026-10-17:** the SVGs under `data/icons/hicolor`,
     `Gtk.IconTheme.addSearchPath()` into the repo (a source checkout has no
     install prefix to drop hicolor icons into), `data/puzzle-timer.desktop`
-    with `Icon=puzzle-timer`, and the About dialog's `applicationIcon`
+    with `Icon=puzzle-timer` (renamed to the application id on 2026-11-16 —
+    see the app-id note above), and the About dialog's `applicationIcon`
     pointing at that name rather than `APP_ID`. AppStream `metainfo.xml`
     belongs to packaging, which stays out of scope.
 
@@ -1431,9 +1438,10 @@ package.
   unbuildable for anyone without SSH keys. **Cleared 2026-11-16**: the tag
   tarball answers 200 to an unauthenticated GET.
 
-**The recipe** is `packaging/aur/PKGBUILD` (+ its generated `.SRCINFO`), kept
-in the source tree so it is reviewed with the code and copied to the AUR
-repository at submission.
+**The recipe** is `packaging/aur/PKGBUILD`, kept in the source tree so it is
+reviewed with the code and copied to the AUR repository at submission. The
+AUR's own `.SRCINFO` is generated when it is needed
+(`makepkg --printsrcinfo > .SRCINFO`) and deliberately not tracked here.
 
 - `depends=('gtk4' 'libadwaita' 'webkitgtk-6.0')` — the last one provides
   `libjavascriptcoregtk-6.0`. That is the price of embedding the scramble
@@ -1445,11 +1453,14 @@ repository at submission.
   `cargo build --release --locked --bin puzzle-timer`. No node-gyp, no
   prebuilds, no Node ABI pin, no launcher that has to `cd` first.
 - `package()` installs one executable under `/usr/bin`, the licence, the
-  desktop file and all three icon directories (`scalable/apps`,
+  desktop entry and all three icon directories (`scalable/apps`,
   `symbolic/apps`, `scalable/actions` — the three action icons are what the
-  list's drag handle and order buttons need). The stylesheet, the changelog
-  and the scramble module are embedded in the binary, so there is no runtime
-  data path to get wrong.
+  list's drag handle and order buttons need). The entry is installed as
+  `io.github.xlucn.PuzzleTimer.desktop`, the application id, because the
+  shell pairs a window with a `.desktop` file by that name; the first install
+  showed the generic icon, which is what put `tests/desktop_entry.rs` around
+  the naming. The stylesheet, the changelog and the scramble module are
+  embedded in the binary, so there is no runtime data path to get wrong.
 - The app's data directory and JSON schema do not move: a user upgrading from
   `0.3.0` keeps every solve.
 
@@ -1458,6 +1469,10 @@ repository at submission.
 1,963,136 B stripped binary and an 860 KiB `.pkg.tar.zst`. `namcap` reports
 only implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
 hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
+`xprop` on the installed window gave
+`_GTK_APPLICATION_ID=io.github.xlucn.PuzzleTimer` and
+`WM_CLASS="puzzle-timer"`, which is the pair the entry name and
+`StartupWMClass` follow.
 
 **Two notes for the next tag**, because `v0.4.0`'s tarball predates the
 Meson, gettext and Blueprint work:
@@ -1465,7 +1480,10 @@ Meson, gettext and Blueprint work:
 - `v0.4.0` embeds its build directory in a dev-only icon search path, so this
   one package carries a harmless `reference to $srcdir` warning. **Fixed on
   `main`** — the checkout icon path is now `#[cfg(debug_assertions)]`, so a
-  release build does not contain it at all.
+  release build does not contain it at all. Its desktop entry also predates
+  `StartupWMClass`, so X11 taskbars that match by class rather than by
+  `_GTK_APPLICATION_ID` still resolve it to the binary name; GNOME does not
+  care.
 - At the next tag the recipe gains `meson`, `gettext` and
   `blueprint-compiler` in `makedepends`, `build()` becomes `meson setup
   --buildtype=release --prefix=/usr` + `meson compile`, and `package()` is
@@ -1475,11 +1493,12 @@ Meson, gettext and Blueprint work:
   icon/licence lines then go away, because `data/meson.build` and
   `po/meson.build` already own those paths.
 
-**Checkpoint for the user:** `makepkg -si` in `packaging/aur`, launch
-`/usr/bin/puzzle-timer` from a directory that is not the source tree,
-generate a scramble, switch the language to 中文 (restart), and confirm the
-About dialog reports `0.4.0`. Then create the AUR repository, copy
-`PKGBUILD` and `.SRCINFO` to it and push.
+**Checkpoint for the user:** `makepkg -si` in `packaging/aur` (again — the
+first install predates the entry rename), launch `/usr/bin/puzzle-timer` from
+a directory that is not the source tree, and confirm the window's icon in the
+dash or taskbar, a scramble, 中文 after a restart, and `0.4.0` in About. Then
+create the AUR repository, copy `PKGBUILD` into it, generate `.SRCINFO` with
+`makepkg --printsrcinfo > .SRCINFO` and push.
 
 ### M17 — scheduled (postmarketOS/Alpine package, Rust)
 

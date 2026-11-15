@@ -104,6 +104,11 @@ src/
   hicolor's index has no `symbolic/actions` directory; only `symbolic/apps` is
   listed (the app icon lives there). "Scalable" is about resolution, not
   colour — a `*-symbolic.svg` is still recoloured by GTK.
+- **The desktop entry is named after `platform::meta::APP_ID`**
+  (`io.github.xlucn.PuzzleTimer.desktop`), because a window pairs with the
+  entry of that basename — Wayland by app id, X11 by `_GTK_APPLICATION_ID`.
+  `Icon=` keeps the shorter icon name. Rename the entry only together with
+  the id; `tests/desktop_entry.rs` checks both.
 - **GTK CSS has no custom properties.** Install a new provider before dropping
   the old one when a preference changes the sheet.
 - **A `Gtk.Overlay` child is not counted in the parent's size request.**

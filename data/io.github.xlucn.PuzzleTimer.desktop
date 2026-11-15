@@ -7,3 +7,4 @@ Icon=puzzle-timer
 Terminal=false
 Categories=Game;
 StartupNotify=true
+StartupWMClass=puzzle-timer
