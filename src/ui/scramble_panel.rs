@@ -387,9 +387,16 @@ impl ScramblePanel {
     /// The scramble text's request cap and the slot's height cap, from the
     /// layout curve (already carrying the user's text scale).
     pub fn set_limits(&self, max_width_chars: i32, max_content_height: f64) {
-        self.text.set_max_width_chars(max_width_chars);
-        self.scroll
-            .set_max_content_height(max_content_height.round() as i32);
+        // Compare-first like every other layout writer: the after-paint pass
+        // calls this on every frame, and an unchanged value must not queue a
+        // resize and keep the frame clock running.
+        let height = max_content_height.round() as i32;
+        if self.text.max_width_chars() != max_width_chars {
+            self.text.set_max_width_chars(max_width_chars);
+        }
+        if self.scroll.max_content_height() != height {
+            self.scroll.set_max_content_height(height);
+        }
     }
 
     /// The scramble text's font size — the curve times the user's scale.

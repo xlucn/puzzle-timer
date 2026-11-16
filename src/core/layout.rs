@@ -1,14 +1,16 @@
 //! The adaptive-layout rules, as pure functions.
 //!
-//! The *window* measures itself — `Adw.Breakpoint` apply/unapply and
-//! `Gdk.Surface::layout`, both wired up in `src/ui/` — and hands the numbers to
-//! this module; what the UI has to do about them is decided here, where it can
-//! be unit tested. Nothing outside this file may hold a threshold, so the
-//! breakpoints and the decisions they select cannot drift apart.
+//! The *app area* measures itself — `window.content()`, the
+//! `Adw.BreakpointBin` child that libadwaita's Adaptive Preview also shrinks,
+//! driven by `Gdk.Surface::layout` plus the frame clock's after-paint pass in
+//! `src/ui/` — and hands the numbers to this module; what the UI has to do
+//! about them is decided here, where it can be unit tested. Nothing outside
+//! this file may hold a threshold, so the breakpoints and the decisions they
+//! select cannot drift apart.
 //!
-//! One job: [`layout_for`] turns a window size into everything the UI does for
-//! it — the sidebar as a drawer or side by side, the scramble selectors in the
-//! header or in their own row, the readout / scramble / diagram sizes, and
+//! One job: [`layout_for`] turns that rectangle into everything the UI does
+//! for it — the sidebar as a drawer or side by side, the scramble selectors in
+//! the header or in their own row, the readout / scramble / diagram sizes, and
 //! where the diagram sits.
 //!
 //! Units are **logical px** everywhere: GTK lays out in logical px and the

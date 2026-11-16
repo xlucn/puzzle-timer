@@ -2,8 +2,21 @@ use super::*;
 
 impl App {
     pub(super) fn layout_now(&self) {
-        let mut width = self.window.width() as f64;
-        let mut height = self.window.height() as f64;
+        // The rectangle the app lives in is `window.content()`'s allocation,
+        // not the `Gtk.Window`'s size. `content` is the child of the
+        // `Adw.BreakpointBin` the window's own adaptive pass works on, so a
+        // tier decided here and a band condition always share one rectangle:
+        // in a normal window the bin fills the window, under libadwaita's
+        // Adaptive Preview it sits inside the emulated screen (measured there:
+        // 360x670 inside a 1000x700 window). Deciding from the window instead
+        // kept the desktop layout on a phone-sized preview.
+        //
+        // It is the whole app, sidebar included — deliberately not the
+        // post-sidebar `main_content`, or docking the sidebar would shrink the
+        // readout and feed on its own decision.
+        let app_area = self.window.content();
+        let mut width = app_area.as_ref().map_or(0.0, |area| area.width() as f64);
+        let mut height = app_area.as_ref().map_or(0.0, |area| area.height() as f64);
         if width <= 0.0 || height <= 0.0 {
             // Before the first allocation the size we *asked* for is the size
             // that frame is given, so it stands in: laying out at the minimum
@@ -42,8 +55,12 @@ impl App {
         );
         drop(prefs);
 
-        self.split.set_collapsed(plan.drawer);
-        self.split.set_max_sidebar_width(plan.sidebar_max);
+        if self.split.is_collapsed() != plan.drawer {
+            self.split.set_collapsed(plan.drawer);
+        }
+        if (self.split.max_sidebar_width() - plan.sidebar_max).abs() > f64::EPSILON {
+            self.split.set_max_sidebar_width(plan.sidebar_max);
+        }
         self.timer_view.set_font_size(plan.timer_px);
         self.panel.set_font_size(plan.scramble_px);
         self.panel
@@ -102,8 +119,10 @@ impl App {
     /// The bottom bar is only on screen in the narrow layout, and never while
     /// the timer owns the view.
     pub(super) fn sync_bottom_bar(&self) {
-        self.content
-            .set_reveal_bottom_bars(self.selectors_in_row.get() && !self.chrome_hidden.get());
+        let reveal = self.selectors_in_row.get() && !self.chrome_hidden.get();
+        if self.content.reveals_bottom_bars() != reveal {
+            self.content.set_reveal_bottom_bars(reveal);
+        }
     }
 
     /// Inset the start target by the drawer's swipe strip while the list is a

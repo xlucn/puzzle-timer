@@ -98,8 +98,10 @@ src/
   text in `bind`, so delete/undo can never point at the wrong row.
 - **Sizes are continuous.** Keep the `core/layout` formulas and apply them
   from `Gdk.Surface::layout` plus the after-paint pass; a breakpoint fires
-  only at a structural boundary. The readout reads the **window**, never the
-  measured content area, or docking the sidebar changes the font.
+  only at a structural boundary. Measure **`window.content()`** (the
+  breakpoint bin's child, which the Adaptive Preview also shrinks), never the
+  `Gtk.Window` size — but never the post-sidebar content area either, or
+  docking the sidebar changes the readout font.
 - **Bundle extra symbolic icons under `data/icons/hicolor/scalable/actions/`.**
   hicolor's index has no `symbolic/actions` directory; only `symbolic/apps` is
   listed (the app icon lives there). "Scalable" is about resolution, not

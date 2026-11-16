@@ -420,6 +420,19 @@ pub fn build_window(application: &adw::Application) {
     // ---- input -------------------------------------------------------------
     install_keys(&app, &start_target);
 
+    // The header's Cancel is the same tap as Escape: one cancellation route
+    // for the keyboard and for a touch screen. Both halves of the key are fed
+    // so the timer's held-key set is left the way a real release leaves it.
+    {
+        let slot = Rc::clone(&slot);
+        cancel_inspection.connect_clicked(move |_| {
+            with_app(&slot, |app| {
+                app.key_down("escape");
+                app.key_up("escape");
+            });
+        });
+    }
+
     // ---- resize ------------------------------------------------------------
     {
         let slot = Rc::clone(&slot);
@@ -437,10 +450,25 @@ pub fn build_window(application: &adw::Application) {
             let Some(surface) = window.surface() else {
                 return;
             };
-            let slot = Rc::clone(&slot);
-            surface.connect_layout(move |_, _, _| {
-                with_app(&slot, |app| app.layout_now());
-            });
+            {
+                let slot = Rc::clone(&slot);
+                surface.connect_layout(move |_, _, _| {
+                    with_app(&slot, |app| app.layout_now());
+                });
+            }
+
+            // `layout` arrives before GTK has caught the allocations up, so it
+            // can only re-apply the tier already in force. A height-only
+            // resize raises no width band, and the Adaptive Preview's
+            // emulated-screen switch raises no surface event at all, so the
+            // post-allocation pass is where a real size change lands. Every
+            // writer is compare-first, so an idle frame costs one measurement.
+            if let Some(clock) = window.frame_clock() {
+                let slot = Rc::clone(&slot);
+                clock.connect_after_paint(move |_| {
+                    with_app(&slot, |app| app.layout_now());
+                });
+            }
         });
     }
 
