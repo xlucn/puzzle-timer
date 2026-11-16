@@ -284,6 +284,7 @@ pub fn build_window(application: &adw::Application) {
         fast_scramble: Cell::new(false),
         selectors_in_row: Cell::new(false),
         placed_diagram: Cell::new(None),
+        layout_band: Cell::new((0.0, f64::MAX)),
         chrome_hidden: Cell::new(false),
         sidebar_was_shown: Cell::new(true),
         start_area_inset: Cell::new(-1),
@@ -470,6 +471,43 @@ pub fn build_window(application: &adw::Application) {
                 });
             }
         });
+    }
+
+    // ---- layout bands ------------------------------------------------------
+    // These bands change no property: their job is to make the window's
+    // `Adw.BreakpointBin` report a zero minimum, so the Adaptive Preview can
+    // ask for a phone-sized rectangle without GTK complaining that the docked
+    // sidebar's minimum does not fit. Each band also re-runs the layout when
+    // it applies, so a width tier takes effect on the allocation that changed
+    // it. `layout_for` still decides every tier; the bands only make sure it
+    // runs at the moment the window crosses one.
+    let band = |min: Option<f64>, max: Option<f64>| {
+        let width =
+            |type_, value| adw::BreakpointCondition::new_length(type_, value, adw::LengthUnit::Px);
+        match (min, max) {
+            (Some(min), Some(max)) => adw::BreakpointCondition::new_and(
+                width(adw::BreakpointConditionLengthType::MinWidth, min),
+                width(adw::BreakpointConditionLengthType::MaxWidth, max),
+            ),
+            (Some(min), None) => width(adw::BreakpointConditionLengthType::MinWidth, min),
+            (None, Some(max)) => width(adw::BreakpointConditionLengthType::MaxWidth, max),
+            (None, None) => unreachable!(),
+        }
+    };
+    for (min, max) in [
+        (None, Some(BREAKPOINTS.selector_row_max)),
+        (
+            Some(BREAKPOINTS.selector_row_max + 1.0),
+            Some(BREAKPOINTS.drawer_max),
+        ),
+        (Some(BREAKPOINTS.drawer_max + 1.0), None),
+    ] {
+        let breakpoint = adw::Breakpoint::new(band(min, max));
+        let applied = Rc::clone(&slot);
+        breakpoint.connect_apply(move |_| {
+            with_app(&applied, |app| app.layout_in_band(Some((min, max))));
+        });
+        window.add_breakpoint(breakpoint);
     }
 
     // ---- startup -----------------------------------------------------------

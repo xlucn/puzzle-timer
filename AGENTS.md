@@ -102,6 +102,14 @@ src/
   breakpoint bin's child, which the Adaptive Preview also shrinks), never the
   `Gtk.Window` size — but never the post-sidebar content area either, or
   docking the sidebar changes the readout font.
+- **The window carries the width bands as `Adw.Breakpoint`s** (≤540, 541–800,
+  ≥801). They set no property: without a breakpoint the window's
+  `Adw.BreakpointBin` reports the child's minimum, which is what stops the
+  Adaptive Preview from shrinking it. Every band's `apply` re-runs the layout
+  with `layout_in_band`, which stores the band and clamps the width into it —
+  the bin has already been given that width, while `content()` still carries
+  the old one for a frame. Do not lay out from `unapply`: the old rectangle is
+  still current there and would undo the new band's tier.
 - **Bundle extra symbolic icons under `data/icons/hicolor/scalable/actions/`.**
   hicolor's index has no `symbolic/actions` directory; only `symbolic/apps` is
   listed (the app icon lives there). "Scalable" is about resolution, not

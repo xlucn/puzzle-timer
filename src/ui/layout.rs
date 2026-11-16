@@ -2,6 +2,22 @@ use super::*;
 
 impl App {
     pub(super) fn layout_now(&self) {
+        self.layout_in_band(None);
+    }
+
+    /// `layout_now` with the width band that just applied. The band is stored
+    /// first, so later passes in the same resize keep clamping the measured
+    /// width even after the content's old, wider allocation comes back
+    /// through a surface layout event: the band is what the bin was actually
+    /// given, and it may not be overruled by a rectangle that has not caught
+    /// up. Without the clamp the old width re-docks the sidebar for a frame,
+    /// and the next allocation is measured against a minimum that no longer
+    /// fits.
+    pub(super) fn layout_in_band(&self, band: Option<(Option<f64>, Option<f64>)>) {
+        if let Some((min, max)) = band {
+            self.layout_band
+                .set((min.unwrap_or(0.0), max.unwrap_or(f64::MAX)));
+        }
         // The rectangle the app lives in is `window.content()`'s allocation,
         // not the `Gtk.Window`'s size. `content` is the child of the
         // `Adw.BreakpointBin` the window's own adaptive pass works on, so a
@@ -27,6 +43,8 @@ impl App {
         if width <= 0.0 || height <= 0.0 {
             return;
         }
+        let (band_min, band_max) = self.layout_band.get();
+        width = width.clamp(band_min, band_max);
         let prefs = self.preferences.borrow();
         let content = {
             let main_width = self.main_content.width() as f64;

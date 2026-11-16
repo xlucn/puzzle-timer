@@ -209,6 +209,12 @@ struct App {
     fast_scramble: Cell<bool>,
     selectors_in_row: Cell<bool>,
     placed_diagram: Cell<Option<DiagramPlacement>>,
+    /// The width band the window's breakpoints last entered, as a clamp. The
+    /// band is checked against the allocation the bin just received, so it is
+    /// fresher than `content()` during a resize or a preview switch; the
+    /// clamp keeps a stale, wider allocation from undoing the tier the band
+    /// already chose.
+    layout_band: Cell<(f64, f64)>,
     /// The timer owns the view (arming through solving).
     chrome_hidden: Cell<bool>,
     sidebar_was_shown: Cell<bool>,
