@@ -1422,7 +1422,7 @@ solves; the bars should track the spread of times, and the gray/red/blue
 lines the singles, ao5 and ao12 over solve order. Scroll down for the heat
 map, now at the bottom of the same tab.
 
-### M16 — landed 2026-11-16 (AUR package, Rust)
+### M16 — landed 2026-11-16, published 2026-11-18 (AUR package, Rust)
 
 Opened 2026-10-06 as the one exception to the packaging line in §1. The
 package was originally the node-gtk tree; **since M18 (2026-11-10) it packages
@@ -1497,14 +1497,22 @@ hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
 `0.4.0.r14.g2526067` at HEAD (`r14` counts commits since `v0.4.0`) and
 `vercmp` puts it one above `0.4.0`.
 
-**Checkpoint for the user:** build the recipe (with the GitHub source) and
-install it — `makepkg -si` in `packaging/aur`, after removing the earlier
-`puzzle-timer` install, because the new package conflicts with it. Then launch
-`/usr/bin/puzzle-timer` from a directory that is not the source tree and check
-four things: the window's icon in the dash or taskbar, a scramble, 中文 after a
-restart, and `0.4.0` in About. Finally create the AUR repository, copy
-`PKGBUILD` into it, generate `.SRCINFO` with
-`makepkg --printsrcinfo > .SRCINFO` and push.
+**Published 2026-11-18:** the AUR repository exists and the package page is
+live at <https://aur.archlinux.org/packages/puzzle-timer-git> — maintainer
+`xlucn`, `provides`/`conflicts` on `puzzle-timer`, dependencies exactly
+`gtk4`, `libadwaita`, `webkitgtk-6.0`, makedeps `rust`, `pkgconf`, `meson`,
+`git`, `gettext`, `blueprint-compiler`. The `.SRCINFO` snapshot read from the
+RPC says `0.4.0.r13.gd745f10-1`; that is only the state at push time, since
+`pkgver()` recomputes from the clone on every build, so a `-git` install
+tracks `main` and currently lands on the newer `r…` form. Nothing else gates
+M16.
+
+The AUR copy is hand-maintained and no longer byte-identical to
+`packaging/aur/PKGBUILD`: it carries the maintainer's e-mail, a shorter
+`pkgdesc`, and none of the tree's explanatory comments. The logic is the
+same (VCS source, `git describe` pkgver, Meson build/package). If the tree
+copy is meant to stay the reviewed one, reconcile it deliberately rather than
+copying over the published file.
 
 ### M17 — scheduled (postmarketOS/Alpine package, Rust)
 
@@ -2394,10 +2402,9 @@ Evidence:
   land so a cold session can pick up correctly.
 - **M18 (Rust port) landed 2026-11-14 and `v0.4.0` was cut the same day; its
   parity was re-audited and closed on 2026-11-18 (one drift fixed,
-  `b0e4ef8`), with the packaging left: M16 (AUR) is next in the sense that
-  its recipe landed 2026-11-16 and only
-  needs to be pushed to the AUR.** The v0.3.0 tree is frozen on branch
-  `legacy`; `main` is the Rust port. The scramble type control carries the
+  `b0e4ef8`). M16 (AUR) is published too: the recipe landed 2026-11-16 and
+  `puzzle-timer-git` went live on 2026-11-18.** The v0.3.0 tree is frozen on
+  branch `legacy`; `main` is the Rust port. The scramble type control carries the
   length, the pre-scramble (a preference through the module's `preScr`
   global) and the fast 4x4 switch, the UI reads English or Chinese through
   gettext catalogs, a csTimer file imports into sessions and exports back
@@ -2421,8 +2428,8 @@ Evidence:
   **M16 (AUR) needed two things**, written into its §6 block: M18 had to reach
   parity first, and the repo had to be **public at tag time** — `makepkg`
   fetches over plain HTTP, so the sources must be public. Both cleared on
-  2026-11-16, the same day the recipe landed in `packaging/aur/`; what is left
-  is creating the AUR repository and pushing `PKGBUILD` + `.SRCINFO`.
+  2026-11-16, the same day the recipe landed in `packaging/aur/`; the AUR
+  repository and its `.SRCINFO` were pushed on 2026-11-18.
   Open before M8 and M9: nothing — M8's one open question (whether the
   bundled scrambler honours the 4th `neutLevel` argument) is a probe inside
   its own block. Probes that gate M10 and M12 (`Gtk.FileDialog` async
