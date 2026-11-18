@@ -18,6 +18,7 @@ The app is now packaged in [AUR].
 - Touch screen support when mouse control is disabled.
 - The app icon now shows correctly.
 - Cancel button in the inspection didn't work.
+- Long scrambles, 4x4 and 5x5 among them, no longer hide behind a click in a solve's details.
 
 ### Changed
 
