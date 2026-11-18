@@ -1720,6 +1720,25 @@ version rather than shipping both.
 
 **Evidence to re-run first:** `tools/rust-embed/probe-vala/run.sh`.
 
+### After M18 — ideas held for the port's exit
+
+Invariant 10 parks new features until M18 is out, so ideas land here with the
+design already checked against the code, and are not implemented early.
+
+- **Click the scramble to read it full-window** (2026-11-18, user idea). Long
+  scrambles (7x7's 100 moves, megaminx) already scroll, but inside a
+  `scramble_max_height` slot of 90–240 px (`core/layout.rs`), so only two or
+  three lines are visible. Clicking the text would give the panel the whole
+  content height and hide the timer; Escape (already routed through
+  `App::key_down`) or a second click collapses it, and a new scramble
+  collapses it too. Expansion should be refused while the timer is running or
+  inspecting, and the label can only become selectable while expanded —
+  otherwise a select-drag fights click-to-collapse. No new widgets are
+  needed: `scramble_panel` already holds the label in a `Gtk.ScrolledWindow`,
+  so this is a flag plus an expanded cap in `layout_now`, a `GestureClick` on
+  the label, and one `key_down` branch. v0.3.0 has no such view, so this is a
+  feature, not a missing port.
+
 ### M0 — landed 2026-09-30
 
 Scaffold at the repo root (`npx node-gtk create .`, app id `com.oliver.cstimergtk`),
