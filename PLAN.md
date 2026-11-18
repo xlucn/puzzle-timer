@@ -1695,6 +1695,32 @@ the app.
 of live checkpoints signed off, existing data files open unchanged, and
 `0.4.0` tagged.
 
+**Port closed 2026-11-18.** A second, independent pass re-checked the port
+against `legacy` rather than against the audit's own notes: the catalog is
+215 `MessageKey`s for the legacy file's 215 keys, with no invented string and
+no key left unused; preferences keep their three pages, thirteen rows,
+defaults and clamps; the store keeps its paths, file versions, 250 ms debounce
+and `*.corrupt-<ms>` quarantine; the accelerators, chart colours, 13-week heat
+map and 250-scramble history match; 335 tests pass against v0.3.0's 329; the
+sweep still hashes to `7750f9e8…`.
+
+One drift came out of it: the solve editor collapsed a scramble at **120**
+characters instead of the 200 v0.3.0 measured, so 30 catalogue types between
+those lengths — 4x4, 5x5, clock, square-1, the 2–3–4 relay — arrived behind a
+click that used to show the whole sequence. Fixed in `b0e4ef8`; the dialog is
+the same 480 px, so the original measurement still holds.
+
+The live half of this pass was blocked by the host, not the app: it has no X11
+window manager (`sway` is Wayland and this `mutter` is the Wayland
+compositor), so under Xephyr the window never becomes active, application
+accelerators (`Ctrl+Q`, `Ctrl+T`, `Ctrl+,` …) do not fire, and pointer presses
+are consumed without activating a row. Raw key events still reach the window —
+a space-hold solve was recorded and written to disk — but dialogs cannot be
+opened by keyboard here. Future sessions: run an X11 window manager on the
+nested display (or accept controller-level checks only); the keyboard
+checkpoints recorded on 2026-11-12 and the Adaptive Preview warning run remain
+the live evidence.
+
 ### M19 — scheduled (Vala comparison, after M18/M16/M17)
 
 Opened 2026-11-10 by user call: Rust ships first, then try the same port in
@@ -2366,8 +2392,10 @@ Evidence:
 - Project rules live in [AGENTS.md](./AGENTS.md) (auto-loaded every session).
 - This file is the plan of record; update §6 checkboxes/notes as milestones
   land so a cold session can pick up correctly.
-- **M18 (Rust port) landed 2026-11-14 and `v0.4.0` was cut the same day;
-  M16 (AUR) is next in the sense that its recipe landed 2026-11-16 and only
+- **M18 (Rust port) landed 2026-11-14 and `v0.4.0` was cut the same day; its
+  parity was re-audited and closed on 2026-11-18 (one drift fixed,
+  `b0e4ef8`), with the packaging left: M16 (AUR) is next in the sense that
+  its recipe landed 2026-11-16 and only
   needs to be pushed to the AUR.** The v0.3.0 tree is frozen on branch
   `legacy`; `main` is the Rust port. The scramble type control carries the
   length, the pre-scramble (a preference through the module's `preScr`
