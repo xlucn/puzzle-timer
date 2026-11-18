@@ -63,7 +63,7 @@ Here is what is done by me, at the current stage:
 
 ### Packages
 
-This app is available in the AUR as `puzzle-timer-git`:
+This app is available in the AUR as [`puzzle-timer-git`](https://aur.archlinux.org/packages/puzzle-timer-git):
 
 ```sh
 yay -S puzzle-timer-git
