@@ -649,9 +649,6 @@ change) — and a differential test harness must whitelist them.
 All evidence is regenerable from the repo:
 
 ```bash
-# regenerate the 206-type list from the app's own catalogue
-node --import tsx tools/rust-embed/gen-types.mjs
-
 # default: the three JIT engines — node, deno, v8, jsc (~40 s)
 tools/rust-embed/run.sh
 
@@ -664,6 +661,11 @@ LIBNODE=/path/to/libnode.so tools/rust-embed/run.sh
 # the same evidence for Vala — needs valac + webkitgtk-6.0 (~35 s)
 tools/rust-embed/probe-vala/run.sh
 ```
+
+`types.json` is checked in for the probes: the 206 ids and default lengths,
+kept in step by hand with `src/core/scramble_types.rs`. The app's own sweep does
+not read it — `scramble_sweep` iterates that catalogue directly, so the shipped
+binary has no dependency on `tools/`.
 
 **Slow engines are opt-in** — they are 20–55× slower and their results are
 already recorded, so the default run stays fast enough to use routinely. Turn
@@ -684,8 +686,7 @@ Layout:
 tools/rust-embed/
 ├── Cargo.toml              workspace (7 members)
 ├── run.sh                  builds, sweeps, diffs, self-checks the count
-├── gen-types.mjs           types.json ← src/core/scrambleTypes.ts
-├── types.json              206 × {id, len} (generated)
+├── types.json              206 × {id, len}; the probes' copy of the catalogue
 ├── node-reference.cjs      the reference dump (real Node + real require)
 ├── probe-common/src/lib.rs shim, sweep script, path resolution
 ├── probe-quickjs/          rquickjs                    [SLOW=1]

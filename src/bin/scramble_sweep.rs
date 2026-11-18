@@ -1,28 +1,21 @@
 //! Generate every one of the 206 catalogue scrambles through the real JSC
 //! bridge and report the counts. This is the health check for the engine
-//! boundary, matching `tools/rust-embed`'s sweep contract.
+//! boundary, matching the engine probes' sweep contract.
 //!
 //! `--dump` prints only the `id<TAB>json-string` lines the engine probes
 //! produce, so the app's own bridge can be hashed and compared with the Node
 //! reference (RUST-PORT.md §2): same seed, same call order, same md5. The
 //! counts then go to stderr.
+//!
+//! The list is `core::scramble_types`, the table the app itself ships, so the
+//! sweep cannot drift from the catalogue and does not read from `tools/`.
 
-use serde::Deserialize;
-
+use puzzle_timer::core::scramble_types::SCRAMBLE_TYPES;
 use puzzle_timer::scramble::{DefaultEngine, ScrambleEngine};
-
-#[derive(Deserialize)]
-struct TypeEntry {
-    id: String,
-    len: u32,
-}
-
-const TYPES: &str = include_str!("../../tools/rust-embed/types.json");
 
 fn main() -> std::process::ExitCode {
     let dump = std::env::args().any(|argument| argument == "--dump");
-    let types: Vec<TypeEntry> =
-        serde_json::from_str(TYPES).expect("tools/rust-embed/types.json is valid");
+    let total = SCRAMBLE_TYPES.len();
 
     let engine = DefaultEngine::new("42").expect("JavaScriptCore context");
 
@@ -30,12 +23,12 @@ fn main() -> std::process::ExitCode {
     let mut empty = 0usize;
     let mut images = 0usize;
     let mut failures = 0usize;
-    let mut lines: Vec<String> = Vec::with_capacity(types.len());
+    let mut lines: Vec<String> = Vec::with_capacity(total);
 
-    for entry in &types {
+    for scramble_type in SCRAMBLE_TYPES {
         // `getImage` is asked for in the same round trip as the scramble, so
         // the shared RNG stream stays aligned with the reference.
-        match engine.generate(&entry.id, entry.len, "", true) {
+        match engine.generate(scramble_type.id, scramble_type.default_length, "", true) {
             Ok(payload) => {
                 if payload.image.is_some() {
                     images += 1;
@@ -47,20 +40,19 @@ fn main() -> std::process::ExitCode {
                 }
                 lines.push(format!(
                     "{}\t{}",
-                    entry.id,
+                    scramble_type.id,
                     serde_json::to_string(&payload.scramble).expect("a string is JSON")
                 ));
             }
             Err(error) => {
                 failures += 1;
-                eprintln!("FAIL {}: {error}", entry.id);
+                eprintln!("FAIL {}: {error}", scramble_type.id);
             }
         }
     }
 
     let counts = format!(
-        "generated OK={ok} empty={empty} images={images} failures={failures} total={total}",
-        total = types.len()
+        "generated OK={ok} empty={empty} images={images} failures={failures} total={total}"
     );
     if dump {
         for line in &lines {
@@ -71,7 +63,7 @@ fn main() -> std::process::ExitCode {
         println!("{counts}");
     }
 
-    if ok == types.len() && failures == 0 && empty == 0 {
+    if ok == total && failures == 0 && empty == 0 {
         std::process::ExitCode::SUCCESS
     } else {
         std::process::ExitCode::FAILURE
