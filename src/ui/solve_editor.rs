@@ -27,8 +27,10 @@ use crate::core::time::{Penalty, format_full_timestamp, format_solve};
 
 /// Above this length the scramble collapses into an expander row: one
 /// ellipsized line until asked, so a relay's thousand characters cost a click
-/// rather than a screen.
-const EXPAND_SCRAMBLE_ABOVE: usize = 120;
+/// rather than a screen. The same 200 as v0.3.0, which measured it: 555wca
+/// tops out at 198 characters — the tall row that still reads fine in the
+/// 480 px dialog — while 666wca starts at 269 and a 2–7 relay runs past 1000.
+const EXPAND_SCRAMBLE_ABOVE: usize = 200;
 
 /// The compiled form of `solve_editor.blp`.
 const LAYOUT: &str = include_str!(concat!(env!("OUT_DIR"), "/solve_editor.ui"));
