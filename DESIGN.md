@@ -57,7 +57,9 @@ src/
 
 `style.css` sits at the repository root and is compiled in. `vendor/` holds the
 scramble bundle. `data/` holds the hicolor icon tree (full-colour and symbolic)
-and `puzzle-timer.desktop`. `po/` holds the gettext catalogs: `LINGUAS` lists
+and `io.github.xlucn.PuzzleTimer.desktop` (named after the application id, which
+is what a window exports and the shell matches). `po/` holds the gettext
+catalogs: `LINGUAS` lists
 the languages, `puzzle-timer.pot` is generated from `locales/en.rs`, and each
 `.po` is hand-maintained. `docs/` holds the README's screenshot:
 documentation, not something an install ships.

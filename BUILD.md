@@ -19,9 +19,10 @@ Everything here assumes a source checkout. For what the app *is*, see the
 - **gettext** (`msgfmt`), which compiles the catalogs in `po/` into the `.mo`
   the app reads; Cargo runs it as well.
 
-- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext`
-- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext`
-- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext`
+- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext meson`
+- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`
+- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext meson`
+- **Alpine:** edge, as 3.22 still ships GTK 4.18 and libadwaita 1.7: `sudo apk add rust cargo gtk4.0-dev libadwaita-dev webkit2gtk-6.0-dev pkgconf blueprint-compiler gettext meson`
 
 The distribution packages must be new enough to carry GTK 4.24, libadwaita 1.9
 and JavaScriptCore 6. Older releases cannot build the app. It has only been

@@ -61,20 +61,30 @@ Here is what is done by me, at the current stage:
 
 ## Install
 
-There are no packages yet, so the app is built from source. You need a Rust toolchain, `pkg-config`, and the development packages for GTK 4.24, libadwaita 1.9 and JavaScriptCore 6:
+### Packages
 
-- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf`
-- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config`
-- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config`
-
-Then clone or download this repo, and build it:
+This app is available in the AUR as `puzzle-timer-git`:
 
 ```sh
-cargo build --release
-./target/release/puzzle-timer
+yay -S puzzle-timer-git
 ```
 
-[BUILD.md](./BUILD.md) covers tests, the scramble sweep and the UI harness.
+### Build from source
+
+To build from source, you need a Rust toolchain, `pkg-config`, and the development packages for GTK 4.24, libadwaita 1.9 and JavaScriptCore 6:
+
+- **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext meson`
+- **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`
+- **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext meson`
+- **Alpine:** edge, as 3.22 still ships GTK 4.18 and libadwaita 1.7: `sudo apk add rust cargo gtk4.0-dev libadwaita-dev webkit2gtk-6.0-dev pkgconf blueprint-compiler gettext meson`
+
+Then clone or download this repo, build and install it:
+
+```sh
+meson setup build --buildtype=release --prefix=/usr
+meson compile -C build
+meson install -C build
+```
 
 ## Credits
 

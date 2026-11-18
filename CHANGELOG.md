@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+The app is now packaged in [AUR].
+
 ### Added
 
 - Meson build system.
@@ -14,6 +16,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Touch screen support when mouse control is disabled.
+- The app icon now shows correctly.
+- Cancel button in the inspection didn't work.
 
 ### Changed
 
@@ -209,6 +213,7 @@ As of this release, the app is much more polished and usable.
 - GTK 4 + libadwaita through node-gtk, written in TypeScript.
 - Hold Space and release to start, press to stop. Microsecond precision.
 
+[AUR]: https://aur.archlinux.org/packages/puzzle-timer-git
 [Unreleased]: https://github.com/xlucn/puzzle-timer/compare/v0.4.0...HEAD
 [0.4.0]: https://github.com/xlucn/puzzle-timer/tree/v0.4.0
 [0.3.0]: https://github.com/xlucn/puzzle-timer/tree/v0.3.0
