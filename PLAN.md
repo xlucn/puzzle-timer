@@ -1619,6 +1619,15 @@ tarball (Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
 the old tag-triggered `softprops/action-gh-release` job is gone, so a tag only
 produces downloadable artifacts to test.
 
+Both files are named `puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>`,
+for example `0.4.0.r33.g58972eb`: every push to `main` builds the same
+unreleased `Cargo.toml` version, so the version alone cannot say which build a
+download is, and this is the string `packaging/aur/PKGBUILD`'s `pkgver()`
+gives the -git package, so an artifact and a local `-git` install can be
+compared. A `version` job reads both (`fetch-depth: 0` for `git describe`) and
+publishes the label, because the tarball and the bundle must not disagree
+about the name of the same commit.
+
 **Checkpoint for the user:** install the local build, launch it from the
 launcher (icon, not a generic one), generate a scramble in 3x3 and 5x5, switch
 to 中文 and restart, open About and read `0.4.0`, and record a solve; the data

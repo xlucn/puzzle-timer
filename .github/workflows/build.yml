@@ -6,8 +6,10 @@
 # org.gnome.Platform//51, whose GTK 4.24, libadwaita 1.9 and JavaScriptCore 6
 # take the place of the distribution packages, and bundles no engine.
 #
-# The version lives in Cargo.toml only (AGENTS.md invariant 8), so both jobs
-# read it there instead of deriving it from a tag.
+# The version lives in Cargo.toml only (AGENTS.md invariant 8), and every push
+# to `main` builds the same unreleased version, so the artifact names carry the
+# commit too: `<version>.r<commits since the tag>.g<sha>`, the same string the
+# AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`).
 
 name: Build
 
@@ -26,17 +28,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # One place names the build for both jobs, so the two artifacts of a run
+  # cannot disagree about what they contain.
   version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.read.outputs.version }}
+      label: ${{ steps.read.outputs.label }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # `git describe` needs the tag and the history behind it
       - id: read
         run: |
           version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Cargo.toml says $version"
+          # `v0.4.0-33-g58972eb` -> `0.4.0.r33.g58972eb`; a clone whose tag is
+          # missing falls back to the commit count and the short sha.
+          if describe=$(git describe --tags --long --match "v$version" 2>/dev/null); then
+            label=$(echo "$describe" | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g')
+          else
+            label="$version.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "Cargo.toml says $version; artifacts are named puzzle-timer-$label-*"
 
   tarball:
     needs: version
@@ -57,21 +70,21 @@ jobs:
 
       - name: Build and stage an install tree
         run: |
-          version="${{ needs.version.outputs.version }}"
+          label="${{ needs.version.outputs.label }}"
           meson setup builddir --buildtype=release --prefix=/usr
-          DESTDIR="$PWD/stage/puzzle-timer-$version" meson install -C builddir
-          strip --strip-unneeded "stage/puzzle-timer-$version/usr/bin/puzzle-timer"
+          DESTDIR="$PWD/stage/puzzle-timer-$label" meson install -C builddir
+          strip --strip-unneeded "stage/puzzle-timer-$label/usr/bin/puzzle-timer"
 
       - name: Package
         run: |
-          version="${{ needs.version.outputs.version }}"
-          tar -C stage -czf "puzzle-timer-$version-x86_64.tar.gz" "puzzle-timer-$version"
-          sha256sum puzzle-timer-"$version"-x86_64.tar.gz > SHA256SUMS
+          label="${{ needs.version.outputs.label }}"
+          tar -C stage -czf "puzzle-timer-$label-x86_64.tar.gz" "puzzle-timer-$label"
+          sha256sum puzzle-timer-"$label"-x86_64.tar.gz > SHA256SUMS
           cat SHA256SUMS
 
       - uses: actions/upload-artifact@v4
         with:
-          name: puzzle-timer-${{ needs.version.outputs.version }}-x86_64
+          name: puzzle-timer-${{ needs.version.outputs.label }}-x86_64
           path: |
             puzzle-timer-*.tar.gz
             SHA256SUMS
@@ -87,7 +100,7 @@ jobs:
 
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: puzzle-timer-${{ needs.version.outputs.version }}-x86_64.flatpak
+          bundle: puzzle-timer-${{ needs.version.outputs.label }}-x86_64.flatpak
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
           cache-key: flatpak-${{ github.sha }}
 
@@ -96,7 +109,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: puzzle-timer-${{ needs.version.outputs.version }}-flatpak
+          name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak
           path: |
             puzzle-timer-*.flatpak
             SHA256SUMS-flatpak
