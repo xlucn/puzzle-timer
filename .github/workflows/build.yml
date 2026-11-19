@@ -98,18 +98,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The action builds the bundle and uploads it as an artifact itself. Its
+      # default artifact name appends the architecture to the bundle name,
+      # which here already carries it (`…-x86_64-x86_64.flatpak`), so both are
+      # given explicitly.
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: puzzle-timer-${{ needs.version.outputs.label }}-x86_64.flatpak
+          artifact-name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
           cache-key: flatpak-${{ github.sha }}
-
-      - name: Checksum
-        run: sha256sum puzzle-timer-*.flatpak > SHA256SUMS-flatpak
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak
-          path: |
-            puzzle-timer-*.flatpak
-            SHA256SUMS-flatpak

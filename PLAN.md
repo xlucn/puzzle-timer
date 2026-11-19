@@ -1615,7 +1615,8 @@ rather than on a branch, which is a submission-time decision.
 **CI (2026-11-20):** `.github/workflows/build.yml` builds two artifacts per
 push to `main`, tag, pull request or manual run — the Meson install tree as an x86_64
 tarball (Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
-`gnome-51` action image, the manifest as-is) — and **creates no release**:
+`gnome-51` action image, the manifest as-is, whose action also uploads the
+bundle it builds) — and **creates no release**:
 the old tag-triggered `softprops/action-gh-release` job is gone, so a tag only
 produces downloadable artifacts to test.
 
