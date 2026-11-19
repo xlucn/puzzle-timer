@@ -1490,7 +1490,7 @@ AUR's own `.SRCINFO` is generated when it is needed
 - The app's data directory and JSON schema do not move: a user upgrading from
   `0.3.0` keeps every solve.
 - `check()` is deliberately empty: `cargo test` needs a second compile and the
-  suite already gates the release workflow on every tag.
+  suite already gates CI on every push.
 
 **Measured 2026-11-16** (a -git build at `d745f10`, Arch's rust
 1.99.1/gtk4 4.24.1/libadwaita 1.10.0/webkitgtk-6.0 2.54.2): `pkgver`
@@ -1612,12 +1612,19 @@ libflatpak reports `Puzzle Timer` / `0.4.0` / `GPL-3.0-or-later` from the
 installed app. Flathub will want that screenshot hosted somewhere stable
 rather than on a branch, which is a submission-time decision.
 
+**CI (2026-11-20):** `.github/workflows/build.yml` builds two artifacts per
+push to `main`, tag or manual run — the Meson install tree as an x86_64
+tarball (Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
+`gnome-51` action image, the manifest as-is) — and **creates no release**:
+the old tag-triggered `softprops/action-gh-release` job is gone, so a tag only
+produces downloadable artifacts to test.
+
 **Checkpoint for the user:** install the local build, launch it from the
 launcher (icon, not a generic one), generate a scramble in 3x3 and 5x5, switch
 to 中文 and restart, open About and read `0.4.0`, and record a solve; the data
 files must land in the sandbox's `~/.var/app/io.github.xlucn.PuzzleTimer`
-and survive a restart. Silence from inspection is expected (see the gap
-above).
+and survive a restart; the inspection beeps are expected to fall through to
+`paplay` there, so listen for them.
 
 ### M18 — landed 2026-11-14 (Rust port, `v0.4.0`)
 

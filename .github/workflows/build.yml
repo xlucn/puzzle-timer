@@ -1,0 +1,102 @@
+# Build artifacts, not releases: a tarball of the Meson install tree and a
+# Flatpak bundle, both downloadable from the run page.
+#
+# The tarball builds in Arch because the app wants libadwaita 1.9, which the
+# Ubuntu images do not carry. The Flatpak builds against
+# org.gnome.Platform//51, whose GTK 4.24, libadwaita 1.9 and JavaScriptCore 6
+# take the place of the distribution packages, and bundles no engine.
+#
+# The version lives in Cargo.toml only (AGENTS.md invariant 8), so both jobs
+# read it there instead of deriving it from a tag.
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: |
+          version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Cargo.toml says $version"
+
+  tarball:
+    needs: version
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install the build dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed \
+            git rust gtk4 libadwaita webkitgtk-6.0 pkgconf \
+            blueprint-compiler gettext meson ninja binutils
+
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build and stage an install tree
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          meson setup builddir --buildtype=release --prefix=/usr
+          DESTDIR="$PWD/stage/puzzle-timer-$version" meson install -C builddir
+          strip --strip-unneeded "stage/puzzle-timer-$version/usr/bin/puzzle-timer"
+
+      - name: Package
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          tar -C stage -czf "puzzle-timer-$version-x86_64.tar.gz" "puzzle-timer-$version"
+          sha256sum puzzle-timer-"$version"-x86_64.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: puzzle-timer-${{ needs.version.outputs.version }}-x86_64
+          path: |
+            puzzle-timer-*.tar.gz
+            SHA256SUMS
+
+  flatpak:
+    needs: version
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: puzzle-timer-${{ needs.version.outputs.version }}-x86_64.flatpak
+          manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
+          cache-key: flatpak-${{ github.sha }}
+
+      - name: Checksum
+        run: sha256sum puzzle-timer-*.flatpak > SHA256SUMS-flatpak
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: puzzle-timer-${{ needs.version.outputs.version }}-flatpak
+          path: |
+            puzzle-timer-*.flatpak
+            SHA256SUMS-flatpak
