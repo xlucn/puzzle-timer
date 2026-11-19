@@ -22,7 +22,6 @@ Everything here assumes a source checkout. For what the app *is*, see the
 - **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext meson`
 - **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`
 - **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext meson`
-- **Alpine:** edge, as 3.22 still ships GTK 4.18 and libadwaita 1.7: `sudo apk add rust cargo gtk4.0-dev libadwaita-dev webkit2gtk-6.0-dev pkgconf blueprint-compiler gettext meson`
 
 The distribution packages must be new enough to carry GTK 4.24, libadwaita 1.9
 and JavaScriptCore 6. Older releases cannot build the app. It has only been
@@ -44,7 +43,7 @@ picks them up from `/usr/share/icons` instead.
 
 The English strings in `src/locales/en.rs` are the message ids, and `po/` holds
 one gettext catalog per language. `msgfmt` compiles them during `cargo build`,
-and Meson installs the result under `$prefix/share/locale`.
+and Meson installs the result under `$prefix/share/puzzle-timer/locale`.
 
 To work on a translation, edit its `.po` (any gettext editor will do). To start
 a new one:
@@ -93,6 +92,35 @@ this app.
 Your solves, sessions and preferences are in `~/.local/share/puzzle-timer`
 (`$XDG_DATA_HOME/puzzle-timer`) and are left alone on purpose. Remove that
 directory only when you want the data gone too.
+
+## Flatpak
+
+The manifest is `packaging/flatpak/io.github.xlucn.PuzzleTimer.json`. It runs
+the same Meson install against `org.gnome.Platform//51`, whose GTK, libadwaita
+and JavaScriptCore take the place of the distribution packages above.
+
+`flatpak-builder` needs the matching SDK and a Rust compiler extension:
+
+```sh
+flatpak remote-add --user --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user flathub org.gnome.Sdk//51 \
+    org.freedesktop.Sdk.Extension.rust-stable//26.08
+```
+
+That is roughly 4.5 GB installed and is needed only to build. Then, from the
+repository root:
+
+```sh
+flatpak-builder --user --install --force-clean \
+    --state-dir=builddir/flatpak \
+    packaging/flatpak/io.github.xlucn.PuzzleTimer.json
+flatpak run io.github.xlucn.PuzzleTimer
+```
+
+The module currently reaches the network so Cargo can download its crates; a
+Flathub submission has to vendor them instead. Inside the sandbox the data
+lives under `~/.var/app/io.github.xlucn.PuzzleTimer`.
 
 ## Tests and checks
 

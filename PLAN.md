@@ -1597,10 +1597,20 @@ to be added to the user installation. Pointing it at the USTC mirror is what
 made the 875 MB SDK + 557 MB extension download work here.
 
 **Flathub half (later, separate call).** It needs what a local build does not:
-an AppStream metainfo file (`data/io.github.xlucn.PuzzleTimer.metainfo.xml`
-with a release entry and screenshots), vendored Cargo sources
-(`cargo-sources.json` from `flatpak-cargo-generator`, plus `--offline` and no
-`--share=network`), a `finish-args` audit, and the app-id ownership check.
+vendored Cargo sources (`cargo-sources.json` from `flatpak-cargo-generator`,
+plus `--offline` and no `--share=network`), a `finish-args` audit, and the
+app-id ownership check.
+
+The AppStream entry landed early, on 2026-11-20, because its absence is
+visible: Flatseal showed the app with an unknown author and version, since
+Flatpak takes those from `$datadir/metainfo`. `data/io.github.xlucn.PuzzleTimer.metainfo.xml`
+now carries the id, summary, description, developer (both the `<developer>`
+element and the deprecated `<developer_name>` some readers still use), licence,
+URLs, OARS rating, a screenshot pointing at `docs/main-window.png` on `main`,
+and `0.4.0` as the newest release; `appstreamcli validate` passes and
+libflatpak reports `Puzzle Timer` / `0.4.0` / `GPL-3.0-or-later` from the
+installed app. Flathub will want that screenshot hosted somewhere stable
+rather than on a branch, which is a submission-time decision.
 
 **Checkpoint for the user:** install the local build, launch it from the
 launcher (icon, not a generic one), generate a scramble in 3x3 and 5x5, switch

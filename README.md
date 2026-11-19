@@ -1,6 +1,6 @@
 # Puzzle Timer
 
-![Puzzle Timer's icon](./data/icons/hicolor/scalable/apps/puzzle-timer.svg)
+![Puzzle Timer's icon](./data/icons/hicolor/scalable/apps/io.github.xlucn.PuzzleTimer.svg)
 
 A speed cubing timer, mainly targeting Linux and designed for GNOME desktop and mobile platforms, with GTK4 and libadwaita.
 It is based on [csTimer](https://www.cstimer.net/)'s capability to generate scrambles for 200+ puzzle
@@ -68,6 +68,10 @@ This app is available in the AUR as [`puzzle-timer-git`](https://aur.archlinux.o
 ```sh
 yay -S puzzle-timer-git
 ```
+
+A Flatpak can be built and installed locally from the manifest in
+[`packaging/flatpak/`](./packaging/flatpak/); the steps are in
+[BUILD.md](./BUILD.md#flatpak). It is not on Flathub yet.
 
 ### Build from source
 

@@ -122,6 +122,12 @@ src/
   shorter name installs and runs but shows a generic icon in the sandbox
   launcher. Rename either only together with the id;
   `tests/desktop_entry.rs` checks all three.
+- **`data/io.github.xlucn.PuzzleTimer.metainfo.xml` is the app's public
+  face** — software centres and Flatseal read the name, developer and version
+  from it, and Flatpak shows none of them when the file is absent or its id
+  differs. Its newest `<release>` is the version the store displays, so bump
+  it with `Cargo.toml`; `tests/metainfo.rs` checks the id, the launchable and
+  that release.
 - **GTK CSS has no custom properties.** Install a new provider before dropping
   the old one when a preference changes the sheet.
 - **A `Gtk.Overlay` child is not counted in the parent's size request.**
