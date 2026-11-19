@@ -76,7 +76,7 @@ To build from source, you need a Rust toolchain, `pkg-config`, and the developme
 - **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext meson`
 - **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`
 - **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext meson`
-- **Alpine:** edge, as 3.22 still ships GTK 4.18 and libadwaita 1.7: `sudo apk add rust cargo gtk4.0-dev libadwaita-dev webkit2gtk-6.0-dev pkgconf blueprint-compiler gettext meson`
+- **Alpine:** `sudo apk add rust cargo gtk4.0-dev libadwaita-dev webkit2gtk-6.0-dev pkgconf blueprint-compiler gettext meson`
 
 Then clone or download this repo, build and install it:
 
