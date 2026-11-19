@@ -117,8 +117,11 @@ src/
 - **The desktop entry is named after `platform::meta::APP_ID`**
   (`io.github.xlucn.PuzzleTimer.desktop`), because a window pairs with the
   entry of that basename — Wayland by app id, X11 by `_GTK_APPLICATION_ID`.
-  `Icon=` keeps the shorter icon name. Rename the entry only together with
-  the id; `tests/desktop_entry.rs` checks both.
+  **The icon carries the id too** (`Icon=` and both SVGs), because a Flatpak
+  exports an icon out of `/app/share/icons` only under the application id; a
+  shorter name installs and runs but shows a generic icon in the sandbox
+  launcher. Rename either only together with the id;
+  `tests/desktop_entry.rs` checks all three.
 - **GTK CSS has no custom properties.** Install a new provider before dropping
   the old one when a preference changes the sheet.
 - **A `Gtk.Overlay` child is not counted in the parent's size request.**
@@ -200,6 +203,10 @@ src/
   `meson install -C builddir` — the install path (binary, desktop file,
   icons). Meson never compiles anything itself: `src/meson.build` runs
   `cargo build --locked --bin puzzle-timer`. `builddir/` is gitignored.
+- `flatpak-builder --user --install --force-clean
+  --state-dir=builddir/flatpak packaging/flatpak/io.github.xlucn.PuzzleTimer.json`
+  — the local Flatpak; needs `org.gnome.Sdk//51` plus the rust-stable
+  extension, and runs as `flatpak run io.github.xlucn.PuzzleTimer`.
 - `cargo run --bin scramble_sweep` — all 206 types through the real JSC
   bridge; expect `206/206` and 177 images.
 - `cargo run --bin i18n_pot` — rewrite `po/puzzle-timer.pot` from the English
@@ -230,7 +237,8 @@ src/
 ## Out of scope (agreed, do not add unprompted)
 
 Bluetooth smart cubes, virtual cube, solvers, and packaging beyond **M16**
-(AUR) and **M17** (postmarketOS/Alpine). Stackmat is a long-term goal
+(AUR) and **M17** (Flatpak). Stackmat is a long-term goal
 (PLAN.md), not current work. **M19 (Vala)** is a comparison the user asked
-for after Rust ships — don't start it early. Flatpak/deb/AppStream remain
-closed.
+for after Rust ships — don't start it early. Deb and AppStream metadata
+remain closed; Flathub submission is M17's second half, after the local
+build works.

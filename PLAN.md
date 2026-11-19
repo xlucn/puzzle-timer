@@ -57,9 +57,9 @@ packaging the temporary Node runtime was only ever a stopgap.
 - **M15 — phone runtime (landed 2026-10-31 — viable).** Tested on a Nura edge
   phone (postmarketOS/Alpine, aarch64, musl, Phosh): Node 24 + `tsx` +
   `node-gtk`, GTK 4.24 / libadwaita 1.10, audio through `paplay`, and the full
-  touch checklist pass. The verdict is in §6; it reopens packaging only for
-  the scoped **M17** postmarketOS/Alpine package, not Flatpak/deb/AppStream.
-  M16's AUR slice was already open.
+  touch checklist pass. The verdict is in §6; it reopened packaging as a
+  scoped Alpine package, which the user replaced with Flatpak on 2026-11-18
+  (§6 M17). M16's AUR slice was already open.
 - **M7 — size preferences (landed 2026-10-28).** Timer readout, scramble text
   and scramble diagram sizes, each a *scale* handed to `layoutFor()` rather
   than a replacement for its own numbers (decision 14). The sizes it scales
@@ -97,10 +97,13 @@ packaging the temporary Node runtime was only ever a stopgap.
   launcher that has to `cd` first. **Landed 2026-11-16**; pushing it to the
   AUR is the user's step, and a release package is the next tag's job. The
   dependency trade-off is in §6.
-- **M17 — postmarketOS/Alpine package (attached by M15; Rust).** The same
-  Rust binary as an aarch64 `apk` for the phone M15 proved, built against
-  Alpine's Rust, GTK4 and libadwaita. Not Flatpak, deb or AppStream; M16's
-  AUR slice is separate and x86_64. Details in §6.
+- **M17 — Flatpak (opened 2026-10-31 by M15; repurposed 2026-11-18).**
+  Originally an aarch64 `apk` for the phone M15 proved; the user dropped
+  Alpine and put **Flatpak** in the slot instead — a local build against
+  `org.gnome.Platform//51` first, Flathub later. The runtime carries GTK 4.24,
+  libadwaita 1.9 and JavaScriptCore 6, so the sandbox needs no bundled engine,
+  which is the same trade-off the AUR package makes against Arch's
+  `webkitgtk-6.0`. Details in §6.
 - **M18 — Rust port (scheduled 2026-11-10).** Rewrite the app in Rust with
   `gtk4-rs`/`libadwaita-rs`, keep `cstimer_module` by embedding it in
   JavaScriptCore rather than porting it, and reach byte-for-byte feature
@@ -119,9 +122,10 @@ packaging the temporary Node runtime was only ever a stopgap.
 - Bluetooth smart cube support (decided: not in v1)
 - Virtual cube, solvers, batch generators, cross-session stats
 - Packaging/distribution (personal use only for now) — **two exceptions:**
-  an AUR package, scheduled as M16 (decided 2026-10-06), and the
-  postmarketOS/Alpine package M15 attached as M17 (2026-10-31). Everything
-  else (Flatpak, deb, AppStream publishing) stays closed.
+  an AUR package, scheduled as M16 (decided 2026-10-06), and a Flatpak, which
+  M17 carries since 2026-11-18 (it was an Alpine package from M15 until the
+  user swapped it). Deb and AppStream *publishing* stay closed; the metainfo
+  file Flathub requires is M17's second half.
 
 **Long-term goals (added by decision, not scheduled):**
 - **Stackmat support** — `serialport` npm package + udev rule; protocol logic
@@ -607,10 +611,9 @@ M0–M6 log closes the section. A number never moves: only the queue does.
 | **M14** | Touch input: `Gtk.GestureClick` on the main content view (same `keyDown`/`keyUp` calls as Space), inspection's missing cancel button, and a re-measure of the 360×360 overlap | A solve starts with a finger, and the floor layout is confirmed clear — or fixed |
 | **M15** | Phone runtime evaluation: arm64 Node, node-gtk native binding, audio, input — a verdict, not a port | A written result: a scoped packaging milestone, or "not viable" — **landed 2026-10-31: viable; M17 attached** |
 | **M16** | AUR package: `puzzle-timer-git` PKGBUILD tracking `main`, system JavaScriptCore, Meson install of binary, entry, icons and catalogs | `makepkg -si` installs it and `/usr/bin/puzzle-timer` launches from outside the source tree — **landed 2026-11-16; pushing to the AUR is the user's step** |
-| **M17** | postmarketOS/Alpine `apk` package: aarch64, `dist/` + runtime deps, node-gtk built against the phone's GTK/libadwaita | `apk add` installs it and the launcher starts from outside the source tree |
+| **M17** | Flatpak: `org.gnome.Platform//51` (system GTK, libadwaita and JSC), Meson build, local user install first; Flathub later with AppStream metainfo and vendored crates | `flatpak run io.github.xlucn.PuzzleTimer` launches with the app icon, 中文 and a recorded solve that survives a restart |
 
-**Post-MVP backlog:** stackmat (§1), then packaging beyond M16/M17 (Flatpak,
-deb).
+**Post-MVP backlog:** stackmat (§1), then packaging beyond M16/M17 (deb).
 
 ### M13 — landed 2026-10-22 (release readiness)
 
@@ -778,8 +781,9 @@ is name-only for the same reason.
 - **Icon.** *(Designed by the author, hand-drawn in Inkscape against the HIG
   template; landed 2026-10-22. Supersedes the generated PLL Ga cube and its
   brief; no generator is kept.)*
-  - **In the repo:** `data/icons/hicolor/scalable/apps/puzzle-timer.svg` and
-    `.../symbolic/apps/puzzle-timer-symbolic.svg`. The scalable file is a
+  - **In the repo:** `data/icons/hicolor/scalable/apps/io.github.xlucn.PuzzleTimer.svg`
+    and `.../symbolic/apps/io.github.xlucn.PuzzleTimer-symbolic.svg`. The
+    scalable file is a
     128 × 128 canvas with the artwork in a 104 × 104 box at `+12 +12` — the
     HIG margins, measured off a trimmed render. The baseline-alignment item
     that stayed open under the old icon is therefore closed by construction,
@@ -789,12 +793,14 @@ is name-only for the same reason.
     timer element to protect the silhouette; the author's own drawing
     overrides that, and the symbolic variant carries the shape at 16 px
     rather than depending on the full-colour file.
-  - **Icon name stays `puzzle-timer`**: `Icon=` in the desktop entry,
-    `ICON_NAME` in `main.ts` and the theme search path all agree on it. The
-    author's working files were named after the app id
-    (`io.github.xlucn.PuzzleTimer.svg`), which is the GNOME convention;
-    adopting it would touch those three places plus the probe and buys
-    nothing while all four agree.
+  - **Icon name is the app id (since 2026-11-19)**: `Icon=`, both SVGs, the
+    About dialog's `application_icon` and the window all carry
+    `io.github.xlucn.PuzzleTimer`. The shorter `puzzle-timer` name survived
+    until Flatpak forced the GNOME convention: the exporter only copies an
+    icon out of `/app/share/icons` when the file is named after the
+    application id, and warned `Icon referenced in desktop file but not
+    exported` for the short one, which is a generic icon in the sandbox
+    launcher.
   - **The theme search path is the parent of `hicolor`, not `hicolor`
     itself** — `addSearchPath` holds *theme directories*, and pointing it at
     `hicolor` finds nothing (measured). `tools/icon_probe.mjs` checks both
@@ -806,8 +812,9 @@ is name-only for the same reason.
   - **Plumbing — landed 2026-10-17:** the SVGs under `data/icons/hicolor`,
     `Gtk.IconTheme.addSearchPath()` into the repo (a source checkout has no
     install prefix to drop hicolor icons into), `data/puzzle-timer.desktop`
-    with `Icon=puzzle-timer` (renamed to the application id on 2026-11-16 —
-    see the app-id note above), and the About dialog's `applicationIcon`
+    with `Icon=puzzle-timer` (the entry and the icon were renamed to the
+    application id on 2026-11-16 and 2026-11-19 respectively — see the
+    app-id note above), and the About dialog's `applicationIcon`
     pointing at that name rather than `APP_ID`. AppStream `metainfo.xml`
     belongs to packaging, which stays out of scope.
 
@@ -1047,9 +1054,11 @@ build.
   be triggered with the OSK open and no clipping was observed. Treat it as a
   measurement warning to watch, not a blocker.
 
-**Packaging verdict:** viable, scoped to **M17** (postmarketOS/Alpine `apk`,
-aarch64). Flatpak, deb and AppStream publishing stay closed; M16's AUR slice
-is separate and x86_64. M17's block is at the end of §6.
+**Packaging verdict:** viable. The slice M15 attached to M17 was an
+postmarketOS/Alpine `apk` for aarch64; on 2026-11-18 the user replaced it with
+a Flatpak, so that is what M17 now is. Deb and AppStream publishing stay
+closed; M16's AUR slice is separate and x86_64. M17's block is at the end
+of §6.
 
 **Checkpoint for the user:** the verdict — delivered 2026-10-31; the touch
 pass above is the confirmation.
@@ -1468,7 +1477,9 @@ AUR's own `.SRCINFO` is generated when it is needed
   `meson compile` + `DESTDIR="$pkgdir" meson install -C build`. Meson owns
   every path the package installs — binary, desktop entry, all three icon
   directories, the licence and the gettext catalogs — and it bakes the prefix
-  into the binary so `$prefix/share/locale` is found at runtime. A bare
+  into the binary so `$prefix/share/puzzle-timer/locale` is found at runtime
+  (the catalogs left `$datadir/locale` on 2026-11-19 because Flatpak splits
+  that directory into a language-filtered extension; see M17). A bare
   `cargo build` would leave the binary reading `OUT_DIR` and quietly stay
   English, which is why the -git package does not use one.
 - The entry lands as `io.github.xlucn.PuzzleTimer.desktop`, the application
@@ -1486,8 +1497,8 @@ AUR's own `.SRCINFO` is generated when it is needed
 `0.4.0.r246.gd745f10` under the first `pkgver()` (commit count from the root),
 1,971,360 B stripped binary, 868 KiB `.pkg.tar.zst`, with
 `usr/bin/puzzle-timer`, the entry, the five icons and
-`usr/share/locale/zh_CN/LC_MESSAGES/puzzle-timer.mo`. The binary contains
-`/usr/share/locale` and no build directory. `namcap` reports only
+`usr/share/puzzle-timer/locale/zh_CN/LC_MESSAGES/puzzle-timer.mo`. The binary
+contains `/usr/share/puzzle-timer/locale` and no build directory. `namcap` reports only
 implicitly-satisfied dependencies (glib2, pango, cairo, libgcc, glibc,
 hicolor-icon-theme) and the `ld-linux` false positive every Rust package gets.
 `xprop` on the installed window gave
@@ -1514,24 +1525,89 @@ same (VCS source, `git describe` pkgver, Meson build/package). If the tree
 copy is meant to stay the reviewed one, reconcile it deliberately rather than
 copying over the published file.
 
-### M17 — scheduled (postmarketOS/Alpine package, Rust)
+### M17 — open 2026-11-18, repurposed for Flatpak
 
-Opened 2026-10-31 by the M15 verdict; **rewritten for the Rust app on
-2026-11-10.** Scope is still the phone that proved the runtime, not packaging
-in general: an **aarch64 `apk`** for postmarketOS/Alpine (Nura edge).
+Opened 2026-10-31 by the M15 verdict as an **aarch64 `apk` for
+postmarketOS/Alpine**; **on 2026-11-18 the user dropped Alpine and put
+Flatpak in this slot instead** (local build first, Flathub submission later).
+The APKBUILD was never written, so nothing is left behind: M15's phone verdict
+stays as a record of the runtime, not as a packaging target, and
+`touch`-specific acceptance now lives only in that record.
 
-- `depends=gtk4 libadwaita webkit2gtk-6.0` (Alpine names to confirm; the last
-  provides `libjavascriptcoregtk-6.0`), `makedepends=cargo rust pkgconf`.
-- Build natively on the phone or cross-compile; the binary and data layout are
-  the same as M16. The Node/ABI-137 details in the old block are history.
-- The launcher does not need to `cd`; there is no `node-gtk/register` lookup.
-- The phone's touch checklist is the acceptance test, not just "it launches";
-  M15's list stays the reference.
-- `apk` metadata: `arch=aarch64`, `pkgver` matching `Cargo.toml`; confirm the
-  Alpine package names for GTK4, libadwaita and JSC before writing `APKBUILD`.
+**Why the runtime does the work.** `org.gnome.Platform//51` already ships
+GTK 4.24.0 (`libgtk-4.so.1.2400.1`), libadwaita 1.9 and JavaScriptCore 6
+(`libjavascriptcoregtk-6.0.so.1.8.8`, plus `libwebkitgtk-6.0.so.4`), so the
+Flatpak bundles no JSC and the binary links the runtime's copy exactly as the
+AUR build links Arch's. That is the property that made JSC the default engine
+in the first place; a Flatpak built on `org.gnome.Platform` preserves it.
 
-**Checkpoint for the user:** `apk add` the built package, launch from outside
-the source tree, and repeat the touch checklist.
+**The manifest** is `packaging/flatpak/io.github.xlucn.PuzzleTimer.json`:
+GNOME Platform/SDK 51, `org.freedesktop.Sdk.Extension.rust-stable//26.08`
+(rustc 1.98.0), `command` = `puzzle-timer`, Meson as the build system, and a
+`type: dir` source pointing at the tree, skipping `.git`, `builddir`, `target`
+and `.flatpak-builder`. Finish-args are Wayland with an X11 fallback, IPC,
+`--device=dri` for the renderer and `--socket=pulseaudio`. The app module
+passes `--share=network` while the crates are not vendored — see the Flathub
+half below; it is the one line a submission may not keep.
+
+**Icon.** A Flatpak exports an application's icon out of `/app/share/icons`
+only when the file is named after the application id. The first export
+answered `Icon referenced in desktop file but not exported: puzzle-timer`,
+because the entry still said `Icon=puzzle-timer`, so **the icon and `Icon=`
+were renamed to `io.github.xlucn.PuzzleTimer`** on 2026-11-19 — the name the
+SVGs, the About dialog and the window now all carry. The entry stays
+`io.github.xlucn.PuzzleTimer.desktop`.
+
+**Audio:** the app plays its inspection beeps by spawning `pw-play` →
+`paplay` → `gst-launch` → `aplay`. The runtime carries the first, second and
+third (`aplay` is the missing one), and `paplay` reaches the host's
+PulseAudio socket: it got as far as opening its input file. `pw-play` does not
+— `pw_context_connect() failed: Host is down` — because the sandbox mounts the
+Pulse socket, not PipeWire's native one, so the chain falls through to
+`paplay`. Whether a beep is actually audible is a checkpoint for an installed
+build; the nested display has no sound device of its own.
+
+**Catalogs.** The first export produced an empty `…Locale` extension: Flatpak
+splits `$datadir/locale` out of the app into a language-filtered extension and
+deploys only the subpaths that match the session's languages, so an English
+session received no `zh_CN` catalog — and this app can select Chinese from its
+own preferences whatever the session says. Setting
+`flatpak config --user --set languages "en;zh"` and updating filled the
+deployment, which proved the filtering rather than a broken build. The
+catalogs now install to `$datadir/puzzle-timer/locale`, which Flatpak ships
+with the app unconditionally (one `.mo`, a few KB); the baked
+`PUZZLE_TIMER_LOCALEDIR` and BUILD.md moved with them.
+
+**Local build (this stage).**
+
+```
+flatpak remote-add --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user flathub org.gnome.Sdk//51 \
+    org.freedesktop.Sdk.Extension.rust-stable//26.08
+flatpak-builder --user --install --force-clean \
+    --state-dir=builddir/flatpak \
+    packaging/flatpak/io.github.xlucn.PuzzleTimer.json
+flatpak run io.github.xlucn.PuzzleTimer
+```
+
+`--user` installs only see user-scope remotes: on this machine `flathub` was
+system-wide (and `flatpak-builder`/`flatpak install --user` then answered
+"No remote refs found for 'flathub'"), so the remote and its trusted key had
+to be added to the user installation. Pointing it at the USTC mirror is what
+made the 875 MB SDK + 557 MB extension download work here.
+
+**Flathub half (later, separate call).** It needs what a local build does not:
+an AppStream metainfo file (`data/io.github.xlucn.PuzzleTimer.metainfo.xml`
+with a release entry and screenshots), vendored Cargo sources
+(`cargo-sources.json` from `flatpak-cargo-generator`, plus `--offline` and no
+`--share=network`), a `finish-args` audit, and the app-id ownership check.
+
+**Checkpoint for the user:** install the local build, launch it from the
+launcher (icon, not a generic one), generate a scramble in 3x3 and 5x5, switch
+to 中文 and restart, open About and read `0.4.0`, and record a solve; the data
+files must land in the sandbox's `~/.var/app/io.github.xlucn.PuzzleTimer`
+and survive a restart. Silence from inspection is expected (see the gap
+above).
 
 ### M18 — landed 2026-11-14 (Rust port, `v0.4.0`)
 
@@ -2409,7 +2485,7 @@ Evidence:
   global) and the fast 4x4 switch, the UI reads English or Chinese through
   gettext catalogs, a csTimer file imports into sessions and exports back
   out, and Statistics has Summary and Charts tabs. **The queue is
-  M17 (Alpine) → M19 (Vala comparison).** M13 is out of the queue: it landed
+  M17 (Flatpak) → M19 (Vala comparison).** M13 is out of the queue: it landed
   2026-10-22 as `v0.1.0`;
   M14 (touch input) joined it on 2026-10-23, M7 (size preferences) on
   2026-10-28, and M15 (phone verdict) on 2026-10-31.
@@ -2459,8 +2535,9 @@ Evidence:
   audio falls through to `paplay`. The touch checklist passes on the phone;
   `breakpoint_probe` is desktop-only because the compositor clamps windows to
   360×673. One earlier OSK-open `AdwToastOverlay` height warning was not
-  reproduced as clipping. Packaging reopens only as **M17**
-  (postmarketOS/Alpine `apk`, aarch64); Flatpak/deb/AppStream stay closed.
+  reproduced as clipping. Packaging reopened as **M17**, which the user has
+  since repurposed from an Alpine `apk` to a Flatpak; deb/AppStream stay
+  closed.
 - **Continuous sizes landed 2026-10-29 (decision 16).** What a cold session
   needs: the readout, the scramble slot and the diagram box are now one
   function each of the window's size (decision 16 has the numbers), so
