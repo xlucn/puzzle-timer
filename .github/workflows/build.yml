@@ -35,7 +35,7 @@ jobs:
     outputs:
       label: ${{ steps.read.outputs.label }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # `git describe` needs the tag and the history behind it
       - id: read
@@ -63,7 +63,7 @@ jobs:
             git rust gtk4 libadwaita webkitgtk-6.0 pkgconf \
             blueprint-compiler gettext meson ninja binutils
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Test
         run: cargo test --locked
@@ -82,7 +82,7 @@ jobs:
           sha256sum puzzle-timer-"$label"-x86_64.tar.gz > SHA256SUMS
           cat SHA256SUMS
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: puzzle-timer-${{ needs.version.outputs.label }}-x86_64
           path: |
@@ -96,7 +96,7 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The action builds the bundle and uploads it as an artifact itself. Its
       # default artifact name appends the architecture to the bundle name,
