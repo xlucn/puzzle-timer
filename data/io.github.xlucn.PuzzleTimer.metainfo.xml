@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.xlucn.PuzzleTimer</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Puzzle Timer</name>
+  <summary>Speedcubing timer with scrambles for 200+ puzzles</summary>
+  <developer id="io.github.xlucn">
+    <name>Lu Xu</name>
+  </developer>
+  <developer_name>Lu Xu</developer_name>
+
+  <description>
+    <p>
+      A speedcubing timer for the GNOME desktop. Scrambles come from csTimer's
+      module and cover more than 200 puzzle types, from 2x2x2 to the various
+      shape mods, with a diagram where the puzzle has one.
+    </p>
+    <p>
+      Sessions keep their own scramble type, times carry penalties and
+      comments, statistics cover averages and personal bests, and data files
+      import from and export to csTimer.
+    </p>
+    <p>
+      The interface is available in English and Chinese.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.xlucn.PuzzleTimer.desktop</launchable>
+
+  <categories>
+    <category>Game</category>
+  </categories>
+
+  <url type="homepage">https://github.com/xlucn/puzzle-timer</url>
+  <url type="bugtracker">https://github.com/xlucn/puzzle-timer/issues</url>
+  <url type="vcs-browser">https://github.com/xlucn/puzzle-timer</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image type="source">https://raw.githubusercontent.com/xlucn/puzzle-timer/main/docs/main-window.png</image>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.4.0" date="2026-11-14"/>
+    <release version="0.3.0" date="2026-11-10"/>
+  </releases>
+</component>

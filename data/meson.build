@@ -13,6 +13,14 @@ install_data(
   install_dir: datadir / 'applications',
 )
 
+# The AppStream entry: what a software centre and `flatpak` read for the name,
+# the summary, the developer and the version — without it a Flatpak shows up
+# as an unknown app in Flatseal and in the store.
+install_data(
+  'io.github.xlucn.PuzzleTimer.metainfo.xml',
+  install_dir: datadir / 'metainfo',
+)
+
 install_subdir(
   'icons',
   install_dir: datadir,
