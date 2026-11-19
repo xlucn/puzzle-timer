@@ -27,7 +27,7 @@ impl App {
     pub(super) fn about(&self) {
         let dialog = adw::AboutDialog::builder()
             .application_name(t0(MessageKey::AppName))
-            .application_icon("puzzle-timer")
+            .application_icon(meta::APP_ID)
             .developer_name("Lu Xu")
             .version(meta::APP_VERSION)
             .website(meta::APP_REPOSITORY)

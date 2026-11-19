@@ -22,6 +22,6 @@ foreach language : linguas
     command: [msgfmt, '--check', '--output-file', '@OUTPUT@', '@INPUT@'],
     build_by_default: true,
     install: true,
-    install_dir: localedir / language / 'LC_MESSAGES',
+    install_dir: catalogdir / language / 'LC_MESSAGES',
   )
 endforeach

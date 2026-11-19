@@ -19,7 +19,12 @@ gnome = import('gnome')
 
 bindir = get_option('prefix') / get_option('bindir')
 datadir = get_option('prefix') / get_option('datadir')
-localedir = get_option('prefix') / get_option('localedir')
+
+# The compiled gettext catalogs sit beside the app's data, not in
+# `$datadir/locale`: a Flatpak splits that directory into a language-filtered
+# extension, so an English session would install no Chinese catalog at all and
+# the app's own language preference would have nothing to select.
+catalogdir = datadir / 'puzzle-timer' / 'locale'
 
 subdir('data')
 subdir('po')

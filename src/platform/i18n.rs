@@ -21,8 +21,8 @@ const DOMAIN: &str = "puzzle-timer";
 /// Where the compiled catalogs are.
 ///
 /// `build.rs` compiles every `po/*.po` into `OUT_DIR/locale`, which is what
-/// `cargo run` reads. A Meson build passes the installed `$localedir`, so the
-/// binary it installs finds `$prefix/share/locale` instead.
+/// `cargo run` reads. A Meson build passes the installed catalog directory, so
+/// the binary it installs finds `$prefix/share/puzzle-timer/locale` instead.
 fn locale_dir() -> &'static str {
     option_env!("PUZZLE_TIMER_LOCALEDIR").unwrap_or(concat!(env!("OUT_DIR"), "/locale"))
 }

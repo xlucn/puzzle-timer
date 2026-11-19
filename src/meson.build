@@ -35,7 +35,7 @@ endforeach
 # `platform::i18n` bakes this in, so the binary Meson installs reads the
 # catalogs from the prefix it was built for; a `cargo run` build reads them
 # from OUT_DIR instead.
-quoted = ['PUZZLE_TIMER_LOCALEDIR=\'' + localedir + '\''] + quoted
+quoted = ['PUZZLE_TIMER_LOCALEDIR=\'' + catalogdir + '\''] + quoted
 
 custom_target(
   'cargo-build',

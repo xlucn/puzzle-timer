@@ -52,6 +52,13 @@ fn the_entry_names_the_icons_we_ship() {
         .find_map(|line| line.strip_prefix("Icon="))
         .expect("the entry has no Icon=");
 
+    assert_eq!(
+        icon, APP_ID,
+        "a Flatpak exports an icon only under the application id, so `Icon=` \
+         has to name it; a shorter name installs fine but reaches the sandbox \
+         launcher as a generic icon"
+    );
+
     for (directory, suffix) in [("scalable/apps", ""), ("symbolic/apps", "-symbolic")] {
         let path = data()
             .join("icons/hicolor")
