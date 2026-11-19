@@ -101,7 +101,7 @@ impl SessionMenu {
         application.add_action(&delete_action);
 
         let manager_button = gtk::Button::builder()
-            .icon_name("view-more-symbolic")
+            .icon_name("view-list-symbolic")
             .tooltip_text(t0(MessageKey::SessionManagerTooltip))
             .css_classes(["flat"])
             .build();
