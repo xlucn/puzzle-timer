@@ -1612,13 +1612,17 @@ libflatpak reports `Puzzle Timer` / `0.4.0` / `GPL-3.0-or-later` from the
 installed app. Flathub will want that screenshot hosted somewhere stable
 rather than on a branch, which is a submission-time decision.
 
-**CI (2026-11-20):** `.github/workflows/build.yml` builds two artifacts per
-push to `main`, tag, pull request or manual run — the Meson install tree as an x86_64
-tarball (Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
+**CI (2026-11-20):** `.github/workflows/build.yml` builds two files per push
+to `main`, tag or manual run — the Meson install tree as an x86_64 tarball
+(Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
 `gnome-51` action image, the manifest as-is, whose action also uploads the
-bundle it builds) — and **creates no release**:
-the old tag-triggered `softprops/action-gh-release` job is gone, so a tag only
-produces downloadable artifacts to test.
+bundle it builds) — and attaches both to **one rolling pre-release**, the tag
+`snapshot`. Every such run deletes that release and its tag and recreates them
+on the current commit, so the Releases page holds one pair of files for the
+newest build rather than one pair per push; nothing versioned is published and
+no tag but `snapshot` is written. Pull requests build but never publish. The
+workflow artifacts are now only the handoff from the two build jobs to
+`publish`, which is where the release is made.
 
 Both files are named `puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>`,
 for example `0.4.0.r33.g58972eb`: every push to `main` builds the same
@@ -1628,6 +1632,12 @@ gives the -git package, so an artifact and a local `-git` install can be
 compared. A `version` job reads both (`fetch-depth: 0` for `git describe`) and
 publishes the label, because the tarball and the bundle must not disagree
 about the name of the same commit.
+
+Two consequences of the rolling release: a push that lands while an older run
+is between its delete and its create cancels that run
+(`cancel-in-progress`) and leaves no release until the next push, and the
+release has no history — an older snapshot cannot be downloaded again once
+replaced.
 
 **Checkpoint for the user:** install the local build, launch it from the
 launcher (icon, not a generic one), generate a scramble in 3x3 and 5x5, switch

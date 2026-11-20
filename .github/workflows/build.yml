@@ -1,5 +1,6 @@
-# Build artifacts, not releases: a tarball of the Meson install tree and a
-# Flatpak bundle, both downloadable from the run page.
+# Development builds: a tarball of the Meson install tree and a Flatpak
+# bundle, attached to one rolling pre-release rather than published as a
+# release per version.
 #
 # The tarball builds in Arch because the app wants libadwaita 1.9, which the
 # Ubuntu images do not carry. The Flatpak builds against
@@ -10,6 +11,12 @@
 # to `main` builds the same unreleased version, so the artifact names carry the
 # commit too: `<version>.r<commits since the tag>.g<sha>`, the same string the
 # AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`).
+#
+# The two build jobs hand their files to `publish` through workflow artifacts,
+# because a job cannot read another job's filesystem. `publish` is what makes
+# the release: it replaces the `snapshot` pre-release on every non-pull-request
+# run, so the Releases page carries one pair of files for the newest commit
+# instead of one artifact set per run.
 
 name: Build
 
@@ -28,8 +35,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # One place names the build for both jobs, so the two artifacts of a run
-  # cannot disagree about what they contain.
+  # One place names the build for the two build jobs, so their files cannot
+  # disagree about what they contain.
   version:
     runs-on: ubuntu-latest
     outputs:
@@ -108,3 +115,43 @@ jobs:
           artifact-name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
           cache-key: flatpak-${{ github.sha }}
+
+  # The release. Both build jobs must finish first, so this waits for their
+  # files; a pull request still builds but must not touch the release.
+  publish:
+    needs: [version, tarball, flatpak]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create and replace the release
+      actions: read # read this run's artifacts
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Replace the snapshot pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          label="${{ needs.version.outputs.label }}"
+          {
+            echo "Automatic development build from \`${GITHUB_SHA:0:7}\`, replaced on every push."
+            echo
+            echo "- \`puzzle-timer-$label-x86_64.tar.gz\` — the files it installs into \`/usr\`"
+            echo "- \`puzzle-timer-$label-x86_64.flatpak\` — \`flatpak install --user --bundle <file>\`"
+            echo
+            echo "A development build, not a release: it may be broken and carries no changelog."
+          } > notes.md
+
+          # The asset names carry the commit, so an update would otherwise add
+          # a pair of files per push. Dropping the release and its tag first
+          # keeps exactly one set, and recreating it moves the tag here.
+          gh release delete snapshot --cleanup-tag --yes 2>/dev/null || true
+          gh release create snapshot dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Development snapshot — $label" \
+            --prerelease --latest=false \
+            --notes-file notes.md
