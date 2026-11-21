@@ -75,18 +75,14 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-      - name: Build and stage an install tree
+      - name: Build and package the install tree
         run: |
           label="${{ needs.version.outputs.label }}"
           meson setup builddir --buildtype=release --prefix=/usr
-          DESTDIR="$PWD/stage/puzzle-timer-$label" meson install -C builddir
-          strip --strip-unneeded "stage/puzzle-timer-$label/usr/bin/puzzle-timer"
-
-      - name: Package
-        run: |
-          label="${{ needs.version.outputs.label }}"
-          tar -C stage -czf "puzzle-timer-$label-x86_64.tar.gz" "puzzle-timer-$label"
-          sha256sum puzzle-timer-"$label"-x86_64.tar.gz > SHA256SUMS
+          DESTDIR="$PWD/stage/puzzle-timer" meson install -C builddir
+          strip --strip-unneeded stage/puzzle-timer/usr/bin/puzzle-timer
+          tar -C stage -czf "puzzle-timer-$label-x86_64.tar.gz" puzzle-timer
+          sha256sum "puzzle-timer-$label-x86_64.tar.gz" > SHA256SUMS
           cat SHA256SUMS
 
       - uses: actions/upload-artifact@v7
@@ -137,20 +133,29 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           label="${{ needs.version.outputs.label }}"
+
+          # The release is a single unversioned snapshot, so its assets are
+          # named without the version or the commit: a script can fetch
+          # .../releases/download/snapshot/puzzle-timer-x86_64.flatpak forever.
+          # The label stays in the title and the notes instead.
+          mkdir -p out
+          mv dist/puzzle-timer-*-x86_64.tar.gz out/puzzle-timer-x86_64.tar.gz
+          mv dist/puzzle-timer-*-x86_64.flatpak out/puzzle-timer-x86_64.flatpak
+          (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
+
           {
-            echo "Automatic development build from \`${GITHUB_SHA:0:7}\`, replaced on every push."
+            echo "Automatic development build of \`${GITHUB_SHA:0:7}\` ($label), replaced on every push."
             echo
-            echo "- \`puzzle-timer-$label-x86_64.tar.gz\` — the files it installs into \`/usr\`"
-            echo "- \`puzzle-timer-$label-x86_64.flatpak\` — \`flatpak install --user --bundle <file>\`"
+            echo "- \`puzzle-timer-x86_64.tar.gz\` — the files it installs into \`/usr\`"
+            echo "- \`puzzle-timer-x86_64.flatpak\` — \`flatpak install --user --bundle <file>\`"
             echo
             echo "A development build, not a release: it may be broken and carries no changelog."
           } > notes.md
 
-          # The asset names carry the commit, so an update would otherwise add
-          # a pair of files per push. Dropping the release and its tag first
-          # keeps exactly one set, and recreating it moves the tag here.
+          # Dropping the release and its tag first keeps exactly one set of
+          # assets, and recreating it moves the tag onto this commit.
           gh release delete snapshot --cleanup-tag --yes 2>/dev/null || true
-          gh release create snapshot dist/* \
+          gh release create snapshot out/* \
             --target "$GITHUB_SHA" \
             --title "Development snapshot — $label" \
             --prerelease --latest=false \

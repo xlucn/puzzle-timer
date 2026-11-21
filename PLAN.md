@@ -1624,14 +1624,23 @@ no tag but `snapshot` is written. Pull requests build but never publish. The
 workflow artifacts are now only the handoff from the two build jobs to
 `publish`, which is where the release is made.
 
-Both files are named `puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>`,
-for example `0.4.0.r33.g58972eb`: every push to `main` builds the same
-unreleased `Cargo.toml` version, so the version alone cannot say which build a
-download is, and this is the string `packaging/aur/PKGBUILD`'s `pkgver()`
-gives the -git package, so an artifact and a local `-git` install can be
-compared. A `version` job reads both (`fetch-depth: 0` for `git describe`) and
-publishes the label, because the tarball and the bundle must not disagree
-about the name of the same commit.
+The two build jobs' files carry the label
+`puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>` while they are workflow
+artifacts, for example `0.4.0.r33.g58972eb`: every push to `main` builds the
+same unreleased `Cargo.toml` version, so the version alone cannot say which
+build a run produced, and this is the string `packaging/aur/PKGBUILD`'s
+`pkgver()` gives the -git package, so a run's files and a local `-git` install
+can be compared. A `version` job reads both (`fetch-depth: 0` for
+`git describe`) and publishes the label, because the tarball and the bundle
+must not disagree about the name of the same commit.
+
+The release assets drop the label again: `puzzle-timer-x86_64.tar.gz`,
+`puzzle-timer-x86_64.flatpak` and one `SHA256SUMS`. The snapshot is a single
+moving target, so
+`https://github.com/xlucn/puzzle-timer/releases/download/snapshot/puzzle-timer-x86_64.flatpak`
+has to stay valid from one commit to the next for a script to fetch it; the
+label lives in the release title and notes instead, and the tarball unpacks to
+a fixed `puzzle-timer/` root for the same reason.
 
 Two consequences of the rolling release: a push that lands while an older run
 is between its delete and its create cancels that run
