@@ -1,18 +1,20 @@
 # Development builds: a tarball of the Meson install tree and a Flatpak
-# bundle, attached to one rolling pre-release rather than published as a
-# release per version.
+# bundle for x86_64 and aarch64, attached to one rolling pre-release rather
+# than published as a release per version.
 #
-# The tarball builds in Arch because the app wants libadwaita 1.9, which the
-# Ubuntu images do not carry. The Flatpak builds against
-# org.gnome.Platform//51, whose GTK 4.24, libadwaita 1.9 and JavaScriptCore 6
-# take the place of the distribution packages, and bundles no engine.
+# Both architectures build natively. The tarball builds on Ubuntu 26.04, whose
+# GTK 4.22, libadwaita 1.9 and JavaScriptCore 6 are what the app needs; the
+# Flatpak builds inside org.gnome.Platform//51, whose newer libraries take the
+# place of the distribution packages and bundle no engine. No Arch container is
+# involved and nothing is cross-compiled: `ubuntu-26.04-arm` is an arm64
+# machine.
 #
 # The version lives in Cargo.toml only (AGENTS.md invariant 8), and every push
 # to `main` builds the same unreleased version, so the artifact names carry the
 # commit too: `<version>.r<commits since the tag>.g<sha>`, the same string the
 # AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`).
 #
-# The two build jobs hand their files to `publish` through workflow artifacts,
+# The build jobs hand their files to `publish` through workflow artifacts,
 # because a job cannot read another job's filesystem. Two jobs then make
 # releases: `publish` replaces the `snapshot` pre-release on every push to a
 # branch, and `release` turns a `v*` tag into a real release whose notes are
@@ -35,7 +37,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # One place names the build for the two build jobs, so their files cannot
+  # One place names the build for the build jobs, so their files cannot
   # disagree about what they contain.
   version:
     runs-on: ubuntu-latest
@@ -62,15 +64,23 @@ jobs:
 
   tarball:
     needs: version
-    runs-on: ubuntu-latest
-    container: archlinux:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-26.04
+            arch: x86_64
+          - runner: ubuntu-26.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Install the build dependencies
         run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed \
-            git rust gtk4 libadwaita webkitgtk-6.0 pkgconf \
-            blueprint-compiler gettext meson ninja binutils
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            blueprint-compiler desktop-file-utils gettext gtk-update-icon-cache \
+            libadwaita-1-dev libgtk-4-dev libjavascriptcoregtk-6.0-dev \
+            meson ninja-build pkg-config rustc cargo
 
       - uses: actions/checkout@v7
 
@@ -80,23 +90,28 @@ jobs:
       - name: Build and package the install tree
         run: |
           label="${{ needs.version.outputs.label }}"
+          arch="${{ matrix.arch }}"
           meson setup builddir --buildtype=release --prefix=/usr
           DESTDIR="$PWD/stage/puzzle-timer" meson install -C builddir
           strip --strip-unneeded stage/puzzle-timer/usr/bin/puzzle-timer
-          tar -C stage -czf "puzzle-timer-$label-x86_64.tar.gz" puzzle-timer
-          sha256sum "puzzle-timer-$label-x86_64.tar.gz" > SHA256SUMS
-          cat SHA256SUMS
+          tar -C stage -czf "puzzle-timer-$label-$arch.tar.gz" puzzle-timer
 
       - uses: actions/upload-artifact@v7
         with:
-          name: puzzle-timer-${{ needs.version.outputs.label }}-x86_64
-          path: |
-            puzzle-timer-*.tar.gz
-            SHA256SUMS
+          name: puzzle-timer-${{ needs.version.outputs.label }}-${{ matrix.arch }}
+          path: puzzle-timer-*.tar.gz
 
   flatpak:
     needs: version
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-26.04
+            arch: x86_64
+          - runner: ubuntu-26.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
       options: --privileged
@@ -109,12 +124,13 @@ jobs:
       # given explicitly.
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: puzzle-timer-${{ needs.version.outputs.label }}-x86_64.flatpak
-          artifact-name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak
+          bundle: puzzle-timer-${{ needs.version.outputs.label }}-${{ matrix.arch }}.flatpak
+          artifact-name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak-${{ matrix.arch }}
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
-          cache-key: flatpak-${{ github.sha }}
+          arch: ${{ matrix.arch }}
+          cache-key: flatpak-${{ matrix.arch }}-${{ github.sha }}
 
-  # The rolling pre-release. Both build jobs must finish first, so this waits
+  # The rolling pre-release. Every build job must finish first, so this waits
   # for their files; a pull request still builds but must not touch it, and a
   # version tag goes to `release` instead.
   publish:
@@ -142,15 +158,17 @@ jobs:
           # .../releases/download/snapshot/puzzle-timer-x86_64.flatpak forever.
           # The label stays in the title and the notes instead.
           mkdir -p out
-          mv dist/puzzle-timer-*-x86_64.tar.gz out/puzzle-timer-x86_64.tar.gz
-          mv dist/puzzle-timer-*-x86_64.flatpak out/puzzle-timer-x86_64.flatpak
+          for arch in x86_64 aarch64; do
+            mv "dist/puzzle-timer-$label-$arch.tar.gz" "out/puzzle-timer-$arch.tar.gz"
+            mv "dist/puzzle-timer-$label-$arch.flatpak" "out/puzzle-timer-$arch.flatpak"
+          done
           (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
 
           {
             echo "Automatic development build of \`${GITHUB_SHA:0:7}\` ($label), replaced on every push."
             echo
-            echo "- \`puzzle-timer-x86_64.tar.gz\` — the files it installs into \`/usr\`"
-            echo "- \`puzzle-timer-x86_64.flatpak\` — \`flatpak install --user --bundle <file>\`"
+            echo "- \`puzzle-timer-x86_64.tar.gz\` and \`puzzle-timer-aarch64.tar.gz\` — the files they install into \`/usr\`"
+            echo "- \`puzzle-timer-x86_64.flatpak\` and \`puzzle-timer-aarch64.flatpak\` — \`flatpak install --user --bundle <file>\`"
             echo
             echo "A development build, not a release: it may be broken and carries no changelog."
           } > notes.md
@@ -164,8 +182,8 @@ jobs:
             --prerelease --latest=false \
             --notes-file notes.md
 
-  # A `v*` tag: the same two files, named after the version, with that
-  # version's CHANGELOG section as the notes.
+  # A `v*` tag: the same files, named after the version, with that version's
+  # CHANGELOG section as the notes.
   release:
     needs: [version, tarball, flatpak]
     if: startsWith(github.ref, 'refs/tags/v')
@@ -186,6 +204,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           version="${{ needs.version.outputs.version }}"
+          label="${{ needs.version.outputs.label }}"
           tag="${{ github.ref_name }}"
           if [ "$tag" != "v$version" ]; then
             echo "tag $tag does not name Cargo.toml's $version" >&2
@@ -206,8 +225,10 @@ jobs:
           fi
 
           mkdir -p out
-          mv dist/puzzle-timer-*-x86_64.tar.gz "out/puzzle-timer-$version-x86_64.tar.gz"
-          mv dist/puzzle-timer-*-x86_64.flatpak "out/puzzle-timer-$version-x86_64.flatpak"
+          for arch in x86_64 aarch64; do
+            mv "dist/puzzle-timer-$label-$arch.tar.gz" "out/puzzle-timer-$version-$arch.tar.gz"
+            mv "dist/puzzle-timer-$label-$arch.flatpak" "out/puzzle-timer-$version-$arch.flatpak"
+          done
           (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
 
           if gh release view "$tag" >/dev/null 2>&1; then

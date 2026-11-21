@@ -55,11 +55,13 @@ cutover and describe the Rust app; keep them in step by hand, not generated.
 
 ## Stack (decided — don't re-litigate unasked)
 
-- **UI** `gtk4` 0.11.5, feature `v4_24`, plus `libadwaita` 0.9.2, feature
+- **UI** `gtk4` 0.11.5, feature `v4_22`, plus `libadwaita` 0.9.2, feature
   `v1_9`. The crate import names in these versions are **`gtk4`** and
   **`libadwaita`** (not `gtk`/`adw`). `v1_10` is *not* a feature of
   libadwaita-rs 0.9.2; the app uses no 1.10-only accessor (`Adw.Sidebar` is
-  1.9).
+  1.9). The GTK feature is a build floor, not a used API: no 4.24-gated
+  symbol appears in `src/`, and CI builds the tarball on Ubuntu 26.04, whose
+  GTK is 4.22. Features are cumulative, so a newer system GTK is still fine.
 - **Scramble engine** JavaScriptCore 6 (`javascriptcoregtk-6.0`), through the
   eight-function FFI proven in `tools/rust-embed/probe-jsc`. **JSC is the
   default for binary size**; **V8** (the `v8` crate) is the alternative when a
@@ -201,6 +203,11 @@ src/
   `CHANGELOG.md` section — so the changelog has to be cut before the tag, and
   a tag without a section fails the `release` job instead of publishing
   commit subjects.
+- **CI builds x86_64 and aarch64 natively** on the `ubuntu-26.04` and
+  `ubuntu-26.04-arm` runners, both the tarball and the Flatpak: no Arch
+  container, no cross-compile. The tarball therefore inherits 26.04's glibc
+  floor; lowering the `gtk4` feature below `v4_22` is what would let an older
+  distribution build it.
 - **M16/M17** package the Rust binary; README/BUILD/AppStream work in those
   blocks is hand-written prose, not generated.
 

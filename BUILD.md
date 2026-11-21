@@ -6,7 +6,7 @@ Everything here assumes a source checkout. For what the app *is*, see the
 ## Prerequisites
 
 - **Rust 1.85 or newer** (the crate uses edition 2024).
-- **GTK 4.24 or newer** and **libadwaita 1.9 or newer**, plus their development
+- **GTK 4.22 or newer** and **libadwaita 1.9 or newer**, plus their development
   files. The scramble diagrams are drawn with GTK's own SVG renderer
   (`Gtk.Svg`), so librsvg is not needed.
 - **JavaScriptCore 6**, the engine that runs the vendored scramble module. On
@@ -23,7 +23,7 @@ Everything here assumes a source checkout. For what the app *is*, see the
 - **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`
 - **Debian/Ubuntu:** `sudo apt install rustc cargo libgtk-4-dev libadwaita-1-dev libjavascriptcoregtk-6.0-dev pkg-config blueprint-compiler gettext meson`
 
-The distribution packages must be new enough to carry GTK 4.24, libadwaita 1.9
+The distribution packages must be new enough to carry GTK 4.22, libadwaita 1.9
 and JavaScriptCore 6. Older releases cannot build the app. It has only been
 run on Linux.
 

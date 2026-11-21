@@ -29,7 +29,7 @@ path = "src/bin/i18n_pot.rs"
 # JSC is the default engine: the executable links the system library and stays
 # small. A V8 backend (the `v8` crate) is the alternative; see src/scramble/.
 [dependencies]
-gtk4 = { version = "0.11", features = ["v4_24"] }
+gtk4 = { version = "0.11", features = ["v4_22"] }
 libadwaita = { version = "0.9", features = ["v1_9"] }
 glib = "0.22"
 # The scramble worker answers the UI over an async channel the main loop polls;

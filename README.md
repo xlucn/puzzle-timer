@@ -75,7 +75,7 @@ A Flatpak can be built and installed locally from the manifest in
 
 ### Build from source
 
-To build from source, you need a Rust toolchain, `pkg-config`, and the development packages for GTK 4.24, libadwaita 1.9 and JavaScriptCore 6:
+To build from source, you need a Rust toolchain, `pkg-config`, and the development packages for GTK 4.22, libadwaita 1.9 and JavaScriptCore 6:
 
 - **Arch:** `sudo pacman -S rust gtk4 libadwaita webkitgtk-6.0 pkgconf blueprint-compiler gettext meson`
 - **Fedora:** `sudo dnf install rust cargo gtk4-devel libadwaita-devel javascriptcoregtk6.0-devel pkgconf-pkg-config blueprint-compiler gettext meson`

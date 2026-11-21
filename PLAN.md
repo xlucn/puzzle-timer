@@ -1612,41 +1612,52 @@ libflatpak reports `Puzzle Timer` / `0.4.0` / `GPL-3.0-or-later` from the
 installed app. Flathub will want that screenshot hosted somewhere stable
 rather than on a branch, which is a submission-time decision.
 
-**CI (2026-11-20):** `.github/workflows/build.yml` builds two files per push
-to `main`, tag or manual run — the Meson install tree as an x86_64 tarball
-(Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
-`gnome-51` action image, the manifest as-is, whose action also uploads the
-bundle it builds) — and hands them to one of two release jobs. Pull requests
-build but publish nothing.
+**CI (2026-11-20, aarch64 2026-11-22):** `.github/workflows/build.yml` builds
+two files per architecture per push to `main`, tag or manual run — the Meson
+install tree as a tarball and a `.flatpak` bundle — and hands them to one of
+two release jobs. Pull requests build but publish nothing.
+
+Both architectures build **natively**, with no Arch container and no
+cross-compilation. The tarball runs on `ubuntu-26.04` and `ubuntu-26.04-arm`,
+installs GTK 4.22, libadwaita 1.9, JavaScriptCore 6, `blueprint-compiler`,
+Meson and a Rust toolchain from apt, and runs `cargo test --locked` before
+packaging. This works because the app's `gtk4` feature floor is `v4_22`: no
+4.24-gated symbol is used, so the newer crate feature was only a build
+constraint. The cost is a glibc floor of the 26.04 release, which is the
+current LTS — the 24.04 tarball would not run. The Flatpak builds inside
+Flathub's `gnome-51` action image on the same two runners; that image is a
+multi-arch manifest, so the arm64 runner pulls an arm64 image, and the
+manifest's `org.gnome.Platform//51` supplies GTK 4.24 there rather than the
+distribution's.
 
 A push to a branch, or a manual run, replaces **one rolling pre-release**, the
 tag `snapshot`: that job deletes the release and its tag and recreates them on
-the current commit, so the Releases page holds one pair of files for the
-newest build rather than one pair per push, and the workflow artifacts are
-only the handoff from the build jobs to it.
+the current commit, so the Releases page holds one set of files for the newest
+build rather than one set per push, and the workflow artifacts are only the
+handoff from the build jobs to it.
 
-A `v*` tag goes to `release` instead: the two files are renamed after the
-version (`puzzle-timer-0.4.0-x86_64.tar.gz`), the release is created as
-`v<version>` marked latest, and **the notes are that version's `CHANGELOG.md`
-section**. The changelog is the right source because its entries are written
-for users, while `--generate-notes` would publish commit subjects. The job
-also refuses a tag that does not match `Cargo.toml` or a version with no
-changelog section, and a re-run of the same tag replaces the files and the
-text instead of failing on an existing release.
+A `v*` tag goes to `release` instead: the files are renamed after the version
+(`puzzle-timer-0.4.0-x86_64.tar.gz`), the release is created as `v<version>`
+marked latest, and **the notes are that version's `CHANGELOG.md` section**. The
+changelog is the right source because its entries are written for users, while
+`--generate-notes` would publish commit subjects. The job also refuses a tag
+that does not match `Cargo.toml` or a version with no changelog section, and a
+re-run of the same tag replaces the files and the text instead of failing on
+an existing release.
 
-The two build jobs' files carry the label
-`puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>` while they are workflow
-artifacts, for example `0.4.0.r33.g58972eb`: every push to `main` builds the
-same unreleased `Cargo.toml` version, so the version alone cannot say which
-build a run produced, and this is the string `packaging/aur/PKGBUILD`'s
-`pkgver()` gives the -git package, so a run's files and a local `-git` install
-can be compared. A `version` job reads both (`fetch-depth: 0` for
-`git describe`) and publishes the label, because the tarball and the bundle
-must not disagree about the name of the same commit.
+The build jobs' files carry the label
+`puzzle-timer-<version>.r<commits>.g<sha>-<arch>.<ext>` while they are workflow
+artifacts, for example `0.4.0.r33.g58972eb-x86_64`: every push to `main`
+builds the same unreleased `Cargo.toml` version, so the version alone cannot
+say which build a run produced, and this is the string
+`packaging/aur/PKGBUILD`'s `pkgver()` gives the -git package, so a run's files
+and a local `-git` install can be compared. A `version` job reads both
+(`fetch-depth: 0` for `git describe`) and publishes the label, because the
+tarballs and the bundles must not disagree about the name of the same commit.
 
 The snapshot's assets drop the label again: `puzzle-timer-x86_64.tar.gz`,
-`puzzle-timer-x86_64.flatpak` and one `SHA256SUMS`. It is a single moving
-target, so
+`puzzle-timer-aarch64.tar.gz`, the two matching `.flatpak` files and one
+`SHA256SUMS`. It is a single moving target, so
 `https://github.com/xlucn/puzzle-timer/releases/download/snapshot/puzzle-timer-x86_64.flatpak`
 has to stay valid from one commit to the next for a script to fetch it; the
 label lives in its title and notes instead, and the tarball unpacks to a fixed
@@ -1684,7 +1695,9 @@ so the dependency is **embedded, not ported**. Six engines were tested;
 JavaScriptCore 2.54 ships as a system library, needs a ~10-function host shim,
 and keeps the binary small. On the GUI side, `gtk4` 0.11.5 binds up to GTK
 4.24 and `libadwaita` 0.9.2 up to libadwaita 1.9 (the app uses no 1.10-only
-accessor), so the newest widgets the app needs are available. Rust also gives
+accessor), so the newest widgets the app needs are available. The GTK feature
+floor is 4.22 rather than the crate's newest, because no 4.24-gated symbol is
+used and Ubuntu 26.04 — the CI runner — ships GTK 4.22. Rust also gives
 `cargo test` a clean home for `core/`'s 2,053 test lines and memory safety for
 the callback-heavy UI. Vala is measured in §10 of `RUST-PORT.md` and gets its
 own comparison milestone (M19) rather than a coin flip now.
@@ -1693,7 +1706,7 @@ own comparison milestone (M19) rather than a coin flip now.
 
 | Layer | Choice |
 |---|---|
-| UI | `gtk4` 0.11 (`v4_24`) + `libadwaita` 0.9 (`v1_9`) — crate import names are `gtk4`/`libadwaita` in these versions |
+| UI | `gtk4` 0.11 (`v4_22`) + `libadwaita` 0.9 (`v1_9`) — crate import names are `gtk4`/`libadwaita` in these versions; 4.22 because no 4.24-gated symbol is used and Ubuntu 26.04 ships 4.22 |
 | scramble engine | JavaScriptCore 6 (`javascriptcoregtk-6.0`), bound with the 8-function FFI proven in `tools/rust-embed/probe-jsc`. **JSC is the default for binary size**; **V8** (`v8` crate) is the alternative when a self-contained engine beats the 139 MiB `webkitgtk-6.0` dependency. Both sit behind `src/scramble/`'s `ScrambleEngine`. |
 | scramble module | vendor `cstimer_module` 0.1.5's bundle; evaluate the shim once per context; never reimplement the maths |
 | core | pure Rust modules, no GTK/JSC/IO; `cargo test` |
