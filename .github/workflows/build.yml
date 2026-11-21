@@ -13,10 +13,10 @@
 # AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`).
 #
 # The two build jobs hand their files to `publish` through workflow artifacts,
-# because a job cannot read another job's filesystem. `publish` is what makes
-# the release: it replaces the `snapshot` pre-release on every non-pull-request
-# run, so the Releases page carries one pair of files for the newest commit
-# instead of one artifact set per run.
+# because a job cannot read another job's filesystem. Two jobs then make
+# releases: `publish` replaces the `snapshot` pre-release on every push to a
+# branch, and `release` turns a `v*` tag into a real release whose notes are
+# that version's CHANGELOG section.
 
 name: Build
 
@@ -41,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       label: ${{ steps.read.outputs.label }}
+      version: ${{ steps.read.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -56,6 +57,7 @@ jobs:
             label="$version.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
           fi
           echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Cargo.toml says $version; artifacts are named puzzle-timer-$label-*"
 
   tarball:
@@ -112,11 +114,12 @@ jobs:
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
           cache-key: flatpak-${{ github.sha }}
 
-  # The release. Both build jobs must finish first, so this waits for their
-  # files; a pull request still builds but must not touch the release.
+  # The rolling pre-release. Both build jobs must finish first, so this waits
+  # for their files; a pull request still builds but must not touch it, and a
+  # version tag goes to `release` instead.
   publish:
     needs: [version, tarball, flatpak]
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write # create and replace the release
@@ -160,3 +163,62 @@ jobs:
             --title "Development snapshot — $label" \
             --prerelease --latest=false \
             --notes-file notes.md
+
+  # A `v*` tag: the same two files, named after the version, with that
+  # version's CHANGELOG section as the notes.
+  release:
+    needs: [version, tarball, flatpak]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7 # CHANGELOG.md becomes the notes
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish the tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          tag="${{ github.ref_name }}"
+          if [ "$tag" != "v$version" ]; then
+            echo "tag $tag does not name Cargo.toml's $version" >&2
+            exit 1
+          fi
+
+          # The changelog entries are written for users; `--generate-notes`
+          # would publish commit subjects instead.
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { inside = 1; next }
+            inside && /^## \[/ { exit }
+            inside { print }
+          ' CHANGELOG.md > body.md
+          sed -i '/./,$!d' body.md # drop the blank line under the heading
+          if ! grep -q '[^[:space:]]' body.md; then
+            echo "CHANGELOG.md has no section for $version" >&2
+            exit 1
+          fi
+
+          mkdir -p out
+          mv dist/puzzle-timer-*-x86_64.tar.gz "out/puzzle-timer-$version-x86_64.tar.gz"
+          mv dist/puzzle-timer-*-x86_64.flatpak "out/puzzle-timer-$version-x86_64.flatpak"
+          (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # A re-run of the same tag replaces the files and the text instead
+            # of failing on a release that already exists.
+            gh release upload "$tag" out/* --clobber
+            gh release edit "$tag" --title "Puzzle Timer $version" --notes-file body.md
+          else
+            gh release create "$tag" out/* \
+              --title "Puzzle Timer $version" \
+              --notes-file body.md \
+              --verify-tag \
+              --latest
+          fi

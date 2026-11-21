@@ -1616,13 +1616,23 @@ rather than on a branch, which is a submission-time decision.
 to `main`, tag or manual run — the Meson install tree as an x86_64 tarball
 (Arch container, `cargo test` first) and a `.flatpak` bundle (Flathub's
 `gnome-51` action image, the manifest as-is, whose action also uploads the
-bundle it builds) — and attaches both to **one rolling pre-release**, the tag
-`snapshot`. Every such run deletes that release and its tag and recreates them
-on the current commit, so the Releases page holds one pair of files for the
-newest build rather than one pair per push; nothing versioned is published and
-no tag but `snapshot` is written. Pull requests build but never publish. The
-workflow artifacts are now only the handoff from the two build jobs to
-`publish`, which is where the release is made.
+bundle it builds) — and hands them to one of two release jobs. Pull requests
+build but publish nothing.
+
+A push to a branch, or a manual run, replaces **one rolling pre-release**, the
+tag `snapshot`: that job deletes the release and its tag and recreates them on
+the current commit, so the Releases page holds one pair of files for the
+newest build rather than one pair per push, and the workflow artifacts are
+only the handoff from the build jobs to it.
+
+A `v*` tag goes to `release` instead: the two files are renamed after the
+version (`puzzle-timer-0.4.0-x86_64.tar.gz`), the release is created as
+`v<version>` marked latest, and **the notes are that version's `CHANGELOG.md`
+section**. The changelog is the right source because its entries are written
+for users, while `--generate-notes` would publish commit subjects. The job
+also refuses a tag that does not match `Cargo.toml` or a version with no
+changelog section, and a re-run of the same tag replaces the files and the
+text instead of failing on an existing release.
 
 The two build jobs' files carry the label
 `puzzle-timer-<version>.r<commits>.g<sha>-x86_64.<ext>` while they are workflow
@@ -1634,13 +1644,14 @@ can be compared. A `version` job reads both (`fetch-depth: 0` for
 `git describe`) and publishes the label, because the tarball and the bundle
 must not disagree about the name of the same commit.
 
-The release assets drop the label again: `puzzle-timer-x86_64.tar.gz`,
-`puzzle-timer-x86_64.flatpak` and one `SHA256SUMS`. The snapshot is a single
-moving target, so
+The snapshot's assets drop the label again: `puzzle-timer-x86_64.tar.gz`,
+`puzzle-timer-x86_64.flatpak` and one `SHA256SUMS`. It is a single moving
+target, so
 `https://github.com/xlucn/puzzle-timer/releases/download/snapshot/puzzle-timer-x86_64.flatpak`
 has to stay valid from one commit to the next for a script to fetch it; the
-label lives in the release title and notes instead, and the tarball unpacks to
-a fixed `puzzle-timer/` root for the same reason.
+label lives in its title and notes instead, and the tarball unpacks to a fixed
+`puzzle-timer/` root for the same reason. A versioned release keeps the
+version in its asset names, since several of them stay on the page.
 
 Two consequences of the rolling release: a push that lands while an older run
 is between its delete and its create cancels that run

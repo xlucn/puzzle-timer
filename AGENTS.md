@@ -196,6 +196,11 @@ src/
 - **Tags:** cut a stage only when the user calls it:
   bump `Cargo.toml` → cut the changelog → commit → `git tag -a vX.Y.Z -m …` →
   `git push --follow-tags`. Milestone numbers never enter a version.
+  **Pushing the `v*` tag also publishes the GitHub release** (see
+  `.github/workflows/build.yml`), whose notes are that version's
+  `CHANGELOG.md` section — so the changelog has to be cut before the tag, and
+  a tag without a section fails the `release` job instead of publishing
+  commit subjects.
 - **M16/M17** package the Rust binary; README/BUILD/AppStream work in those
   blocks is hand-written prose, not generated.
 
