@@ -70,8 +70,13 @@ pub fn release_notes_html() -> Option<String> {
     let body_end = rest
         .find("\n## ")
         .map_or(CHANGELOG.len(), |at| body_start + at);
-    let section = &CHANGELOG[body_start..body_end];
+    render_section(&CHANGELOG[body_start..body_end])
+}
 
+/// Render one section body — the text between a version heading and the next
+/// one — as AppStream markup. Split out so the renderer can be tested on a
+/// fixture: a release whose notes are prose only must still work.
+fn render_section(section: &str) -> Option<String> {
     // The changelog is hard-wrapped, so a line that follows a non-blank one
     // continues it rather than starting a new paragraph.
     let mut out: Vec<String> = Vec::new();
@@ -159,8 +164,6 @@ mod tests {
     /// The current section's bullets, each with its wrapped continuation lines
     /// joined.
     fn bullets() -> Vec<String> {
-        let section = release_notes_html().expect("release notes");
-        let _ = section;
         let marker = format!("## [{APP_VERSION}]");
         let start = CHANGELOG.find(&marker).expect("section");
         let body = &CHANGELOG[start..];
@@ -209,13 +212,39 @@ mod tests {
             .join(" ")
     }
 
+    /// A section body shaped like the changelog's: a paragraph, a category
+    /// heading, and bullets hard-wrapped over two lines.
+    const HARD_WRAPPED: &str = "\
+A paragraph that introduces the release.
+
+### Added
+
+- A first bullet that is
+  wrapped onto a second line.
+- A second bullet.
+";
+
     #[test]
     fn keeps_hard_wrapped_changelog_lines_inside_their_own_bullet() {
-        let list = bullets();
-        let html = release_notes_html().expect("release notes");
-        assert!(!list.is_empty());
+        let html = render_section(HARD_WRAPPED).expect("release notes");
         let text = plain(&html);
-        for bullet in list {
+        assert!(text.contains("A paragraph that introduces the release."));
+        assert!(
+            text.contains("A first bullet that is wrapped onto a second line."),
+            "the continuation line left its bullet: {text}"
+        );
+        assert_eq!(
+            html.matches("<li>").count(),
+            2,
+            "a bullet was split: {html}"
+        );
+    }
+
+    #[test]
+    fn keeps_every_bullet_of_the_current_section() {
+        let html = release_notes_html().expect("release notes");
+        let text = plain(&html);
+        for bullet in bullets() {
             assert!(
                 text.contains(&plain(&bullet)),
                 "bullet lost or split: {bullet}"
@@ -224,9 +253,20 @@ mod tests {
     }
 
     #[test]
-    fn renders_the_current_section_as_markup_not_raw_markdown() {
-        let html = release_notes_html().expect("release notes");
+    fn renders_a_section_as_markup_not_raw_markdown() {
+        let html = render_section(HARD_WRAPPED).expect("release notes");
         assert!(html.contains("<ul>"));
+        assert!(html.contains("<p>"));
+        assert!(!html.contains("###"), "a heading leaked into the notes");
+        assert!(!html.contains("**"));
+        assert!(!html.contains("```"));
+    }
+
+    #[test]
+    fn the_current_section_has_no_raw_markdown() {
+        // The current notes may be prose only or a list; either way no
+        // markdown may reach About, whose parser would abort on it.
+        let html = release_notes_html().expect("release notes");
         assert!(!html.contains("**"));
         assert!(!html.contains("```"));
     }
