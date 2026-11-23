@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 Lu Xu -->
 <component type="desktop-application">
   <id>io.github.xlucn.PuzzleTimer</id>
   <metadata_license>CC0-1.0</metadata_license>
@@ -8,7 +9,6 @@
   <developer id="io.github.xlucn">
     <name>Lu Xu</name>
   </developer>
-  <developer_name>Lu Xu</developer_name>
 
   <description>
     <p>
@@ -39,13 +39,202 @@
   <screenshots>
     <screenshot type="default">
       <image type="source">https://raw.githubusercontent.com/xlucn/puzzle-timer/main/docs/main-window.png</image>
+      <caption>Main window</caption>
     </screenshot>
   </screenshots>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
 
   <content_rating type="oars-1.1"/>
 
   <releases>
-    <release version="0.4.0" date="2026-11-14"/>
-    <release version="0.3.0" date="2026-11-10"/>
+    <release version="0.4.0" date="2026-11-14">
+      <description>
+        <p>
+          This release is dedicated to porting the programming language to
+          Rust. The UI, features and data compatibility are kept the same. No
+          new features.
+        </p>
+        <p>The TypeScript version is frozen on branch <code>legacy</code>.</p>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-11-10">
+      <description>
+        <p>
+          This release adds scramble options, language support, data import and
+          export, more statistics, and a session manager.
+        </p>
+        <ul>
+          <li>Scramble types that have options get a dropdown arrow to change
+          them.</li>
+          <li>A fast 4x4 option, only for the WCA 4x4x4 type, uses random moves
+          instead of random state for faster scrambles.</li>
+          <li>A pre-scramble setting turns the scramble diagram to a certain
+          orientation.</li>
+          <li>Language support, currently English and Simplified Chinese.</li>
+          <li>Import from and export to data files, aiming to be compatible with
+          csTimer.net.</li>
+          <li>A session manager to rename, delete and reorder sessions, opened
+          from the sidebar header.</li>
+          <li>Statistics improvements: averages, personal bests, activities,
+          streaks, charts and histograms.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.2.1" date="2026-11-03">
+      <description>
+        <p>This release is mainly about improving existing features.</p>
+        <ul>
+          <li>Size scaling settings for the timer, the scramble text and the
+          scramble diagram, which now grow continuously with the window instead
+          of in discrete steps.</li>
+          <li>A button in the sidebar header to create a session, instead of an
+          item in the session drop-down menu, and a fullscreen toggle in the
+          menu.</li>
+          <li>The app menu is moved to the main header bar, and the session
+          switcher is now in the sidebar's header.</li>
+          <li>Touching or clicking the scramble text no longer starts the timer;
+          only the timer area is recognized, and multi-finger touches work.</li>
+          <li>The solve editor UI is adjusted to have a Cancel button and a Save
+          button.</li>
+          <li>The inspection audio cues are disabled by default.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-10-27">
+      <description>
+        <p>This release mainly adds touch support and a distraction-free mode.</p>
+        <ul>
+          <li>Start and stop the timer by mouse or touch.</li>
+          <li>A cancel button during inspection.</li>
+          <li>Starting an inspection no longer needs holding.</li>
+          <li>Distraction free during inspection and solve: hide everything
+          except the timer.</li>
+          <li>The scramble diagram no longer covers the timer, and the layout no
+          longer jumps back and forth at the threshold of the sidebar
+          toggle.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-10-22">
+      <description>
+        <p>First release ready for public use.</p>
+        <ul>
+          <li>A new icon, with a symbolic variant for small sizes, and a
+          desktop entry.</li>
+          <li>The app is now called Puzzle Timer.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.8" date="2026-10-16">
+      <description>
+        <p>This release mainly contains improvements to features in previous
+        releases.</p>
+        <p>As of this release, the app is much more polished and usable.</p>
+        <ul>
+          <li>The solve list in the sidebar shows ao5 and ao12.</li>
+          <li>The solve edit dialog is completely reworked with libadwaita
+          widgets.</li>
+          <li>A header button copies the scramble text.</li>
+          <li>A header button changes the puzzle type from a pop-up dialog,
+          replacing the two drop-down buttons.</li>
+          <li>The puzzle category and type are shown as the window's title and
+          subtitle.</li>
+          <li>A header button toggles the scramble diagram.</li>
+          <li>All app menu items are in the sidebar.</li>
+          <li>Scramble diagrams render with <code>Gtk.Svg</code> instead of
+          <code>Rsvg</code>.</li>
+          <li>An icon.</li>
+          <li>The timer centers in the available space, the type picker is
+          faster, and the layout adapts to phones, including landscape.</li>
+          <li>The sidebar does not expand over 320 px, with no need for that
+          much space.</li>
+          <li>The statistics table adapts to a narrow window for the phone form
+          factor.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.7" date="2026-10-02">
+      <description>
+        <p>Implemented adaptive layout.</p>
+        <ul>
+          <li>The solve list becomes a drawer for a narrow window.</li>
+          <li>The header adapts instead of truncating.</li>
+          <li>Phone form factor considerations, very basic and needing much more
+          work later.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.6" date="2026-10-02">
+      <description>
+        <p>Scramble image, preferences and shortcuts dialog.</p>
+        <ul>
+          <li>The scramble diagram at the bottom right.</li>
+          <li>A preferences dialog with the inspection hold time, the sound of
+          inspection cues and the app theme.</li>
+          <li>A shortcuts dialog.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.5" date="2026-10-02">
+      <description>
+        <p>Statistics dialog, penalties and WCA inspection.</p>
+        <ul>
+          <li>A stats dialog with ao5, ao12, mo3, etc.</li>
+          <li>+2 and DNF penalties and comments on solves, modifiable through a
+          dialog.</li>
+          <li>WCA inspection: a 15-second countdown with cues at 8 and 12
+          seconds, +2 at 15 seconds, DNF at 17, and Escape to cancel.</li>
+          <li>Each session remembers its scramble type.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.4" date="2026-10-01">
+      <description>
+        <p>Added sessions.</p>
+        <ul>
+          <li>Create, rename, switch and delete sessions.</li>
+          <li>Each session has its own solve list, statistics and scramble
+          type.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.3" date="2026-10-01">
+      <description>
+        <p>Solve recording and record list.</p>
+        <ul>
+          <li>The solve list in the sidebar.</li>
+          <li>A button to delete one or more solves, able to undo.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.2" date="2026-10-01">
+      <description>
+        <p>Add scrambles from csTimer through
+        <code>cstimer_module</code>.</p>
+        <ul>
+          <li>Scramble generation.</li>
+          <li>Prefetch the next scramble for better performance.</li>
+          <li>A two-level puzzle type selector.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.0.1" date="2026-09-30">
+      <description>
+        <p>Scaffold and a basic timer.</p>
+        <ul>
+          <li>GTK 4 with libadwaita through node-gtk, written in TypeScript.</li>
+          <li>Basic timer. Hold Space and release to start, press to stop.</li>
+        </ul>
+      </description>
+    </release>
   </releases>
 </component>
