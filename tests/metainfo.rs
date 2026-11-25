@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use puzzle_timer::platform::meta::{APP_ID, APP_VERSION};
+use puzzle_timer::platform::meta::{APP_ID, CARGO_VERSION};
 
 fn metainfo() -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -47,7 +47,7 @@ fn the_newest_release_is_the_version_we_build() {
         .and_then(|rest| rest.split('"').next())
         .expect("no <release> element");
     assert_eq!(
-        newest, APP_VERSION,
+        newest, CARGO_VERSION,
         "the first <release> is what the store shows as the app version"
     );
 }

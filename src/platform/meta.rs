@@ -1,6 +1,9 @@
 //! App metadata.
 //!
-//! The version has one home: `Cargo.toml`, read back at compile time. The
+//! The released version has one home: `Cargo.toml`, read back at compile
+//! time. A development build may stamp a nightly label over it
+//! (`PUZZLE_TIMER_VERSION`, set by CI), so that a build of the next
+//! unreleased commit does not present itself as the released version. The
 //! changelog is embedded too, because the About dialog parses its release
 //! notes from it and a packaged binary should not depend on a data file for
 //! that.
@@ -8,8 +11,16 @@
 /// The application id; the desktop file and icon names derive from it.
 pub const APP_ID: &str = "io.github.xlucn.PuzzleTimer";
 
-/// The version from `Cargo.toml`, never a literal.
-pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The released version from `Cargo.toml`, never a literal.
+pub const CARGO_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// The version this build calls itself: [`CARGO_VERSION`], or the nightly
+/// label CI stamps (`0.4.0.r42.g8981bb9`). The About dialog shows this, so a
+/// development build is not mistaken for the release it follows.
+pub const APP_VERSION: &str = match option_env!("PUZZLE_TIMER_VERSION") {
+    Some(version) => version,
+    None => CARGO_VERSION,
+};
 
 /// The project page from `Cargo.toml`, never a literal.
 pub const APP_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
@@ -59,11 +70,12 @@ fn inline(text: &str) -> String {
     replace_pairs(&emphasised, "`", "<code>", "</code>")
 }
 
-/// The changelog section for the current version, as the `releaseNotes` markup
-/// expects. `None` when the file is absent or silent about this version — a
-/// build that ships without a changelog is legitimate, not an error.
+/// The changelog section for the released version, as the `releaseNotes`
+/// markup expects. `None` when the file is absent or silent about this
+/// version — a build that ships without a changelog is legitimate, not an
+/// error.
 pub fn release_notes_html() -> Option<String> {
-    let marker = format!("## [{APP_VERSION}]");
+    let marker = format!("## [{CARGO_VERSION}]");
     let start = CHANGELOG.find(&marker)?;
     let body_start = start + CHANGELOG[start..].find('\n')? + 1;
     let rest = &CHANGELOG[body_start..];
@@ -141,11 +153,11 @@ mod tests {
 
     #[test]
     fn version_is_semver() {
-        let parts: Vec<&str> = APP_VERSION.split('.').collect();
-        assert_eq!(parts.len(), 3, "version must be X.Y.Z: {APP_VERSION}");
+        let parts: Vec<&str> = CARGO_VERSION.split('.').collect();
+        assert_eq!(parts.len(), 3, "version must be X.Y.Z: {CARGO_VERSION}");
         assert!(
             parts.iter().all(|part| part.parse::<u32>().is_ok()),
-            "version must be numeric: {APP_VERSION}"
+            "version must be numeric: {CARGO_VERSION}"
         );
     }
 
@@ -164,7 +176,7 @@ mod tests {
     /// The current section's bullets, each with its wrapped continuation lines
     /// joined.
     fn bullets() -> Vec<String> {
-        let marker = format!("## [{APP_VERSION}]");
+        let marker = format!("## [{CARGO_VERSION}]");
         let start = CHANGELOG.find(&marker).expect("section");
         let body = &CHANGELOG[start..];
         let end = body.find("\n## ").unwrap_or(body.len());

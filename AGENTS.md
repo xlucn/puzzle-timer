@@ -43,8 +43,10 @@ cutover and describe the Rust app; keep them in step by hand, not generated.
    msgid, so a missing translation must fail a test, never reach the screen.
    No bare user-visible literals.
 8. **One version, one place**: `Cargo.toml` via
-   `env!("CARGO_PKG_VERSION")`; the About dialog parses its release notes from
-   `CHANGELOG.md`.
+   `env!("CARGO_PKG_VERSION")` (`platform::meta::CARGO_VERSION`). CI may stamp
+   a nightly label over it with `PUZZLE_TIMER_VERSION`, which only
+   `APP_VERSION` (the About dialog) shows; release notes stay the
+   `CARGO_VERSION` section of `CHANGELOG.md`.
 9. **Native adaptive widgets do the work — don't reimplement them.**
    `Adw.OverlaySplitView`, `Adw.Dialog`, `Adw.PreferencesDialog`,
    `Adw.ToastOverlay`, `Adw.StatusPage`, `Adw.ViewSwitcher` +
@@ -207,7 +209,10 @@ src/
   `ubuntu-26.04-arm` runners, both the tarball and the Flatpak: no Arch
   container, no cross-compile. The tarball therefore inherits 26.04's glibc
   floor; lowering the `gtk4` feature below `v4_22` is what would let an older
-  distribution build it.
+  distribution build it. Anything but a `v*` tag is a development build: its
+  files carry `-nightly` and the app reports the label as its version, which
+  the Flatpak receives through the manifest's `build-options.env` because
+  `flatpak-builder` has no `--env`. Local builds are untouched.
 - **M16/M17** package the Rust binary; README/BUILD/AppStream work in those
   blocks is hand-written prose, not generated.
 

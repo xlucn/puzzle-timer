@@ -12,7 +12,10 @@
 # The version lives in Cargo.toml only (AGENTS.md invariant 8), and every push
 # to `main` builds the same unreleased version, so the artifact names carry the
 # commit too: `<version>.r<commits since the tag>.g<sha>`, the same string the
-# AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`).
+# AUR -git recipe builds (packaging/aur/PKGBUILD `pkgver`). A development build
+# also gets `-nightly` in its file names and stamps that label as its own
+# version, so it is not mistaken for the release whose number it follows; a
+# `v*` tag build keeps the plain version and no marker.
 #
 # The build jobs hand their files to `publish` through workflow artifacts,
 # because a job cannot read another job's filesystem. Two jobs then make
@@ -44,6 +47,7 @@ jobs:
     outputs:
       label: ${{ steps.read.outputs.label }}
       version: ${{ steps.read.outputs.version }}
+      suffix: ${{ steps.read.outputs.suffix }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -58,9 +62,16 @@ jobs:
           else
             label="$version.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
           fi
+          # Only a tag is a release. Everything else is a development build, and
+          # says so in its file names and in the version it reports.
+          case "$GITHUB_REF" in
+            refs/tags/v*) suffix="" ;;
+            *) suffix="-nightly" ;;
+          esac
           echo "label=$label" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Cargo.toml says $version; artifacts are named puzzle-timer-$label-*"
+          echo "suffix=$suffix" >> "$GITHUB_OUTPUT"
+          echo "Cargo.toml says $version; artifacts are named puzzle-timer-$label$suffix-*"
 
   tarball:
     needs: version
@@ -91,14 +102,20 @@ jobs:
         run: |
           label="${{ needs.version.outputs.label }}"
           arch="${{ matrix.arch }}"
+          suffix="${{ needs.version.outputs.suffix }}"
+          # A development build reports the label as its version; a tag build
+          # keeps Cargo.toml's, which is the release's name.
+          if [ -n "$suffix" ]; then
+            export PUZZLE_TIMER_VERSION="$label"
+          fi
           meson setup builddir --buildtype=release --prefix=/usr
           DESTDIR="$PWD/stage/puzzle-timer" meson install -C builddir
           strip --strip-unneeded stage/puzzle-timer/usr/bin/puzzle-timer
-          tar -C stage -czf "puzzle-timer-$label-$arch.tar.gz" puzzle-timer
+          tar -C stage -czf "puzzle-timer-$label$suffix-$arch.tar.gz" puzzle-timer
 
       - uses: actions/upload-artifact@v7
         with:
-          name: puzzle-timer-${{ needs.version.outputs.label }}-${{ matrix.arch }}
+          name: puzzle-timer-${{ needs.version.outputs.label }}${{ needs.version.outputs.suffix }}-${{ matrix.arch }}
           path: puzzle-timer-*.tar.gz
 
   flatpak:
@@ -118,14 +135,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # flatpak-builder has no `--env`, so a development build's label goes
+      # into the manifest's build-options for this run only. Inserting before
+      # the existing key keeps the JSON valid whatever follows it.
+      - name: Stamp the nightly version
+        if: needs.version.outputs.suffix != ''
+        run: |
+          manifest=packaging/flatpak/io.github.xlucn.PuzzleTimer.json
+          version="${{ needs.version.outputs.label }}"
+          sed -i "/\"CARGO_HOME\":/i\\      \"PUZZLE_TIMER_VERSION\": \"$version\"," "$manifest"
+          grep -q "\"PUZZLE_TIMER_VERSION\": \"$version\"" "$manifest"
+          cat "$manifest"
+
       # The action builds the bundle and uploads it as an artifact itself. Its
       # default artifact name appends the architecture to the bundle name,
       # which here already carries it (`…-x86_64-x86_64.flatpak`), so both are
       # given explicitly.
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: puzzle-timer-${{ needs.version.outputs.label }}-${{ matrix.arch }}.flatpak
-          artifact-name: puzzle-timer-${{ needs.version.outputs.label }}-flatpak-${{ matrix.arch }}
+          bundle: puzzle-timer-${{ needs.version.outputs.label }}${{ needs.version.outputs.suffix }}-${{ matrix.arch }}.flatpak
+          artifact-name: puzzle-timer-${{ needs.version.outputs.label }}${{ needs.version.outputs.suffix }}-flatpak-${{ matrix.arch }}
           manifest-path: packaging/flatpak/io.github.xlucn.PuzzleTimer.json
           arch: ${{ matrix.arch }}
           cache-key: flatpak-${{ matrix.arch }}-${{ github.sha }}
@@ -152,23 +181,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           label="${{ needs.version.outputs.label }}"
+          suffix="${{ needs.version.outputs.suffix }}"
 
           # The release is a single unversioned snapshot, so its assets are
           # named without the version or the commit: a script can fetch
-          # .../releases/download/snapshot/puzzle-timer-x86_64.flatpak forever.
-          # The label stays in the title and the notes instead.
+          # .../releases/download/snapshot/puzzle-timer-nightly-x86_64.flatpak
+          # forever. The label stays in the title and the notes instead.
           mkdir -p out
           for arch in x86_64 aarch64; do
-            mv "dist/puzzle-timer-$label-$arch.tar.gz" "out/puzzle-timer-$arch.tar.gz"
-            mv "dist/puzzle-timer-$label-$arch.flatpak" "out/puzzle-timer-$arch.flatpak"
+            mv "dist/puzzle-timer-$label$suffix-$arch.tar.gz" "out/puzzle-timer$suffix-$arch.tar.gz"
+            mv "dist/puzzle-timer-$label$suffix-$arch.flatpak" "out/puzzle-timer$suffix-$arch.flatpak"
           done
           (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
 
           {
             echo "Automatic development build of \`${GITHUB_SHA:0:7}\` ($label), replaced on every push."
             echo
-            echo "- \`puzzle-timer-x86_64.tar.gz\` and \`puzzle-timer-aarch64.tar.gz\` — the files they install into \`/usr\`"
-            echo "- \`puzzle-timer-x86_64.flatpak\` and \`puzzle-timer-aarch64.flatpak\` — \`flatpak install --user --bundle <file>\`"
+            echo "The app reports its version as \`$label\`, and its files carry \`-nightly\` so they are not taken for a release."
+            echo
+            echo "- \`puzzle-timer$suffix-x86_64.tar.gz\` and \`puzzle-timer$suffix-aarch64.tar.gz\` — the files they install into \`/usr\`"
+            echo "- \`puzzle-timer$suffix-x86_64.flatpak\` and \`puzzle-timer$suffix-aarch64.flatpak\` — \`flatpak install --user --bundle <file>\`"
             echo
             echo "A development build, not a release: it may be broken and carries no changelog."
           } > notes.md
@@ -205,6 +237,7 @@ jobs:
         run: |
           version="${{ needs.version.outputs.version }}"
           label="${{ needs.version.outputs.label }}"
+          suffix="${{ needs.version.outputs.suffix }}"
           tag="${{ github.ref_name }}"
           if [ "$tag" != "v$version" ]; then
             echo "tag $tag does not name Cargo.toml's $version" >&2
@@ -226,8 +259,8 @@ jobs:
 
           mkdir -p out
           for arch in x86_64 aarch64; do
-            mv "dist/puzzle-timer-$label-$arch.tar.gz" "out/puzzle-timer-$version-$arch.tar.gz"
-            mv "dist/puzzle-timer-$label-$arch.flatpak" "out/puzzle-timer-$version-$arch.flatpak"
+            mv "dist/puzzle-timer-$label$suffix-$arch.tar.gz" "out/puzzle-timer-$version-$arch.tar.gz"
+            mv "dist/puzzle-timer-$label$suffix-$arch.flatpak" "out/puzzle-timer-$version-$arch.flatpak"
           done
           (cd out && sha256sum puzzle-timer-* > SHA256SUMS)
 

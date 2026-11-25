@@ -38,7 +38,9 @@ impl App {
             .build();
         if let Some(notes) = meta::release_notes_html() {
             dialog.set_release_notes(&notes);
-            dialog.set_release_notes_version(meta::APP_VERSION);
+            // The notes describe the released version, not the nightly label a
+            // development build carries.
+            dialog.set_release_notes_version(meta::CARGO_VERSION);
         }
         dialog.add_acknowledgement_section(
             Some(&t0(MessageKey::AppAboutBuiltWith)),

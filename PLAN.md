@@ -1646,23 +1646,35 @@ re-run of the same tag replaces the files and the text instead of failing on
 an existing release.
 
 The build jobs' files carry the label
-`puzzle-timer-<version>.r<commits>.g<sha>-<arch>.<ext>` while they are workflow
-artifacts, for example `0.4.0.r33.g58972eb-x86_64`: every push to `main`
-builds the same unreleased `Cargo.toml` version, so the version alone cannot
-say which build a run produced, and this is the string
+`puzzle-timer-<version>.r<commits>.g<sha><suffix>-<arch>.<ext>` while they are
+workflow artifacts, for example `0.4.0.r33.g58972eb-nightly-x86_64`: every
+push to `main` builds the same unreleased `Cargo.toml` version, so the version
+alone cannot say which build a run produced, and this is the string
 `packaging/aur/PKGBUILD`'s `pkgver()` gives the -git package, so a run's files
 and a local `-git` install can be compared. A `version` job reads both
 (`fetch-depth: 0` for `git describe`) and publishes the label, because the
 tarballs and the bundles must not disagree about the name of the same commit.
+It also publishes `suffix`: `-nightly` for anything but a `v*` tag, empty for
+a tag, so a release's files never claim to be a development build.
 
-The snapshot's assets drop the label again: `puzzle-timer-x86_64.tar.gz`,
-`puzzle-timer-aarch64.tar.gz`, the two matching `.flatpak` files and one
-`SHA256SUMS`. It is a single moving target, so
-`https://github.com/xlucn/puzzle-timer/releases/download/snapshot/puzzle-timer-x86_64.flatpak`
+A development build also **reports the label as its version**. `meta::APP_VERSION`
+is Cargo's version unless the build sets `PUZZLE_TIMER_VERSION`, which the
+tarball passes to Meson's Cargo run and the Flatpak writes into the manifest's
+`build-options.env` (flatpak-builder has no `--env` for the action to pass).
+`meta::CARGO_VERSION` stays the released version, so the metainfo check and
+the About release notes keep pointing at the `0.4.0` section rather than a
+label no changelog has. A local build sets nothing and still says `0.4.0`.
+
+The snapshot's assets drop the label again but keep the marker:
+`puzzle-timer-nightly-x86_64.tar.gz`, `puzzle-timer-nightly-aarch64.tar.gz`,
+the two matching `.flatpak` files and one `SHA256SUMS`. It is a single moving
+target, so
+`https://github.com/xlucn/puzzle-timer/releases/download/snapshot/puzzle-timer-nightly-x86_64.flatpak`
 has to stay valid from one commit to the next for a script to fetch it; the
 label lives in its title and notes instead, and the tarball unpacks to a fixed
 `puzzle-timer/` root for the same reason. A versioned release keeps the
-version in its asset names, since several of them stay on the page.
+version in its asset names and carries no `-nightly`, since several of them
+stay on the page.
 
 Two consequences of the rolling release: a push that lands while an older run
 is between its delete and its create cancels that run
